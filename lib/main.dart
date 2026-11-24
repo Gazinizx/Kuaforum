@@ -625,6 +625,7 @@ class _AdminPageState extends State<AdminPage>{
  Future<void> review(String id,String status)async{try{await sb.rpc('review_business',params:{'p_business_id':id,'p_status':status});if(mounted)setState((){});toast(context,'İşletme durumu güncellendi');}catch(e){toast(context,err(e));}}
  Future<void> block(String id,bool value)async{try{await sb.rpc('admin_set_user_blocked',params:{'p_user_id':id,'p_blocked':value});if(mounted)setState((){});}catch(e){toast(context,err(e));}}
  Future<void> setDiscover(String id,bool value)async{try{await sb.from('businesses').update({'discover_enabled':value}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet açıldı':'Keşfet kapatıldı');}}catch(e){if(mounted)toast(context,err(e));}}
+ Future<void> setDiscoverPaid(String id,bool value)async{try{await sb.from('businesses').update({'discover_paid':value,'discover_enabled':value?false:false}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet ödemesi tanımlandı':'Keşfet ödemesi kaldırıldı');}}catch(e){if(mounted)toast(context,err(e));}}
  Widget heading(String a,String b)=>ScreenHeading(title:a,subtitle:b,eyebrow:'KUAFÖRÜM YÖNETİM',icon:Icons.admin_panel_settings_rounded);
  Widget metric(String label,int n,IconData icon)=>Expanded(child:AppPanel(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Container(width:36,height:36,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:gold,size:19)),
@@ -659,7 +660,8 @@ class _AdminPageState extends State<AdminPage>{
     Row(children:[Expanded(child:Text(b['name']??'İsimsiz işletme',style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800))),StatusTag((b['status']??'').toString().toUpperCase(),color:b['status']=='active'?Colors.greenAccent:b['status']=='rejected'?Colors.redAccent:gold)]),
     const SizedBox(height:10),Text('Katılım kodu: ${b['join_code']??'—'}',style:const TextStyle(color:gold,fontWeight:FontWeight.w700,fontSize:12)),
     if((b['address']??'').toString().isNotEmpty)Padding(padding:const EdgeInsets.only(top:7),child:Text(b['address'],style:const TextStyle(color:muted,fontSize:12))),
-    SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,title:const Text('Keşfet alanında yayınla'),subtitle:Text(b['discover_enabled']==true?'Genel akışta görünür':'Genel akışta görünmez',style:const TextStyle(color:muted,fontSize:11)),value:b['discover_enabled']==true,onChanged:(v)=>setDiscover(b['id'].toString(),v)),
+    SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,title:const Text('Keşfet ücretini aldı'),subtitle:const Text('Ücretli Keşfet hakkını admin olarak işaretle.',style:TextStyle(color:muted,fontSize:11)),value:b['discover_paid']==true,onChanged:(v)=>setDiscoverPaid(b['id'].toString(),v)),
+    SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,title:const Text('Keşfet alanında yayınla'),subtitle:Text(b['discover_enabled']==true?'Genel akışta görünür':'Genel akışta görünmez',style:const TextStyle(color:muted,fontSize:11)),value:b['discover_enabled']==true,onChanged:b['discover_paid']==true?(v)=>setDiscover(b['id'].toString(),v):null),
     const Divider(height:24),
     Wrap(spacing:8,runSpacing:8,children:[
      if(b['status']!='active')OutlinedButton.icon(onPressed:()=>review(b['id'],'active'),icon:const Icon(Icons.check_rounded,size:16),label:const Text('Onayla')),
@@ -2128,7 +2130,7 @@ class _FeedTimelinePageState extends State<FeedTimelinePage>{
    final rows=await sb.from('feed_posts').select('*,businesses(name),employees(display_name)').inFilter('business_id',ids).order('created_at',ascending:false).limit(100);
    return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
   }
-  final rows=await sb.from('feed_posts').select('*,businesses!inner(name,discover_enabled),employees(display_name)').eq('businesses.discover_enabled',true).order('created_at',ascending:false).limit(100);
+  final rows=await sb.from('feed_posts').select('*,businesses!inner(name,discover_enabled),employees(display_name)').eq('businesses.discover_enabled',true).eq('businesses.discover_paid',true).order('created_at',ascending:false).limit(100);
   return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
  }
  Future<void> message(Map<String,dynamic> post)async{
@@ -2185,7 +2187,7 @@ class EmployeeFeedComposerPage extends StatefulWidget{
 }
 class _EmployeeFeedComposerPageState extends State<EmployeeFeedComposerPage>{
  final picker=ImagePicker();final caption=TextEditingController();XFile? media;String type='image';bool busy=false;
- Future<void> choose(String t)async{final f=t=='video'?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88,maxWidth:2200);if(f!=null&&mounted)setState(()=>{media=f,type=t});}
+ Future<void> choose(String t)async{final f=t=='video'?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88,maxWidth:2200);if(f!=null&&mounted)setState(() { media=f; type=t; });}
  Future<void> publish()async{
   if(media==null){toast(context,'Fotoğraf veya video seç');return;}
   setState(()=>busy=true);
