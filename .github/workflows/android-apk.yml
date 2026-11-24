@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: kuaforum-android-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,6 +24,41 @@ jobs:
       - name: Generate Android project
         run: |
           if [ ! -d android ]; then flutter create --platforms=android --org com.gazinizx --project-name kuaforum .; fi
+      - name: Configure app name, permissions and login deep link
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text, count = re.subn(r'android:label="[^"]+"', 'android:label="Kuaförüm"', text, count=1)
+          if count != 1:
+              raise SystemExit("Android app label not found")
+          for permission in [
+              '<uses-permission android:name="android.permission.INTERNET"/>',
+              '<uses-permission android:name="android.permission.CAMERA"/>',
+              '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+          ]:
+              if permission.split('"')[1] not in text:
+                  pos = text.find("<application")
+                  if pos < 0: raise SystemExit("Android application element missing")
+                  text = text[:pos] + permission + "\n    " + text[pos:]
+          if 'android:scheme="kuaforum"' not in text:
+              start = text.find("<activity")
+              end = text.find("</activity>", start)
+              if start < 0 or end < 0: raise SystemExit("Main activity element missing")
+              link = """
+                  <intent-filter>
+                      <action android:name="android.intent.action.VIEW" />
+                      <category android:name="android.intent.category.DEFAULT" />
+                      <category android:name="android.intent.category.BROWSABLE" />
+                      <data android:scheme="kuaforum" android:host="login-callback" />
+                  </intent-filter>
+              """
+              text = text[:end] + link + text[end:]
+          manifest.write_text(text)
+          print("Kuaförüm Android label, permissions and auth deep link configured.")
+          PY
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze

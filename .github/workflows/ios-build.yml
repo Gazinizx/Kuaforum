@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: kuaforum-ios-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: macos-15
@@ -17,6 +20,24 @@ jobs:
       - name: Generate iOS project
         run: |
           if [ ! -d ios ]; then flutter create --platforms=ios --org com.gazinizx --project-name kuaforum .; fi
+      - name: Configure iOS app identity and media permissions
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          path = Path("ios/Runner/Info.plist")
+          data = plistlib.loads(path.read_bytes())
+          data["CFBundleDisplayName"] = "Kuaförüm"
+          data["NSCameraUsageDescription"] = "Profil ve kuaför çalışması fotoğrafı/video paylaşımı için kamera erişimi gerekir."
+          data["NSPhotoLibraryUsageDescription"] = "Kuaför çalışması fotoğrafı ve videosu seçmek için fotoğraf arşivi erişimi gerekir."
+          data["NSMicrophoneUsageDescription"] = "Paylaşım için video kaydederken ses kullanımı gerekir."
+          types = data.get("CFBundleURLTypes", [])
+          if not any("kuaforum" in item.get("CFBundleURLSchemes", []) for item in types):
+              types.append({"CFBundleURLSchemes": ["kuaforum"]})
+          data["CFBundleURLTypes"] = types
+          path.write_bytes(plistlib.dumps(data))
+          print("Kuaförüm iOS app name, media permissions and auth URL scheme configured.")
+          PY
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
