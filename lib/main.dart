@@ -2153,13 +2153,20 @@ class FeedTimelinePage extends StatefulWidget {
 class _FeedTimelinePageState extends State<FeedTimelinePage>{
  late Future<List<Map<String,dynamic>>> future;
  @override void initState(){super.initState();future=load();}
+ Future<List<Map<String,dynamic>>> signMedia(List<dynamic> source)async{
+  return await Future.wait(source.map((item)async{
+   final post=Map<String,dynamic>.from(item);
+   try{post['media_signed_url']=await sb.storage.from('salon-feed').createSignedUrl(post['media_url'].toString(),3600);}catch(_){ }
+   return post;
+  }));
+ }
  Future<List<Map<String,dynamic>>> load()async{
   if(widget.mode=='followed'){
    final ms=await sb.from('business_memberships').select('business_id').eq('customer_id',uid);
    final ids=(ms as List).map((e)=>e['business_id'].toString()).toList();
    if(ids.isEmpty)return [];
    final rows=await sb.from('feed_posts').select('*,businesses(name),employees(display_name)').inFilter('business_id',ids).order('created_at',ascending:false).limit(100);
-   return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
+   return await signMedia(rows as List);
   }
   final rows=await sb.from('feed_posts').select('*,businesses!inner(name,discover_enabled),employees(display_name)').eq('businesses.discover_enabled',true).eq('businesses.discover_paid',true).order('created_at',ascending:false).limit(100);
   return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
@@ -2190,10 +2197,11 @@ class FeedPostCard extends StatelessWidget{
  final Map<String,dynamic> post;final VoidCallback onMessage;
  @override Widget build(BuildContext c){
   final video=post['media_type']=='video';
+  final mediaUrl=(post['media_signed_url']??post['media_url']).toString();
   return AppPanel(margin:const EdgeInsets.only(bottom:14),padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
    Row(children:[const CircleAvatar(backgroundColor:Color(0xFFF8ECEE),child:Icon(Icons.spa_rounded,color:gold)),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text((post['businesses']?['name']??'Kuaför salonu').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),Text((post['employees']?['display_name']??'Çalışan').toString(),style:const TextStyle(color:muted,fontSize:11))]))]),
    const SizedBox(height:12),
-   ClipRRect(borderRadius:BorderRadius.circular(17),child:video?FeedVideoPlayer(url:post['media_url'].toString()):Image.network(post['media_url'].toString(),height:250,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>Container(height:180,color:panelRaised,child:const Icon(Icons.image_not_supported_outlined,color:muted,size:40)))),
+   ClipRRect(borderRadius:BorderRadius.circular(17),child:video?FeedVideoPlayer(url:mediaUrl):Image.network(mediaUrl,height:250,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>Container(height:180,color:panelRaised,child:const Icon(Icons.image_not_supported_outlined,color:muted,size:40)))),
    if((post['caption']??'').toString().trim().isNotEmpty)Padding(padding:const EdgeInsets.only(top:12),child:Text(post['caption'].toString(),style:const TextStyle(fontSize:13,height:1.45))),
    const SizedBox(height:8),
    OutlinedButton.icon(onPressed:onMessage,icon:const Icon(Icons.chat_bubble_outline_rounded),label:const Text('Bu çalışanla mesajlaş')),
@@ -2232,8 +2240,7 @@ class _EmployeeFeedComposerPageState extends State<EmployeeFeedComposerPage>{
    final contentType=type=='video'?(ext=='mov'?'video/quicktime':'video/mp4'):(ext=='png'?'image/png':ext=='webp'?'image/webp':'image/jpeg');
    final path=widget.employee['business_id'].toString()+'/'+uid+'_'+DateTime.now().millisecondsSinceEpoch.toString()+'.'+ext;
    await sb.storage.from('salon-feed').uploadBinary(path,bytes,fileOptions:FileOptions(contentType:contentType));
-   final url=sb.storage.from('salon-feed').getPublicUrl(path);
-   await sb.from('feed_posts').insert({'business_id':widget.employee['business_id'],'employee_id':widget.employee['id'],'author_user_id':uid,'caption':caption.text.trim(),'media_url':url,'media_type':type});
+   await sb.from('feed_posts').insert({'business_id':widget.employee['business_id'],'employee_id':widget.employee['id'],'author_user_id':uid,'caption':caption.text.trim(),'media_url':path,'media_type':type});
    if(!mounted)return;toast(context,'Paylaşım yayınlandı');Navigator.pop(context,true);
   }catch(e){if(mounted)toast(context,err(e));}finally{if(mounted)setState(()=>busy=false);}
  }
