@@ -2169,7 +2169,7 @@ class _FeedTimelinePageState extends State<FeedTimelinePage>{
    return await signMedia(rows as List);
   }
   final rows=await sb.from('feed_posts').select('*,businesses!inner(name,discover_enabled),employees(display_name)').eq('businesses.discover_enabled',true).eq('businesses.discover_paid',true).order('created_at',ascending:false).limit(100);
-  return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
+  return await signMedia(rows as List);
  }
  Future<void> message(Map<String,dynamic> post)async{
   try{
