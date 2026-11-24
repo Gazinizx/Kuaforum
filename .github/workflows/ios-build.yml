@@ -1,0 +1,30 @@
+name: Build Kuaforum iOS (unsigned)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate iOS project
+        run: |
+          if [ ! -d ios ]; then flutter create --platforms=ios --org com.gazinizx --project-name kuaforum .; fi
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign --dart-define=SUPABASE_URL=https://zhvfudtdnvgsqywojjrz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_TQrHgIVWUTdaxB_-OrGzWA_pAK4cj57
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kuaforum-ios-app-unsigned
+          path: build/ios/iphoneos/Runner.app
+          if-no-files-found: error
