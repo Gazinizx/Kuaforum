@@ -1,0 +1,2367 @@
+import 'dart:async';
+import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
+
+import 'package:flutter/material.dart';
+import 'package:kuaforum/push_notifications.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+const gold = Color(0xFFB76E79);
+const goldLight = Color(0xFFE7B9C1);
+const ink = Color(0xFF573B43);
+const panel = Color(0xFFFFFBFA);
+const ivory = Color(0xFF49363C);
+const muted = Color(0xFF927D83);
+const border = Color(0xFFF0DDE0);
+const panelRaised = Color(0xFFF8ECEE);
+const goldShadow = Color(0x1AB76E79);
+final sb = Supabase.instance.client;
+
+Future<void> signOutKuaförüm() async {
+  await PushNotifications.unregister(sb);
+  await sb.auth.signOut();
+}
+String get uid => sb.auth.currentUser!.id;
+String err(Object e) => e.toString().replaceFirst('Exception: ', '').replaceFirst('PostgrestException(message: ', '');
+
+String normalizeBusinessJoinCode(String raw) {
+  final value = raw.trim();
+  const prefix = 'KUAFORUM:';
+  return value.toUpperCase().startsWith(prefix)
+      ? value.substring(prefix.length).trim().toUpperCase()
+      : value.toUpperCase();
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PushNotifications.initialize();
+  const url = String.fromEnvironment('SUPABASE_URL');
+  const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  if (url.isNotEmpty && key.isNotEmpty) {
+    await Supabase.initialize(url: url, publishableKey: key);
+  }
+  runApp(const KuaförümApp());
+}
+
+class KuaförümApp extends StatelessWidget {
+  const KuaförümApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'Kuaförüm',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: const Color(0xFFFFF7F6),
+      canvasColor: const Color(0xFFFFF7F6),
+      dividerColor: border,
+      colorScheme: const ColorScheme.light(
+        primary: gold,
+        onPrimary: Colors.white,
+        secondary: goldLight,
+        onSecondary: Colors.white,
+        surface: panel,
+        onSurface: ink,
+        error: Color(0xFFFF6B70),
+        onError: Color(0xFF25090B),
+      ),
+      visualDensity: VisualDensity.standard,
+      splashFactory: InkSparkle.splashFactory,
+      textTheme: ThemeData.light(useMaterial3: true).textTheme.apply(
+        bodyColor: ivory,
+        displayColor: ivory,
+      ).copyWith(
+        headlineLarge: const TextStyle(fontSize: 32, height: 1.08, fontWeight: FontWeight.w800, letterSpacing: -1.0, color: ivory),
+        headlineMedium: const TextStyle(fontSize: 27, height: 1.12, fontWeight: FontWeight.w800, letterSpacing: -.7, color: ivory),
+        titleLarge: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -.35, color: ivory),
+        titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ivory),
+        bodyLarge: const TextStyle(fontSize: 15, height: 1.5, color: ivory),
+        bodyMedium: const TextStyle(fontSize: 13, height: 1.45, color: ivory),
+        labelLarge: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: .15),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: const Color(0xFFFFF7F6),
+        foregroundColor: ink,
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.55,
+          color: ivory,
+        ),
+        iconTheme: IconThemeData(color: ivory, size: 23),
+      ),
+      cardTheme: CardThemeData(
+        color: panel,
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: border, width: 1),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: panel,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 19),
+        labelStyle: const TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 13),
+        hintStyle: const TextStyle(color: Color(0xFF777D87), fontSize: 13),
+        helperStyle: const TextStyle(color: muted, fontSize: 11),
+        errorStyle: const TextStyle(color: Color(0xFFFF7D82), fontSize: 11, fontWeight: FontWeight.w600),
+        prefixIconColor: gold,
+        suffixIconColor: muted,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: border, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: gold, width: 1.7),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(17),
+          borderSide: const BorderSide(color: Color(0xFFFF6B70)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(17),
+          borderSide: const BorderSide(color: Color(0xFFFF6B70), width: 1.6),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: gold,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(56),
+          elevation: 1,
+          shadowColor: goldShadow,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: .15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ivory,
+          minimumSize: const Size.fromHeight(52),
+          side: const BorderSide(color: border, width: 1.2),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: goldLight,
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: panel,
+        indicatorColor: const Color(0x33D6A64B),
+        elevation: 0,
+        height: 76,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        labelTextStyle: const WidgetStatePropertyAll(
+          TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .1),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: panel,
+        modalBackgroundColor: panel,
+        showDragHandle: true,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: panel,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: panel,
+        headerBackgroundColor: gold,
+        headerForegroundColor: Colors.white,
+        todayForegroundColor: const WidgetStatePropertyAll(gold),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      dividerTheme: const DividerThemeData(color: border, thickness: 1, space: 1, indent: 2, endIndent: 2),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? ink : muted),
+        trackColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? gold : panelRaised),
+        trackOutlineColor: WidgetStatePropertyAll(border),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: panelRaised,
+        selectedColor: gold.withValues(alpha: .18),
+        side: const BorderSide(color: border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        labelStyle: const TextStyle(color: ivory, fontSize: 12, fontWeight: FontWeight.w700),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: panelRaised,
+        contentTextStyle: const TextStyle(color: ivory, fontWeight: FontWeight.w600, fontSize: 13),
+        behavior: SnackBarBehavior.floating,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: border)),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: gold),
+      iconTheme: const IconThemeData(color: ink, size: 22),
+      listTileTheme: const ListTileThemeData(
+        iconColor: gold,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        minLeadingWidth: 28,
+      ),
+    ),
+    home: const ConfigGate(),
+  );
+}
+
+class ConfigGate extends StatelessWidget {
+  const ConfigGate({super.key});
+  @override Widget build(BuildContext context) {
+    const url = String.fromEnvironment('SUPABASE_URL');
+    const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+    if (url.isEmpty || key.isEmpty) return const SetupPage();
+    return const AuthGate();
+  }
+}
+
+
+void toast(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+String appointmentStatusLabel(Object? status) => switch (status) {
+  'pending' => 'Randevu verildi',
+  'confirmed' => 'Onaylandı',
+  'completed' => 'Tamamlandı',
+  'cancelled' => 'İptal edildi',
+  'no_show' => 'Gelmedi',
+  _ => (status ?? 'Bilinmiyor').toString(),
+};
+
+List<Map<String, dynamic>> filterCustomerAppointments(
+  List<Map<String, dynamic>> rows,
+  String group,
+) {
+  switch (group) {
+    case 'upcoming':
+      return rows.where((a) =>
+        a['status'] == 'pending' || a['status'] == 'confirmed').toList()
+        ..sort((a, b) => DateTime.parse(a['starts_at'].toString())
+            .compareTo(DateTime.parse(b['starts_at'].toString())));
+    case 'completed':
+      return rows.where((a) => a['status'] == 'completed').toList();
+    default:
+      return rows.where((a) =>
+        a['status'] == 'cancelled' || a['status'] == 'no_show').toList();
+  }
+}
+
+class AppPanel extends StatelessWidget {
+  const AppPanel({super.key, required this.child, this.padding = const EdgeInsets.all(18), this.margin});
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: margin,
+    padding: padding,
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B1E24), Color(0xFF14161A)]),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: border.withValues(alpha: .9)),
+      boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 22, offset: Offset(0, 10))],
+    ),
+    child: child,
+  );
+}
+
+class ScreenHeading extends StatelessWidget {
+  const ScreenHeading({super.key, required this.title, required this.subtitle, this.eyebrow, this.icon});
+  final String title;
+  final String subtitle;
+  final String? eyebrow;
+  final IconData? icon;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 22),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (icon != null) Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(color: gold.withValues(alpha: .13), borderRadius: BorderRadius.circular(15)),
+        child: Icon(icon, color: gold, size: 24),
+      ),
+      if (icon != null) const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (eyebrow != null) Padding(
+          padding: const EdgeInsets.only(bottom: 5),
+          child: Text(eyebrow!.toUpperCase(), style: const TextStyle(color: gold, fontSize: 10, letterSpacing: 1.7, fontWeight: FontWeight.w800)),
+        ),
+        Text(title, style: const TextStyle(fontSize: 27, height: 1.08, fontWeight: FontWeight.w800, letterSpacing: -.85)),
+        const SizedBox(height: 7),
+        Text(subtitle, style: const TextStyle(color: muted, fontSize: 13, height: 1.45)),
+      ])),
+    ]),
+  );
+}
+
+class SectionHeading extends StatelessWidget {
+  const SectionHeading(this.title, {super.key, this.action});
+  final String title;
+  final Widget? action;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12, top: 7),
+    child: Row(children: [
+      Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -.25))),
+      if (action != null) action!,
+    ]),
+  );
+}
+
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, this.compact = false});
+  final bool compact;
+  @override
+  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
+    Container(
+      width: compact ? 54 : 68, height: compact ? 54 : 68,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(compact ? 17 : 21),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [goldLight, gold]),
+        boxShadow: [BoxShadow(color: gold.withValues(alpha: .17), blurRadius: 24, offset: const Offset(0, 9))],
+      ),
+      child: Icon(Icons.content_cut_rounded, color: ink, size: compact ? 27 : 34),
+    ),
+    const SizedBox(height: 12),
+    const Text('KUAFÖRÜM', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: 3.2)),
+    const SizedBox(height: 3),
+    const Text('BAKIMININ YENİ RANDEVU NOKTASI', style: TextStyle(color: muted, fontSize: 9, letterSpacing: 1.25, fontWeight: FontWeight.w700)),
+  ]);
+}
+
+class StatusTag extends StatelessWidget {
+  const StatusTag(this.label, {super.key, this.color = gold});
+  final String label;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+    decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(30), border: Border.all(color: color.withValues(alpha: .25))),
+    child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800)),
+  );
+}
+
+class EmptyStateView extends StatelessWidget {
+  const EmptyStateView({super.key, required this.icon, required this.title, required this.subtitle});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 22),
+    child: Column(children: [
+      Container(width: 62, height: 62, decoration: BoxDecoration(color: gold.withValues(alpha: .10), borderRadius: BorderRadius.circular(20)), child: Icon(icon, color: gold, size: 29)),
+      const SizedBox(height: 15),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+      const SizedBox(height: 6),
+      Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.45, fontSize: 13)),
+    ]),
+  );
+}
+
+class FieldLabel extends StatelessWidget {
+  const FieldLabel(this.label, {super.key});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(label, style: const TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w700)),
+  );
+}
+
+class SetupPage extends StatelessWidget {
+  const SetupPage({super.key});
+  @override Widget build(BuildContext context) => Scaffold(
+    body: Center(child: SingleChildScrollView(padding: const EdgeInsets.all(28), child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: AppPanel(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const BrandMark(),
+        const SizedBox(height: 25),
+        const StatusTag('YAPILANDIRMA GEREKLİ', color: Colors.orangeAccent),
+        const SizedBox(height: 14),
+        const Text('Bağlantı ayarları bulunamadı', textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 9),
+        const Text('Uygulamanın çalışması için derleme sırasında Supabase bağlantı değişkenleri tanımlanmalı.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.5, fontSize: 13)),
+      ])),
+    ))),
+  );
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+  @override State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  String? _loadedUid;
+  Future<Map<String,dynamic>?>? _profileFuture;
+  Future<List<Map<String,dynamic>>>? _businessesFuture;
+
+  Future<Map<String,dynamic>?> _loadProfile(String userId) =>
+      sb.from('profiles').select().eq('id', userId).maybeSingle()
+          .timeout(const Duration(seconds: 12));
+
+  Future<List<Map<String,dynamic>>> _loadBusinesses(String userId) =>
+      sb.from('businesses').select().eq('owner_id', userId).order('created_at')
+          .timeout(const Duration(seconds: 12));
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<AuthState>(
+    stream: sb.auth.onAuthStateChange,
+    builder: (context, _) {
+      final user = sb.auth.currentUser;
+      if (user == null) {
+        _loadedUid = null;
+        _profileFuture = null;
+        _businessesFuture = null;
+        return const LoginPage();
+      }
+      if (_loadedUid != user.id) {
+        _loadedUid = user.id;
+        unawaited(PushNotifications.register(supabase: sb, userId: user.id));
+        _profileFuture = _loadProfile(user.id);
+        _businessesFuture = null;
+      }
+      return FutureBuilder<Map<String,dynamic>?>(
+        future: _profileFuture,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) return const LoadingPage();
+          if (snap.hasError) return ErrorPage(message: 'Profil yüklenemedi: ${err(snap.error!)}');
+          if (snap.data == null) return const ProfilePage();
+          final p = snap.data!;
+          if (p['is_blocked'] == true) return const BlockedPage();
+          if (p['is_admin'] == true) return const AdminPage();
+          _businessesFuture ??= _loadBusinesses(user.id);
+          return FutureBuilder<List<Map<String,dynamic>>>(
+            future: _businessesFuture,
+            builder: (context, owned) {
+              if (owned.connectionState != ConnectionState.done) return const LoadingPage();
+              if (owned.hasError) return ErrorPage(message: 'İşletme bilgisi yüklenemedi: ${err(owned.error!)}');
+              if ((owned.data ?? []).isNotEmpty) {
+                final active = owned.data!.where((b) => b['status'] == 'active').toList();
+                if (active.isEmpty) return PendingPage(business: owned.data!.first);
+                return BarberPage(business: active.first);
+              }
+              return FutureBuilder<List<Map<String,dynamic>>>(
+                future: sb.from('employees').select('id,business_id,display_name,businesses(id,name)').eq('user_id', user.id).eq('is_active', true).order('created_at').limit(1),
+                builder: (context, staff) {
+                  if (staff.connectionState != ConnectionState.done) return const LoadingPage();
+                  if (staff.hasError) return ErrorPage(message: 'Çalışan hesabı yüklenemedi: ${err(staff.error!)}');
+                  if ((staff.data ?? []).isNotEmpty) return EmployeePage(employee: staff.data!.first);
+                  if (p['account_type'] == 'business_owner') return const ProfilePage();
+                  return const CustomerPage();
+                },
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
+
+class BlockedPage extends StatelessWidget {
+  const BlockedPage({super.key});
+  @override Widget build(BuildContext c) => Scaffold(body: Center(child: Padding(
+    padding: const EdgeInsets.all(28),
+    child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: AppPanel(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.lock_person_rounded, color: Colors.redAccent, size: 52),
+      const SizedBox(height: 18),
+      const Text('Hesabına geçici olarak erişilemiyor', textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 9),
+      const Text('Hesabın yönetim tarafından geçici olarak kısıtlandı. Detaylar için işletme yönetimiyle iletişime geçebilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.5)),
+      const SizedBox(height: 22),
+      SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: signOutKuaförüm, icon: const Icon(Icons.logout_rounded), label: const Text('Çıkış yap'))),
+    ]))),
+  )));
+}
+class LoadingPage extends StatelessWidget {
+  const LoadingPage({super.key});
+  @override Widget build(BuildContext c) => Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+    const SizedBox(width: 34, height: 34, child: CircularProgressIndicator(strokeWidth: 3, color: gold)),
+    const SizedBox(height: 18),
+    Text('Hazırlanıyor…', style: Theme.of(c).textTheme.bodyMedium?.copyWith(color: muted, fontWeight: FontWeight.w600)),
+  ])));
+}
+class ErrorPage extends StatelessWidget {
+  const ErrorPage({super.key, required this.message});
+  final String message;
+  @override Widget build(BuildContext c) => Scaffold(body: Center(child: Padding(
+    padding: const EdgeInsets.all(24),
+    child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 440), child: AppPanel(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 42),
+      const SizedBox(height: 14),
+      const Text('Bir sorun oluştu', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 9),
+      Text(message, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.45)),
+    ]))),
+  )));
+}
+
+class LoginPage extends StatefulWidget { const LoginPage({super.key}); @override State<LoginPage> createState()=>_LoginPageState(); }
+class _LoginPageState extends State<LoginPage>{
+ final email=TextEditingController(),pass=TextEditingController(); bool create=false,busy=false; String message=''; String accountType='customer';
+ Future<void> submit() async {setState(()=>busy=true);message='';try{if(create){if(pass.text.length<8)throw Exception('Şifre en az 8 karakter olmalı.');final result=await sb.auth.signUp(email:email.text.trim(),password:pass.text,emailRedirectTo:'kuaforum://login-callback',data:{'account_type':accountType});if(result.session==null)message='Doğrulama e-postası gönderildi. E-postandaki bağlantıya dokun; Kuaförüm uygulaması açılacak.';}else{await sb.auth.signInWithPassword(email:email.text.trim(),password:pass.text);}}catch(e){message=err(e);}if(mounted)setState(()=>busy=false);}
+ @override Widget build(BuildContext c)=>Scaffold(
+  body: Stack(children: [
+   Positioned(top:-120,right:-90,child:Container(width:300,height:300,decoration:BoxDecoration(shape:BoxShape.circle,color:gold.withValues(alpha:.045)))),
+   SafeArea(child: Center(child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(24,30,24,30), child: ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 440),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+     const BrandMark(),
+     const SizedBox(height: 34),
+     AppPanel(padding: const EdgeInsets.all(22), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(create ? 'Hesabını oluştur' : 'Tekrar hoş geldin', style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -.5)),
+      const SizedBox(height: 6),
+      Text(create ? 'Kuaförüm ile randevularını kolayca yönet.' : 'Devam etmek için hesabına giriş yap.', style: const TextStyle(color: muted, fontSize: 13)),
+      if(create)...[
+       const SizedBox(height: 22),
+       const FieldLabel('HESAP TÜRÜ'),
+       SegmentedButton<String>(
+        showSelectedIcon: false,
+        segments: const [
+         ButtonSegment(value:'customer',label:Text('Müşteri'),icon:Icon(Icons.person_outline_rounded)),
+         ButtonSegment(value:'business_owner',label:Text('İşletme'),icon:Icon(Icons.storefront_outlined)),
+        ],
+        selected:{accountType}, onSelectionChanged:(v)=>setState(()=>accountType=v.first),
+       ),
+      ],
+      const SizedBox(height: 20),
+      const FieldLabel('E-POSTA ADRESİ'),
+      TextField(controller:email,keyboardType:TextInputType.emailAddress,autofillHints:const [AutofillHints.email],decoration:const InputDecoration(hintText:'ornek@email.com',prefixIcon:Icon(Icons.mail_outline_rounded))),
+      const SizedBox(height: 16),
+      const FieldLabel('ŞİFRE'),
+      TextField(controller:pass,obscureText:true,autofillHints:const [AutofillHints.password],decoration:const InputDecoration(hintText:'Şifreni gir',prefixIcon:Icon(Icons.lock_outline_rounded))),
+      if(create&&accountType=='business_owner')const Padding(padding:EdgeInsets.only(top:12),child:Text('İşletme hesabı yönetici onayından sonra açılır.',style:TextStyle(color:muted,fontSize:12))),
+      if(message.isNotEmpty)Container(margin:const EdgeInsets.only(top:16),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:(message.startsWith('Doğrulama e-postası gönderildi')?Colors.greenAccent:Colors.redAccent).withValues(alpha:.09),borderRadius:BorderRadius.circular(13)),child:Text(message,style:TextStyle(color:message.startsWith('Doğrulama e-postası gönderildi')?Colors.greenAccent:Colors.redAccent,fontSize:12,height:1.4))),
+      const SizedBox(height: 22),
+      SizedBox(height:54,child:ElevatedButton(onPressed:busy?null:submit,child:busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:ink)):Text(create?'Hesap oluştur':'Giriş yap'))),
+      const SizedBox(height: 10),
+      Center(child:TextButton(onPressed:()=>setState(()=>create=!create),child:Text(create?'Zaten hesabın var mı? Giriş yap':'Hesabın yok mu? Kayıt ol'))),
+     ]),
+     ),
+     const SizedBox(height: 20),
+     const Center(child:Text('GÜVENLİ • KOLAY • KİŞİSEL',style:TextStyle(color:muted,fontSize:10,letterSpacing:1.8,fontWeight:FontWeight.w700))),
+    ]),
+   )))),
+  ]),
+ );
+}
+
+class ProfilePage extends StatefulWidget { const ProfilePage({super.key}); @override State<ProfilePage> createState()=>_ProfilePageState(); }
+class _ProfilePageState extends State<ProfilePage>{
+ final name=TextEditingController(),phone=TextEditingController(),shop=TextEditingController(),address=TextEditingController();bool busy=false;String message='';
+ Future<void> save()async{setState(()=>busy=true);message='';try{if(name.text.trim().length<2)throw Exception('Ad soyad en az 2 karakter olmalı');if(shop.text.trim().length<2)throw Exception('İşletme adı en az 2 karakter olmalı');await sb.from('profiles').update({'full_name':name.text.trim(),'phone':phone.text.trim()}).eq('id',uid);await sb.rpc('create_business_application',params:{'p_name':shop.text.trim(),'p_address':address.text.trim().isEmpty?null:address.text.trim()});}catch(e){message=err(e);}if(mounted){setState(()=>busy=false);if(message.isEmpty)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AuthGate()),(r)=>false);}}
+ @override Widget build(BuildContext c)=>Scaffold(
+  appBar:AppBar(title:const Text('İşletme başvurusu'),actions:[IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaförüm(),icon:const Icon(Icons.logout_rounded))]),
+  body:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,30),children:[
+   const ScreenHeading(eyebrow:'KUAFÖRÜM İŞ ORTAĞI',title:'İşletmeni tanıtalım',subtitle:'Bilgilerini paylaş, başvurunu inceleyelim. Onaydan sonra işletme panelin açılacak.',icon:Icons.storefront_rounded),
+   AppPanel(child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    const SectionHeading('Yetkili bilgileri'),
+    const FieldLabel('AD SOYAD'),
+    TextField(controller:name,decoration:const InputDecoration(hintText:'Adın ve soyadın',prefixIcon:Icon(Icons.person_outline_rounded))),
+    const SizedBox(height:16),
+    const FieldLabel('TELEFON'),
+    TextField(controller:phone,keyboardType:TextInputType.phone,decoration:const InputDecoration(hintText:'05xx xxx xx xx',prefixIcon:Icon(Icons.phone_outlined))),
+    const SizedBox(height:22),
+    const SectionHeading('İşletme bilgileri'),
+    const FieldLabel('İŞLETME ADI'),
+    TextField(controller:shop,decoration:const InputDecoration(hintText:'Berber dükkanının adı',prefixIcon:Icon(Icons.storefront_outlined))),
+    const SizedBox(height:16),
+    const FieldLabel('ADRES (İSTEĞE BAĞLI)'),
+    TextField(controller:address,maxLines:2,decoration:const InputDecoration(hintText:'Mahalle, cadde, sokak…',prefixIcon:Icon(Icons.location_on_outlined))),
+    if(message.isNotEmpty)Padding(padding:const EdgeInsets.only(top:14),child:Text(message,style:const TextStyle(color:Colors.redAccent))),
+    const SizedBox(height:22),
+    SizedBox(height:52,child:ElevatedButton.icon(onPressed:busy?null:save,icon:const Icon(Icons.send_rounded),label:Text(busy?'Gönderiliyor…':'Başvuruyu gönder'))),
+   ])),
+  ]),
+ );
+}
+
+class PendingPage extends StatelessWidget {const PendingPage({super.key,required this.business});final Map<String,dynamic> business;
+ @override Widget build(BuildContext c){
+  final status=business['status'];
+  final rejected=status=='rejected', inactive=status=='inactive';
+  final title=rejected?'Başvurun reddedildi':inactive?'İşletmen devre dışı':'Başvurun inceleniyor';
+  final description=status=='pending'?'Başvurunu aldık. Yönetici incelemesi tamamlandığında işletme panelin otomatik olarak açılacak.':'Başvuru durumunla ilgili detaylı bilgi almak için yönetimle iletişime geçebilirsin.';
+  return Scaffold(appBar:AppBar(title:const Text('Başvuru durumu'),actions:[IconButton(onPressed:()=>signOutKuaförüm(),icon:const Icon(Icons.logout_rounded))]),body:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(24),child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:AppPanel(padding:const EdgeInsets.all(26),child:Column(mainAxisSize:MainAxisSize.min,children:[
+   Container(width:76,height:76,decoration:BoxDecoration(color:(rejected?Colors.redAccent:gold).withValues(alpha:.12),borderRadius:BorderRadius.circular(24)),child:Icon(rejected?Icons.info_outline_rounded:inactive?Icons.pause_circle_outline_rounded:Icons.hourglass_top_rounded,color:rejected?Colors.redAccent:gold,size:38)),
+   const SizedBox(height:22),
+   StatusTag(rejected?'REDDEDİLDİ':inactive?'PASİF':'İNCELEMEDE',color:rejected?Colors.redAccent:gold),
+   const SizedBox(height:13),
+   Text(title,textAlign:TextAlign.center,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800)),
+   const SizedBox(height:9),
+   Text(business['name']??'',textAlign:TextAlign.center,style:const TextStyle(color:gold,fontWeight:FontWeight.w700,fontSize:16)),
+   const SizedBox(height:12),
+   Text(description,textAlign:TextAlign.center,style:const TextStyle(color:muted,height:1.5,fontSize:13)),
+   const SizedBox(height:24),
+   SizedBox(width:double.infinity,child:OutlinedButton.icon(onPressed:()=>Navigator.of(c).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AuthGate()),(r)=>false),icon:const Icon(Icons.refresh_rounded),label:const Text('Durumu yenile'))),
+  ]))))));
+ }
+}
+
+class AdminPage extends StatefulWidget {const AdminPage({super.key});@override State<AdminPage> createState()=>_AdminPageState();}
+class _AdminPageState extends State<AdminPage>{
+ int tab=0;
+ Future<List<Map<String,dynamic>>> load(String table)=>sb.from(table).select().order('created_at',ascending:false);
+ Future<void> review(String id,String status)async{try{await sb.rpc('review_business',params:{'p_business_id':id,'p_status':status});if(mounted)setState((){});toast(context,'İşletme durumu güncellendi');}catch(e){toast(context,err(e));}}
+ Future<void> block(String id,bool value)async{try{await sb.rpc('admin_set_user_blocked',params:{'p_user_id':id,'p_blocked':value});if(mounted)setState((){});}catch(e){toast(context,err(e));}}
+ Future<void> setDiscover(String id,bool value)async{try{await sb.from('businesses').update({'discover_enabled':value}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet açıldı':'Keşfet kapatıldı');}}catch(e){if(mounted)toast(context,err(e));}}
+ Widget heading(String a,String b)=>ScreenHeading(title:a,subtitle:b,eyebrow:'KUAFÖRÜM YÖNETİM',icon:Icons.admin_panel_settings_rounded);
+ Widget metric(String label,int n,IconData icon)=>Expanded(child:AppPanel(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+  Container(width:36,height:36,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:gold,size:19)),
+  const SizedBox(height:13),Text('$n',style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900,letterSpacing:-.8)),
+  const SizedBox(height:3),Text(label,style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600)),
+ ])));
+ Widget navCard(String title,String subtitle,IconData icon,int destination)=>AppPanel(
+  padding:const EdgeInsets.symmetric(horizontal:15,vertical:5),
+  margin:const EdgeInsets.only(bottom:10),
+  child:ListTile(contentPadding:EdgeInsets.zero,leading:Container(width:42,height:42,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:gold)),title:Text(title,style:const TextStyle(fontWeight:FontWeight.w700)),subtitle:Text(subtitle,style:const TextStyle(color:muted,fontSize:12)),trailing:const Icon(Icons.chevron_right_rounded,color:muted),onTap:()=>setState(()=>tab=destination)),
+ );
+ Widget dashboard()=>FutureBuilder<List<dynamic>>(future:Future.wait([load('profiles'),load('businesses'),load('appointments')]),builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));
+  final p=s.data![0] as List,b=s.data![1] as List,a=s.data![2] as List;final pending=b.where((x)=>x['status']=='pending').length;
+  return ListView(padding:const EdgeInsets.fromLTRB(18,14,18,28),children:[
+   heading('Genel bakış','Platformdaki kullanıcıları, işletmeleri ve randevuları tek yerden takip et.'),
+   Row(children:[metric('Kullanıcı',p.length,Icons.people_alt_outlined),const SizedBox(width:10),metric('İşletme',b.length,Icons.storefront_outlined)]),
+   const SizedBox(height:10),
+   Row(children:[metric('Bekleyen başvuru',pending,Icons.hourglass_top_rounded),const SizedBox(width:10),metric('Randevu',a.length,Icons.calendar_month_rounded)]),
+   const SizedBox(height:24),const SectionHeading('Hızlı yönetim'),
+   navCard('İşletme başvuruları','Başvuruları incele ve durumlarını yönet',Icons.storefront_rounded,1),
+   navCard('Kullanıcı yönetimi','Hesapları ve erişim izinlerini kontrol et',Icons.manage_accounts_rounded,2),
+   navCard('Randevular','Platformdaki randevuları görüntüle',Icons.event_available_rounded,3),
+  ]);
+ });
+ Widget businesses()=>FutureBuilder<List<Map<String,dynamic>>>(future:load('businesses'),builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));final l=s.data??[];
+  return ListView(padding:const EdgeInsets.fromLTRB(18,14,18,28),children:[
+   heading('İşletmeler','İşletme başvurularını ve yayın durumlarını yönet.'),
+   if(l.isEmpty)const EmptyStateView(icon:Icons.storefront_outlined,title:'Henüz işletme yok',subtitle:'Yeni işletme başvuruları burada görüntülenecek.'),
+   ...l.map((b)=>AppPanel(margin:const EdgeInsets.only(bottom:12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[Expanded(child:Text(b['name']??'İsimsiz işletme',style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800))),StatusTag((b['status']??'').toString().toUpperCase(),color:b['status']=='active'?Colors.greenAccent:b['status']=='rejected'?Colors.redAccent:gold)]),
+    const SizedBox(height:10),Text('Katılım kodu: ${b['join_code']??'—'}',style:const TextStyle(color:gold,fontWeight:FontWeight.w700,fontSize:12)),
+    if((b['address']??'').toString().isNotEmpty)Padding(padding:const EdgeInsets.only(top:7),child:Text(b['address'],style:const TextStyle(color:muted,fontSize:12))),
+    SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,title:const Text('Keşfet alanında yayınla'),subtitle:Text(b['discover_enabled']==true?'Genel akışta görünür':'Genel akışta görünmez',style:const TextStyle(color:muted,fontSize:11)),value:b['discover_enabled']==true,onChanged:(v)=>setDiscover(b['id'].toString(),v)),
+    const Divider(height:24),
+    Wrap(spacing:8,runSpacing:8,children:[
+     if(b['status']!='active')OutlinedButton.icon(onPressed:()=>review(b['id'],'active'),icon:const Icon(Icons.check_rounded,size:16),label:const Text('Onayla')),
+     if(b['status']!='rejected')TextButton.icon(onPressed:()=>review(b['id'],'rejected'),icon:const Icon(Icons.close_rounded,size:16),label:const Text('Reddet')),
+     if(b['status']!='inactive')TextButton.icon(onPressed:()=>review(b['id'],'inactive'),icon:const Icon(Icons.pause_rounded,size:16),label:const Text('Pasife al')),
+    ]),
+   ]))),
+  ]);
+ });
+ Widget users()=>FutureBuilder<List<Map<String,dynamic>>>(future:load('profiles'),builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));
+  return ListView(padding:const EdgeInsets.fromLTRB(18,14,18,28),children:[
+   heading('Kullanıcılar','Hesap türlerini görüntüle ve erişim durumlarını yönet.'),
+   if((s.data??[]).isEmpty)const EmptyStateView(icon:Icons.people_outline,title:'Kullanıcı bulunamadı',subtitle:'Kayıt olan kullanıcılar burada listelenecek.'),
+   ...(s.data??[]).map((p)=>AppPanel(margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.symmetric(horizontal:15,vertical:8),child:Row(children:[
+    CircleAvatar(backgroundColor:gold.withValues(alpha:.14),child:Icon(p['account_type']=='business_owner'?Icons.storefront_rounded:Icons.person_rounded,color:gold)),
+    const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text(p['full_name']??'İsimsiz kullanıcı',style:const TextStyle(fontWeight:FontWeight.w800)),
+     const SizedBox(height:3),Text(p['email']??'E-posta yok',style:const TextStyle(color:muted,fontSize:11)),
+     Text(p['account_type']=='business_owner'?'İşletme hesabı':'Müşteri hesabı',style:const TextStyle(color:gold,fontSize:11,fontWeight:FontWeight.w700)),
+    ])),
+    Column(children:[Text(p['is_blocked']==true?'Engelli':'Aktif',style:TextStyle(color:p['is_blocked']==true?Colors.redAccent:Colors.greenAccent,fontSize:10,fontWeight:FontWeight.w700)),Switch(value:p['is_blocked']==true,onChanged:(v)=>block(p['id'],v))]),
+   ]))),
+  ]);
+ });
+ Widget appointments()=>FutureBuilder<List<Map<String,dynamic>>>(future:sb.from('appointments').select('*, businesses(name), services(name)').order('starts_at',ascending:false).limit(250),builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));
+  return ListView(padding:const EdgeInsets.fromLTRB(18,14,18,28),children:[
+   heading('Randevular','Platform genelindeki son 250 randevuyu görüntüle.'),
+   if((s.data??[]).isEmpty)const EmptyStateView(icon:Icons.event_busy_rounded,title:'Henüz randevu yok',subtitle:'Oluşturulan randevular burada görünecek.'),
+   ...(s.data??[]).map((a)=>AppPanel(margin:const EdgeInsets.only(bottom:10),child:Row(children:[
+    Container(width:44,height:44,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(14)),child:const Icon(Icons.calendar_month_rounded,color:gold)),
+    const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text(a['services']?['name']??'Randevu',style:const TextStyle(fontWeight:FontWeight.w800)),
+     const SizedBox(height:4),Text(a['businesses']?['name']??'İşletme',style:const TextStyle(color:muted,fontSize:12)),
+     Text('${a['starts_at']} • ${a['status']}',style:const TextStyle(color:gold,fontSize:11,fontWeight:FontWeight.w600)),
+    ])),
+   ]))),
+  ]);
+ });
+ @override Widget build(BuildContext c){
+  final pages=[dashboard(),businesses(),users(),appointments()];
+  return Scaffold(
+   appBar:AppBar(title:const Text('Yönetim merkezi'),actions:[IconButton(tooltip:'Yenile',onPressed:()=>setState((){}),icon:const Icon(Icons.refresh_rounded)),IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaförüm(),icon:const Icon(Icons.logout_rounded))]),
+   body:pages[tab],
+   bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const [
+    NavigationDestination(icon:Icon(Icons.dashboard_outlined),selectedIcon:Icon(Icons.dashboard_rounded),label:'Genel'),
+    NavigationDestination(icon:Icon(Icons.storefront_outlined),selectedIcon:Icon(Icons.storefront_rounded),label:'İşletmeler'),
+    NavigationDestination(icon:Icon(Icons.people_outline),selectedIcon:Icon(Icons.people_rounded),label:'Kullanıcılar'),
+    NavigationDestination(icon:Icon(Icons.calendar_month_outlined),selectedIcon:Icon(Icons.calendar_month_rounded),label:'Randevular'),
+   ]),
+  );
+ }
+}
+
+class BusinessOverviewPage extends StatefulWidget {
+  const BusinessOverviewPage({super.key, required this.business});
+  final Map<String, dynamic> business;
+  @override State<BusinessOverviewPage> createState() => _BusinessOverviewPageState();
+}
+class _BusinessOverviewPageState extends State<BusinessOverviewPage> {
+  late Future<List<Map<String, dynamic>>> appointmentsFuture;
+  Future<List<Map<String, dynamic>>> _load() async {
+    final rows = await sb.rpc('get_business_appointments', params: {'p_business_id': widget.business['id'], 'p_mine_only': false});
+    return (rows as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+  @override void initState() { super.initState(); appointmentsFuture = _load(); }
+  Future<void> refresh() async { setState(() => appointmentsFuture = _load()); }
+  Future<void> setStatus(String id, String status) async {
+    try { await sb.rpc('update_appointment_status', params: {'p_appointment_id': id, 'p_status': status}); await refresh(); if (mounted) toast(context, 'Randevu güncellendi'); }
+    catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  Future<void> cancel(String id) async {
+    try { await sb.rpc('cancel_appointment', params: {'p_appointment_id': id}); await refresh(); }
+    catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  Future<void> reviewRequest(String id, String decision) async {
+    try {
+      await sb.rpc('review_appointment_request', params: {'p_appointment_id': id, 'p_decision': decision});
+      await refresh();
+      if (mounted) toast(context, decision == 'approve' ? 'Özel randevu onaylandı' : 'Özel randevu talebi reddedildi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Genel bakış'), actions: [IconButton(tooltip: 'Yenile', onPressed: refresh, icon: const Icon(Icons.refresh_rounded))]),
+    body: FutureBuilder<List<Map<String, dynamic>>>(future: appointmentsFuture, builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) return const LoadingPage();
+      if (snapshot.hasError) return ErrorPage(message: err(snapshot.error!));
+      final rows = snapshot.data ?? [];
+      return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, 28), children: [
+        ScreenHeading(eyebrow: 'İŞLETME RAPORU', title: widget.business['name'] ?? 'İşletme', subtitle: 'Kendin ve tüm çalışanların için oluşturulan randevular.', icon: Icons.dashboard_rounded),
+        Row(children: [
+          Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.event_available_rounded, color: gold), const SizedBox(height: 8), Text('${rows.length}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)), const Text('Toplam randevu', style: TextStyle(color: muted, fontSize: 11))]))),
+          const SizedBox(width: 10),
+          Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.pending_actions_rounded, color: gold), const SizedBox(height: 8), Text('${rows.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)), const Text('Aktif randevu', style: TextStyle(color: muted, fontSize: 11))]))),
+        ]),
+        const SizedBox(height: 20),
+        const SectionHeading('İşletmenin tüm randevuları'),
+        if (rows.isEmpty) const AppPanel(child: EmptyStateView(icon: Icons.event_busy_rounded, title: 'Randevu bulunmuyor', subtitle: 'İşletmene gelen tüm randevular burada listelenecek.')),
+        ...rows.map((a) => BusinessAppointmentCard(
+          appointment: a, showEmployee: true,
+          onComplete: (a['status'] == 'pending' || a['status'] == 'confirmed') && a['requires_business_approval'] != true ? () => setStatus(a['appointment_id'].toString(), 'completed') : null,
+          onCancel: (a['status'] == 'pending' || a['status'] == 'confirmed') && a['requires_business_approval'] != true ? () => cancel(a['appointment_id'].toString()) : null,
+          onApprove: a['requires_business_approval'] == true ? () => reviewRequest(a['appointment_id'].toString(), 'approve') : null,
+          onReject: a['requires_business_approval'] == true ? () => reviewRequest(a['appointment_id'].toString(), 'reject') : null,
+        )),
+      ]);
+    }),
+  );
+}
+class BarberPage extends StatefulWidget {
+  const BarberPage({super.key, required this.business});
+  final Map<String, dynamic> business;
+  @override State<BarberPage> createState() => _BarberPageState();
+}
+
+class _BarberPageState extends State<BarberPage> {
+  final service = TextEditingController();
+  final price = TextEditingController();
+  final duration = TextEditingController(text: '30');
+  final employee = TextEditingController();
+  final open = TextEditingController(text: '09:00');
+  final close = TextEditingController(text: '20:00');
+  final breakStart = TextEditingController(text: '13:00');
+  final breakEnd = TextEditingController(text: '14:00');
+  bool busy = false;
+  int tab = 0;
+  int appointmentIntervalMinutes = 30;
+  late Future<List<Map<String, dynamic>>> employeesFuture;
+  late Future<List<Map<String, dynamic>>> servicesFuture;
+  late Future<List<Map<String, dynamic>>> appointmentsFuture;
+
+  @override void initState() {
+    super.initState();
+    appointmentIntervalMinutes = (widget.business['appointment_interval_minutes'] as num?)?.toInt() ?? 30;
+    _reload();
+  }
+
+  @override void dispose() {
+    service.dispose(); price.dispose(); duration.dispose(); employee.dispose();
+    open.dispose(); close.dispose(); breakStart.dispose(); breakEnd.dispose();
+    super.dispose();
+  }
+
+  void _reload() {
+    employeesFuture = sb.from('employees').select('*, employee_invites(invite_code,claimed_at,expires_at)').eq('business_id', widget.business['id']).timeout(const Duration(seconds: 12));
+    servicesFuture = sb.from('services').select().eq('business_id', widget.business['id']).timeout(const Duration(seconds: 12));
+    appointmentsFuture = _loadAppointments();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadAppointments() async {
+    final rows = await sb.rpc('get_business_appointments', params: {
+      'p_business_id': widget.business['id'], 'p_mine_only': true,
+    });
+    return (rows as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<void> refresh() async { if (mounted) setState(_reload); }
+
+  Future<void> saveAppointmentInterval() async {
+    try {
+      await sb.rpc('update_appointment_interval', params: {
+        'p_business_id': widget.business['id'],
+        'p_interval_minutes': appointmentIntervalMinutes,
+      });
+      if (mounted) toast(context, 'Randevu aralığı kaydedildi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> addService() async {
+    try {
+      final title = service.text.trim();
+      final amount = double.parse(price.text);
+      final minutes = int.parse(duration.text);
+      if (title.length < 2 || amount < 0 || minutes < 1) throw Exception('Hizmet bilgilerini kontrol et');
+      await sb.from('services').insert({
+        'business_id': widget.business['id'], 'name': title,
+        'price': amount, 'duration_minutes': minutes,
+      });
+      service.clear(); price.clear(); duration.clear();
+      await refresh();
+      if (mounted) toast(context, 'Hizmet eklendi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> addEmployee() async {
+    try {
+      final name = employee.text.trim();
+      if (name.isEmpty) throw Exception('Çalışan adı boş olamaz');
+      final code = await sb.rpc('create_employee_invite', params: {
+        'p_business_id': widget.business['id'], 'p_display_name': name,
+      });
+      employee.clear();
+      await refresh();
+      if (mounted) {
+        await showDialog<void>(context: context, builder: (c) => AlertDialog(
+          title: const Text('Çalışan daveti hazır'),
+          content: SelectableText('Çalışan: $name\nDavet kodu: $code'),
+          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tamam'))],
+        ));
+      }
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> saveHours() async {
+    try {
+      for (var d = 0; d < 7; d++) {
+        await sb.from('business_hours').upsert({
+          'business_id': widget.business['id'], 'weekday': d,
+          'opens_at': open.text, 'closes_at': close.text, 'is_closed': false,
+        }, onConflict: 'business_id,weekday');
+      }
+      if (mounted) toast(context, 'Çalışma saatleri kaydedildi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> saveBreaks() async {
+    try {
+      final a = breakStart.text.trim(), b = breakEnd.text.trim();
+      if (a.compareTo(b) >= 0) throw Exception('Mola bitişi başlangıçtan sonra olmalı');
+      await sb.from('business_breaks').delete().eq('business_id', widget.business['id']);
+      for (var d = 1; d < 7; d++) {
+        await sb.from('business_breaks').insert({
+          'business_id': widget.business['id'], 'weekday': d,
+          'starts_at': a, 'ends_at': b,
+        });
+      }
+      if (mounted) toast(context, 'Mola saatleri kaydedildi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Widget _heading(String eyebrow, String title, String subtitle, IconData icon) =>
+    ScreenHeading(eyebrow: eyebrow, title: title, subtitle: subtitle, icon: icon);
+
+  Widget _homePage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+    _heading('İŞLETME PANELİ', widget.business['name'] ?? 'İşletmen',
+      'İşletme bilgilerine ve yönetim araçlarına hızlı eriş.', Icons.storefront_rounded),
+    AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Row(children: [
+        const Icon(Icons.qr_code_2_rounded, color: gold, size: 22),
+        const SizedBox(width: 9),
+        const Expanded(child: Text('İşletme katılım QR kodu', style: TextStyle(fontWeight: FontWeight.w800))),
+        const StatusTag('AKTİF', color: Colors.greenAccent),
+      ]),
+      const SizedBox(height: 16),
+      Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        child: QrImageView(data: 'KUAFORUM:${widget.business['join_code'] ?? ''}', version: QrVersions.auto, size: 210, backgroundColor: Colors.white)),
+      const SizedBox(height: 12),
+      const Text('QR OKUTAMIYORSAN BU KODU KULLAN', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.7)),
+      const SizedBox(height: 6),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(color: panelRaised, borderRadius: BorderRadius.circular(14), border: Border.all(color: border)),
+        child: SelectableText(
+          (widget.business['join_code'] ?? '').toString().toUpperCase(),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: goldLight, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 2),
+        ),
+      ),
+      const SizedBox(height: 10),
+      const Text('Müşterilerin QR kodunu okutabilir veya yukarıdaki işletme kodunu uygulamaya elle girebilir.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12, height: 1.4)),
+    ])),
+    const SizedBox(height: 14),
+    AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SectionHeading('Genel bakış'),
+      const Text('İşletmenin tüm çalışanlarına ait randevuları ve günlük yoğunluğu ayrı ekranda incele.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+      const SizedBox(height: 14),
+      SizedBox(height: 50, child: ElevatedButton.icon(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusinessOverviewPage(business: widget.business))),
+        icon: const Icon(Icons.dashboard_customize_rounded), label: const Text('Genel bakışı aç'),
+      )),
+    ])),
+    const SizedBox(height: 14),
+    FutureBuilder<List<Map<String, dynamic>>>(future: appointmentsFuture, builder: (c, snap) {
+      if (snap.connectionState != ConnectionState.done || snap.hasError) return const SizedBox.shrink();
+      final rows = snap.data ?? [];
+      final active = rows.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length;
+      return Row(children: [
+        Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.event_available_rounded, color: gold), const SizedBox(height: 8),
+          Text('${rows.length}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+          const Text('Kişisel randevum', style: TextStyle(color: muted, fontSize: 11)),
+        ]))),
+        const SizedBox(width: 10),
+        Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.pending_actions_rounded, color: gold), const SizedBox(height: 8),
+          Text('$active', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+          const Text('Aktif randevum', style: TextStyle(color: muted, fontSize: 11)),
+        ]))),
+      ]);
+    }),
+  ]);
+
+  Widget _appointmentsPage() => FutureBuilder<List<Map<String, dynamic>>>(future: appointmentsFuture, builder: (c, snap) {
+    if (snap.connectionState != ConnectionState.done) return const LoadingPage();
+    if (snap.hasError) return ErrorPage(message: err(snap.error!));
+    final rows = snap.data ?? [];
+    final active = rows.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length;
+    return ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+      _heading('KİŞİSEL TAKVİM', 'Randevularım', 'Yalnızca sana atanmış müşteri randevuları burada görünür.', Icons.event_note_rounded),
+      Row(children: [
+        Expanded(child: _metricCard('Toplam', rows.length, Icons.calendar_month_rounded)),
+        const SizedBox(width: 10),
+        Expanded(child: _metricCard('Bekleyen / Onaylı', active, Icons.pending_actions_rounded)),
+      ]),
+      const SizedBox(height: 16),
+      if (rows.isEmpty) const AppPanel(child: EmptyStateView(icon: Icons.event_busy_rounded, title: 'Henüz randevun yok', subtitle: 'Sana ait yeni randevular burada listelenecek.')),
+      ...rows.map((a) => BusinessAppointmentCard(
+        appointment: a,
+        onComplete: (a['status'] == 'pending' || a['status'] == 'confirmed') && a['requires_business_approval'] != true ? () => _setStatus(a['appointment_id'].toString(), 'completed') : null,
+        onCancel: (a['status'] == 'pending' || a['status'] == 'confirmed') && a['requires_business_approval'] != true ? () => _cancel(a['appointment_id'].toString()) : null,
+        onApprove: a['requires_business_approval'] == true ? () => _reviewRequest(a['appointment_id'].toString(), 'approve') : null,
+        onReject: a['requires_business_approval'] == true ? () => _reviewRequest(a['appointment_id'].toString(), 'reject') : null,
+      )),
+    ]);
+  });
+
+  Widget _metricCard(String label, int value, IconData icon) => AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Icon(icon, color: gold), const SizedBox(height: 8),
+    Text('$value', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+    Text(label, style: const TextStyle(color: muted, fontSize: 11)),
+  ]));
+
+  Future<void> _setStatus(String id, String status) async {
+    try { await sb.rpc('update_appointment_status', params: {'p_appointment_id': id, 'p_status': status}); await refresh(); if (mounted) toast(context, 'Randevu güncellendi'); }
+    catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  Future<void> _cancel(String id) async {
+    try { await sb.rpc('cancel_appointment', params: {'p_appointment_id': id}); await refresh(); }
+    catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  Future<void> _reviewRequest(String id, String decision) async {
+    try {
+      await sb.rpc('review_appointment_request', params: {'p_appointment_id': id, 'p_decision': decision});
+      await refresh();
+      if (mounted) toast(context, decision == 'approve' ? 'Özel randevu onaylandı' : 'Özel randevu talebi reddedildi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Widget _employeesPage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+    _heading('EKİP YÖNETİMİ', 'Çalışanlar', 'Ekibini oluştur ve davet kodlarını güvenle paylaş.', Icons.groups_rounded),
+    AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const FieldLabel('ÇALIŞAN ADI'),
+      TextField(controller: employee, decoration: const InputDecoration(hintText: 'Çalışan adı', prefixIcon: Icon(Icons.person_add_alt_1_rounded))),
+      const SizedBox(height: 12),
+      SizedBox(height: 48, child: ElevatedButton.icon(onPressed: busy ? null : addEmployee, icon: const Icon(Icons.add_rounded), label: const Text('Çalışan ekle'))),
+    ])),
+    const SizedBox(height: 14),
+    FutureBuilder<List<Map<String, dynamic>>>(future: employeesFuture, builder: (c, snap) {
+      if (snap.connectionState != ConnectionState.done) return const LinearProgressIndicator();
+      if (snap.hasError) return AppPanel(child: Text(err(snap.error!), style: const TextStyle(color: Colors.redAccent)));
+      final rows = snap.data ?? [];
+      if (rows.isEmpty) return const AppPanel(child: EmptyStateView(icon: Icons.groups_outlined, title: 'Ekibin henüz boş', subtitle: 'İlk çalışanını ekleyerek başlayabilirsin.'));
+      return AppPanel(child: Column(children: rows.map((e) {
+        final invites = ((e['employee_invites'] as List?) ?? []).whereType<Map>().where((i) => i['claimed_at'] == null).toList();
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const CircleAvatar(backgroundColor: ink, child: Icon(Icons.person_outline, color: gold)),
+          title: Text(e['display_name'] ?? 'Çalışan', style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(invites.isEmpty ? 'Aktif davet kodu yok' : 'Davet kodu: ${invites.map((i) => i['invite_code']).join(' • ')}', style: const TextStyle(color: gold, fontSize: 11)),
+          trailing: StatusTag(e['is_active'] == true ? 'AKTİF' : 'PASİF', color: e['is_active'] == true ? Colors.greenAccent : muted),
+        );
+      }).toList()));
+    }),
+  ]);
+
+  Widget _servicesPage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+    _heading('HİZMET KATALOĞU', 'Hizmetler', 'Müşterilerin randevu alabileceği hizmetleri ve ücretleri düzenle.', Icons.content_cut_rounded),
+    AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const FieldLabel('HİZMET ADI'),
+      TextField(controller: service, decoration: const InputDecoration(hintText: 'Saç kesimi, sakal…')),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Ücret (TL)'))),
+        const SizedBox(width: 12),
+        Expanded(child: TextField(controller: duration, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Süre (dk)'))),
+      ]),
+      const SizedBox(height: 12),
+      SizedBox(height: 48, child: ElevatedButton.icon(onPressed: busy ? null : addService, icon: const Icon(Icons.add_rounded), label: const Text('Hizmet ekle'))),
+    ])),
+    const SizedBox(height: 14),
+    FutureBuilder<List<Map<String, dynamic>>>(future: servicesFuture, builder: (c, snap) {
+      if (snap.connectionState != ConnectionState.done) return const LinearProgressIndicator();
+      if (snap.hasError) return AppPanel(child: Text(err(snap.error!), style: const TextStyle(color: Colors.redAccent)));
+      final rows = snap.data ?? [];
+      if (rows.isEmpty) return const AppPanel(child: EmptyStateView(icon: Icons.content_cut_rounded, title: 'Henüz hizmet eklenmedi', subtitle: 'İlk hizmetini yukarıdan ekleyebilirsin.'));
+      return AppPanel(child: Column(children: rows.map((e) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const CircleAvatar(backgroundColor: ink, child: Icon(Icons.cut_rounded, color: gold)),
+        title: Text(e['name'] ?? 'Hizmet', style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('${e['price']} TL • ${e['duration_minutes']} dk', style: const TextStyle(color: muted, fontSize: 11)),
+        trailing: Switch(value: e['is_active'] == true, onChanged: (v) async {
+          try { await sb.from('services').update({'is_active': v}).eq('id', e['id']); await refresh(); }
+          catch (error) { if (mounted) toast(context, err(error)); }
+        }),
+      )).toList()));
+    }),
+  ]);
+
+  Widget _settingsPage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+    _heading('İŞLETME AYARLARI', 'Çalışma düzeni', 'Açılış, kapanış, mola ve randevu sıklığını belirle.', Icons.tune_rounded),
+    AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SectionHeading('Çalışma saatleri'),
+      Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FieldLabel('AÇILIŞ'), TextField(controller: open, decoration: const InputDecoration(hintText: '09:00'))])),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FieldLabel('KAPANIŞ'), TextField(controller: close, decoration: const InputDecoration(hintText: '20:00'))])),
+      ]),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(onPressed: saveHours, icon: const Icon(Icons.calendar_month_rounded), label: const Text('Haftanın tüm günlerine uygula')),
+      const Divider(height: 30),
+      const SectionHeading('Randevu sıklığı'),
+      const Text('Müşterilere kaç dakikada bir randevu saati sunulacağını seç.', style: TextStyle(color: muted, fontSize: 12)),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<int>(
+        value: appointmentIntervalMinutes,
+        decoration: const InputDecoration(prefixIcon: Icon(Icons.timer_outlined), hintText: 'Randevu aralığını seç'),
+        items: const [10, 15, 20, 30, 45, 60].map((m) => DropdownMenuItem(value: m, child: Text('$m dakikada bir'))).toList(),
+        onChanged: (v) { if (v != null) setState(() => appointmentIntervalMinutes = v); },
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(onPressed: saveAppointmentInterval, icon: const Icon(Icons.save_outlined), label: const Text('Randevu aralığını kaydet')),
+      const Divider(height: 30),
+      const SectionHeading('Mola saatleri'),
+      Row(children: [
+        Expanded(child: TextField(controller: breakStart, decoration: const InputDecoration(labelText: 'Başlangıç'))),
+        const SizedBox(width: 12),
+        Expanded(child: TextField(controller: breakEnd, decoration: const InputDecoration(labelText: 'Bitiş'))),
+      ]),
+      const SizedBox(height: 12),
+      OutlinedButton(onPressed: saveBreaks, child: const Text('Hafta içi molalarını kaydet')),
+    ])),
+  ]);
+
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(widget.business['name'] ?? 'İşletme paneli'), actions: [
+      IconButton(tooltip: 'Tüm randevular', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusinessOverviewPage(business: widget.business))), icon: const Icon(Icons.dashboard_outlined)),
+      notificationAction(context),
+      IconButton(tooltip: 'Çıkış yap', onPressed: () => signOutKuaförüm(), icon: const Icon(Icons.logout_rounded)),
+    ]),
+    body: IndexedStack(index: tab, children: [
+      _homePage(), _appointmentsPage(), _employeesPage(), _servicesPage(), _settingsPage(),
+    ]),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: tab,
+      onDestinationSelected: (v) => setState(() => tab = v),
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Ana sayfa'),
+        NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note_rounded), label: 'Randevularım'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups_rounded), label: 'Çalışanlar'),
+        NavigationDestination(icon: Icon(Icons.content_cut_outlined), selectedIcon: Icon(Icons.content_cut_rounded), label: 'Hizmetler'),
+        NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune_rounded), label: 'Ayarlar'),
+      ],
+    ),
+  );
+}
+
+
+Widget notificationAction(BuildContext context)=>IconButton(
+ onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const NotificationsPage())),
+ icon:const Icon(Icons.notifications_none));
+
+class NotificationsPage extends StatefulWidget { const NotificationsPage({super.key}); @override State<NotificationsPage> createState()=>_NotificationsPageState(); }
+class _NotificationsPageState extends State<NotificationsPage>{
+ Future<List<Map<String,dynamic>>> load()=>sb.from('notifications').select().eq('user_id',uid).order('created_at',ascending:false).limit(100);
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Bildirimler')),body:FutureBuilder<List<Map<String,dynamic>>>(future:load(),builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();
+  if(s.hasError)return ErrorPage(message:err(s.error!));
+  final rows=s.data??[];
+  if(rows.isEmpty)return const Center(child:EmptyStateView(icon:Icons.notifications_none_rounded,title:'Henüz bildirimin yok',subtitle:'Randevu ve hesap güncellemelerin burada görünecek.'));
+  return ListView(padding:const EdgeInsets.fromLTRB(18,12,18,28),children:[
+   const ScreenHeading(eyebrow:'GÜNCELLEMELER',title:'Bildirimlerin',subtitle:'Randevuların ve hesabınla ilgili son gelişmeler.'),
+   ...rows.map((n)=>AppPanel(margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.all(14),child:InkWell(
+    borderRadius:BorderRadius.circular(14),
+    onTap:()async{if(n['read_at']==null){await sb.from('notifications').update({'read_at':DateTime.now().toUtc().toIso8601String()}).eq('id',n['id']);setState((){});}},
+    child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Container(width:42,height:42,decoration:BoxDecoration(color:(n['read_at']==null?gold:muted).withValues(alpha:.12),borderRadius:BorderRadius.circular(13)),child:Icon(n['read_at']==null?Icons.notifications_active_rounded:Icons.notifications_none_rounded,color:n['read_at']==null?gold:muted)),
+     const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[Expanded(child:Text(n['title']??'Bildirim',style:const TextStyle(fontWeight:FontWeight.w800))),if(n['read_at']==null)const StatusTag('YENİ')]),
+      const SizedBox(height:5),Text(n['body']??'',style:const TextStyle(color:muted,fontSize:12,height:1.4)),
+      const SizedBox(height:7),Text(n['created_at']??'',style:const TextStyle(color:gold,fontSize:10,fontWeight:FontWeight.w600)),
+     ])),
+    ]),
+   ))),
+  ]);
+ }));
+}
+
+
+String appointmentDateTimeLabel(Object? value) {
+  final parsed = DateTime.tryParse((value ?? '').toString());
+  if (parsed == null) return (value ?? 'Saat bilgisi yok').toString();
+  final d = parsed.toLocal();
+  final date = '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+  final time = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  return '$date • $time';
+}
+class BusinessAppointmentCard extends StatelessWidget {
+  const BusinessAppointmentCard({super.key, required this.appointment, this.showEmployee = false, this.onComplete, this.onCancel, this.onApprove, this.onReject});
+  final Map<String, dynamic> appointment;
+  final bool showEmployee;
+  final VoidCallback? onComplete;
+  final VoidCallback? onCancel;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
+
+  @override Widget build(BuildContext context) {
+    final status = (appointment['status'] ?? '').toString();
+    final active = status == 'pending' || status == 'confirmed';
+    final statusColor = status == 'completed' ? Colors.greenAccent
+      : status == 'cancelled' || status == 'no_show' ? Colors.redAccent
+      : status == 'confirmed' ? gold : const Color(0xFFE8B66A);
+    final parsed = DateTime.tryParse((appointment['starts_at'] ?? '').toString())?.toLocal();
+    final day = parsed == null ? 'Tarih yok' : '${parsed.day.toString().padLeft(2, '0')}.${parsed.month.toString().padLeft(2, '0')}.${parsed.year}';
+    final time = parsed == null ? '--:--' : '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(width: 48, height: 48, decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [gold.withValues(alpha: .22), gold.withValues(alpha: .07)]),
+            borderRadius: BorderRadius.circular(15)),
+            child: const Icon(Icons.person_rounded, color: gold, size: 24)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text((appointment['customer_name'] ?? 'Müşteri').toString(), maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: 4),
+            Text((appointment['service_name'] ?? 'Hizmet').toString(), style: const TextStyle(color: muted, fontSize: 12)),
+            if (showEmployee && (appointment['employee_name'] ?? '').toString().isNotEmpty)
+              Padding(padding: const EdgeInsets.only(top: 4), child: Text('Çalışan: ${appointment['employee_name']}', style: const TextStyle(color: muted, fontSize: 11))),
+          ])),
+          const SizedBox(width: 6),
+          appointment['requires_business_approval'] == true
+              ? const StatusTag('ÖZEL ONAY', color: Colors.orangeAccent)
+              : StatusTag(appointmentStatusLabel(status), color: statusColor),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(color: ink, borderRadius: BorderRadius.circular(13), border: Border.all(color: border)),
+          child: Row(children: [
+            const Icon(Icons.calendar_month_rounded, size: 17, color: gold),
+            const SizedBox(width: 8),
+            Expanded(child: Text(day, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+            const Icon(Icons.schedule_rounded, size: 17, color: gold),
+            const SizedBox(width: 6),
+            Text(time, style: const TextStyle(color: goldLight, fontSize: 15, fontWeight: FontWeight.w900)),
+          ]),
+        ),
+        if (active && appointment['requires_business_approval'] == true && (onApprove != null || onReject != null)) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            if (onApprove != null) Expanded(child: ElevatedButton.icon(onPressed: onApprove, icon: const Icon(Icons.check_rounded, size: 17), label: const Text('Onayla'))),
+            if (onApprove != null && onReject != null) const SizedBox(width: 9),
+            if (onReject != null) Expanded(child: OutlinedButton.icon(onPressed: onReject, icon: const Icon(Icons.close_rounded, size: 17), label: const Text('Reddet'))),
+          ]),
+        ] else if (active && appointment['requires_business_approval'] != true && (onComplete != null || onCancel != null)) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            if (onComplete != null) Expanded(child: OutlinedButton.icon(onPressed: onComplete, icon: const Icon(Icons.check_circle_outline_rounded, size: 17), label: const Text('Tamamlandı'))),
+            if (onComplete != null && onCancel != null) const SizedBox(width: 9),
+            if (onCancel != null) Expanded(child: TextButton.icon(onPressed: onCancel, icon: const Icon(Icons.cancel_outlined, size: 17), label: const Text('İptal et'))),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+class EmployeePage extends StatefulWidget {
+  const EmployeePage({super.key, required this.employee});
+  final Map<String, dynamic> employee;
+  @override State<EmployeePage> createState() => _EmployeePageState();
+}
+class _EmployeePageState extends State<EmployeePage> {
+  late Future<List<Map<String, dynamic>>> appointmentsFuture;
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final rows = await sb.rpc('get_business_appointments', params: {
+      'p_business_id': widget.employee['business_id'], 'p_mine_only': true,
+    });
+    return (rows as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  @override void initState() { super.initState(); appointmentsFuture = load(); }
+
+  Future<void> refresh() async { if (mounted) setState(() => appointmentsFuture = load()); }
+
+  Future<void> setStatus(String id, String status) async {
+    try {
+      await sb.rpc('update_appointment_status', params: {'p_appointment_id': id, 'p_status': status});
+      await refresh();
+      if (mounted) toast(context, status == 'completed' ? 'Randevu tamamlandı' : 'Randevu gelmedi olarak işaretlendi');
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> cancel(String id) async {
+    try { await sb.rpc('cancel_appointment', params: {'p_appointment_id': id}); await refresh(); }
+    catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(widget.employee['businesses']?['name'] ?? 'Çalışan paneli'), actions: [
+      IconButton(tooltip:'Çalışmanı paylaş',onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>EmployeeFeedComposerPage(employee:widget.employee))),icon:const Icon(Icons.add_a_photo_outlined)),
+      IconButton(tooltip:'Mesajlar',onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>EmployeeConversationsPage(employeeId:widget.employee['id'].toString()))),icon:const Icon(Icons.chat_bubble_outline_rounded)),
+      notificationAction(context),
+      IconButton(tooltip: 'Yenile', onPressed: refresh, icon: const Icon(Icons.refresh_rounded)),
+      IconButton(tooltip: 'Çıkış yap', onPressed: () => signOutKuaförüm(), icon: const Icon(Icons.logout_rounded)),
+    ]),
+    body: FutureBuilder<List<Map<String, dynamic>>>(future: appointmentsFuture, builder: (context, snap) {
+      if (snap.connectionState != ConnectionState.done) return const LoadingPage();
+      if (snap.hasError) return ErrorPage(message: err(snap.error!));
+      final rows = snap.data ?? [];
+      final active = rows.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length;
+      return RefreshIndicator(
+        onRefresh: refresh,
+        child: ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+          const ScreenHeading(eyebrow: 'ÇALIŞAN PANELİ', title: 'Randevularım', subtitle: 'Yalnızca sana atanmış randevuları takip et ve durumlarını yönet.', icon: Icons.event_note_rounded),
+          Row(children: [
+            Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.calendar_month_rounded, color: gold), const SizedBox(height: 8),
+              Text('${rows.length}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+              const Text('Toplam randevu', style: TextStyle(color: muted, fontSize: 11)),
+            ]))),
+            const SizedBox(width: 10),
+            Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.pending_actions_rounded, color: gold), const SizedBox(height: 8),
+              Text('$active', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+              const Text('Aktif randevu', style: TextStyle(color: muted, fontSize: 11)),
+            ]))),
+          ]),
+          const SizedBox(height: 16),
+          if (rows.isEmpty) const AppPanel(child: EmptyStateView(icon: Icons.event_busy_rounded, title: 'Henüz randevun yok', subtitle: 'Sana atanmış yeni randevular burada görünecek.')),
+          ...rows.map((a) => BusinessAppointmentCard(
+            appointment: a,
+            onComplete: (a['status'] == 'pending' || a['status'] == 'confirmed') ? () => setStatus(a['appointment_id'].toString(), 'completed') : null,
+            onCancel: (a['status'] == 'pending' || a['status'] == 'confirmed') ? () => cancel(a['appointment_id'].toString()) : null,
+          )),
+        ]),
+      );
+    }),
+  );
+}
+
+class EmployeeInvitePage extends StatefulWidget { const EmployeeInvitePage({super.key}); @override State<EmployeeInvitePage> createState()=>_EmployeeInvitePageState(); }
+class _EmployeeInvitePageState extends State<EmployeeInvitePage>{
+ final code=TextEditingController(); bool busy=false;
+ Future<void> claim()async{if(code.text.trim().isEmpty){toast(context,'Davet kodunu gir');return;}final confirmed=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(title:const Text('Çalışan olarak katıl'),content:const Text('Bu davet kodu hesabını ilgili işletmeye çalışan olarak bağlar. İşlemden sonra müşteri ana ekranı yerine çalışan paneli açılır; mevcut müşteri verilerin silinmez. Devam etmek istiyor musun?'),actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('Vazgeç')),FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('Devam et'))]));if(confirmed!=true)return;setState(()=>busy=true);try{await sb.rpc('claim_employee_invite',params:{'p_code':code.text.trim().toUpperCase()});if(!mounted)return;toast(context,'Çalışan daveti hesabına tanımlandı');Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AuthGate()),(r)=>false);}catch(e){if(mounted)toast(context,err(e));}finally{if(mounted)setState(()=>busy=false);}}
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Çalışan daveti')),body:ListView(padding:const EdgeInsets.all(20),children:[const ScreenHeading(eyebrow:'PERSONEL KATILIMI',title:'Ekibine katıl',subtitle:'İşletme sahibinin sana özel oluşturduğu tek kullanımlık davet kodunu gir.',icon:Icons.badge_rounded),AppPanel(child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[const FieldLabel('ÇALIŞAN DAVET KODU'),TextField(controller:code,textCapitalization:TextCapitalization.characters,decoration:const InputDecoration(hintText:'DAVET KODUNU GİR',prefixIcon:Icon(Icons.key_rounded))),const SizedBox(height:18),SizedBox(height:52,child:ElevatedButton(onPressed:busy?null:claim,child:busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:ink)):const Text('Daveti kabul et')))]))]));
+ }
+
+
+class CustomerQrScannerPage extends StatefulWidget {
+  const CustomerQrScannerPage({super.key});
+  @override State<CustomerQrScannerPage> createState() => _CustomerQrScannerPageState();
+}
+class _CustomerQrScannerPageState extends State<CustomerQrScannerPage> {
+  final codeController = TextEditingController();
+  bool handled = false;
+
+  @override
+  void dispose() {
+    codeController.dispose();
+    super.dispose();
+  }
+
+  void _returnCode(String raw) {
+    if (handled || !mounted) return;
+    final code = normalizeBusinessJoinCode(raw);
+    if (code.isEmpty) {
+      toast(context, 'İşletme kodunu gir veya QR kodunu okut');
+      return;
+    }
+    handled = true;
+    Navigator.of(context).pop(code);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('İşletmeye katıl')),
+    body: SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            flex: 6,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                MobileScanner(
+                  onDetect: (capture) {
+                    if (handled) return;
+                    for (final barcode in capture.barcodes) {
+                      final raw = barcode.rawValue?.trim();
+                      if (raw == null || raw.isEmpty) continue;
+                      _returnCode(raw);
+                      return;
+                    }
+                  },
+                  errorBuilder: (context, error, child) => Container(
+                    color: panel,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.all(24),
+                    child: AppPanel(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.no_photography_outlined, color: gold, size: 34),
+                          const SizedBox(height: 12),
+                          const Text('Kamera başlatılamadı', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                          const SizedBox(height: 7),
+                          const Text(
+                            'Kamera iznini ve cihaz kamerasını kontrol et. Kameran çalışmıyorsa aşağıya işletme kodunu yazabilirsin.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: muted, fontSize: 12, height: 1.45),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(error.errorCode.toString(), textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  onDetectError: (error, stackTrace) {
+                    debugPrint('Kuaförüm QR scan error: $error');
+                  },
+                ),
+                IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      width: 250,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: gold, width: 3),
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 18,
+                  child: Text(
+                    'İşletmenin QR kodunu çerçevenin içine al.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: ivory, fontWeight: FontWeight.w700, shadows: [Shadow(color: Colors.black, blurRadius: 8)]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AppPanel(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Kameran çalışmıyor mu?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 5),
+                const Text('QR kodunun altındaki işletme kodunu buraya yazarak da katılabilirsin.', style: TextStyle(color: muted, fontSize: 12, height: 1.4)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeController,
+                  textCapitalization: TextCapitalization.characters,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: 'İşletme kodu',
+                    hintText: 'ÖRN. KUAFÖRÜM KODU',
+                    prefixIcon: Icon(Icons.key_rounded),
+                  ),
+                  onSubmitted: _returnCode,
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: handled ? null : () => _returnCode(codeController.text),
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('Kod ile işletmeye katıl'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+class CustomerProfilePage extends StatefulWidget {
+  const CustomerProfilePage({super.key});
+  @override State<CustomerProfilePage> createState() => _CustomerProfilePageState();
+}
+class _CustomerProfilePageState extends State<CustomerProfilePage> {
+  late Future<Map<String, dynamic>?> profileFuture;
+  late Future<List<Map<String, dynamic>>> membershipsFuture;
+  @override void initState() { super.initState(); _reload(); }
+  void _reload() {
+    profileFuture = sb.from('profiles').select('full_name,email,phone').eq('id', uid).maybeSingle();
+    membershipsFuture = sb.from('business_memberships').select('business_id, businesses(id,name,address)').eq('customer_id', uid);
+  }
+  Future<void> leaveBusiness(String businessId, String name) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('İşletmeden ayrıl'),
+      content: Text('$name işletmesinden ayrılmak istediğine emin misin? Randevu geçmişin silinmez.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ayrıl')),
+      ],
+    ));
+    if (confirmed != true) return;
+    try {
+      await sb.rpc('leave_business', params: {'p_business_id': businessId});
+      if (!mounted) return;
+      toast(context, 'İşletmeden ayrıldın');
+      Navigator.of(context).pop(true);
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Profilim')),
+    body: FutureBuilder<Map<String, dynamic>?>(future: profileFuture, builder: (context, profile) {
+      if (profile.connectionState != ConnectionState.done) return const LoadingPage();
+      if (profile.hasError) return ErrorPage(message: err(profile.error!));
+      final p = profile.data ?? {};
+      return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, 28), children: [
+        const ScreenHeading(eyebrow: 'HESABIM', title: 'Profilim', subtitle: 'Hesap bilgilerini ve işletme üyeliklerini buradan yönet.', icon: Icons.person_outline_rounded),
+        AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text((p['full_name'] ?? 'Kuaförüm kullanıcısı').toString(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const SizedBox(height: 6),
+          Text((p['email'] ?? '').toString(), style: const TextStyle(color: muted, fontSize: 12)),
+          if ((p['phone'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(p['phone'].toString(), style: const TextStyle(color: muted, fontSize: 12))),
+        ])),
+        const SizedBox(height: 18),
+        const SectionHeading('İşletme üyeliğim'),
+        FutureBuilder<List<Map<String, dynamic>>>(future: membershipsFuture, builder: (context, memberships) {
+          if (memberships.connectionState != ConnectionState.done) return const LinearProgressIndicator();
+          if (memberships.hasError) return Text(err(memberships.error!), style: const TextStyle(color: Colors.redAccent));
+          final rows = memberships.data ?? [];
+          if (rows.isEmpty) return const AppPanel(child: EmptyStateView(icon: Icons.storefront_outlined, title: 'Bir işletmeye bağlı değilsin', subtitle: 'İşletmenin QR kodunu okutarak katılabilirsin.'));
+          return Column(children: rows.map((row) {
+            final business = row['businesses'] as Map<String, dynamic>? ?? {};
+            final businessName = (business['name'] ?? 'İşletme').toString();
+            return AppPanel(margin: const EdgeInsets.only(bottom: 10), child: Row(children: [
+              const CircleAvatar(backgroundColor: ink, child: Icon(Icons.storefront_rounded, color: gold)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(businessName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                if ((business['address'] ?? '').toString().isNotEmpty) Text(business['address'].toString(), style: const TextStyle(color: muted, fontSize: 11)),
+              ])),
+              TextButton(onPressed: () => leaveBusiness(row['business_id'].toString(), businessName), child: const Text('Kuaförüm’den ayrıl')),
+            ]));
+          }).toList());
+        }),
+      ]);
+    }),
+  );
+}
+class CustomerAppointmentsPage extends StatefulWidget {
+  const CustomerAppointmentsPage({super.key});
+
+  @override
+  State<CustomerAppointmentsPage> createState() => _CustomerAppointmentsPageState();
+}
+
+class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage> {
+  late Future<List<Map<String, dynamic>>> appointmentsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    appointmentsFuture = _load();
+  }
+
+  Future<List<Map<String, dynamic>>> _load() async {
+    final rows = await sb.from('appointments')
+        .select('id,starts_at,ends_at,status,requires_business_approval,businesses(name),services(name)')
+        .eq('customer_id', uid)
+        .order('starts_at', ascending: false)
+        .limit(100);
+    return (rows as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> refresh() async {
+    final next = _load();
+    if (mounted) setState(() => appointmentsFuture = next);
+    await next;
+  }
+
+  List<Map<String, dynamic>> _byStatus(
+    List<Map<String, dynamic>> rows,
+    String group,
+  ) => filterCustomerAppointments(rows, group);
+
+  void _openCategory(String group, String title, String subtitle) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CustomerAppointmentCategoryPage(
+        group: group,
+        title: title,
+        subtitle: subtitle,
+      ),
+    ));
+  }
+
+  Widget _categoryCard({
+    required String group,
+    required String title,
+    required String subtitle,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) => AppPanel(
+    margin: const EdgeInsets.only(bottom: 11),
+    padding: EdgeInsets.zero,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () => _openCategory(group, title, subtitle),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+        child: Row(children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 13),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              )),
+              const SizedBox(height: 4),
+              Text(subtitle, style: const TextStyle(
+                color: muted,
+                fontSize: 11,
+                height: 1.35,
+              )),
+            ],
+          )),
+          Container(
+            constraints: const BoxConstraints(minWidth: 34),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('${count}', textAlign: TextAlign.center, style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+            )),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: muted),
+        ]),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Randevularım'),
+      actions: [
+        IconButton(
+          tooltip: 'Yenile',
+          onPressed: refresh,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+    ),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: appointmentsFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const LoadingPage();
+        }
+        if (snap.hasError) return ErrorPage(message: err(snap.error!));
+
+        final all = snap.data ?? [];
+        final upcoming = _byStatus(all, 'upcoming');
+        final completed = _byStatus(all, 'completed');
+        final cancelled = _byStatus(all, 'cancelled');
+        final next = upcoming.isEmpty ? null : upcoming.first;
+        final nextDate = next == null
+            ? null
+            : DateTime.tryParse(next['starts_at'].toString())?.toLocal();
+
+        return RefreshIndicator(
+          onRefresh: refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+            children: [
+              const ScreenHeading(
+                eyebrow: 'KİŞİSEL TAKVİM',
+                title: 'Randevularım',
+                subtitle: 'Her randevu grubunu ayrı ekranda, kolayca takip et.',
+                icon: Icons.calendar_month_rounded,
+              ),
+              AppPanel(
+                padding: const EdgeInsets.all(17),
+                child: Row(children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: gold.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.event_note_rounded, color: gold),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Toplam randevun', style: TextStyle(
+                        color: muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      )),
+                      const SizedBox(height: 3),
+                      Text('${all.length}', style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      )),
+                    ],
+                  )),
+                  if (nextDate != null) Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Sıradaki', style: TextStyle(
+                        color: muted,
+                        fontSize: 10,
+                      )),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${nextDate.day.toString().padLeft(2, '0')}.${nextDate.month.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                          color: goldLight,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        '${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                          color: ivory,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              const SectionHeading('Randevu kategorileri'),
+              _categoryCard(
+                group: 'upcoming',
+                title: 'Yaklaşan randevular',
+                subtitle: 'Gelecek randevularını ve saatlerini gör.',
+                count: upcoming.length,
+                icon: Icons.event_available_rounded,
+                color: gold,
+              ),
+              _categoryCard(
+                group: 'completed',
+                title: 'Tamamlanan randevular',
+                subtitle: 'Daha önce aldığın hizmetleri incele.',
+                count: completed.length,
+                icon: Icons.task_alt_rounded,
+                color: Colors.greenAccent,
+              ),
+              _categoryCard(
+                group: 'cancelled',
+                title: 'İptal edilen randevular',
+                subtitle: 'İptal edilen veya katılmadığın randevular.',
+                count: cancelled.length,
+                icon: Icons.event_busy_rounded,
+                color: Colors.redAccent,
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class CustomerAppointmentCategoryPage extends StatefulWidget {
+  const CustomerAppointmentCategoryPage({
+    super.key,
+    required this.group,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String group;
+  final String title;
+  final String subtitle;
+
+  @override
+  State<CustomerAppointmentCategoryPage> createState() =>
+      _CustomerAppointmentCategoryPageState();
+}
+
+class _CustomerAppointmentCategoryPageState
+    extends State<CustomerAppointmentCategoryPage> {
+  late Future<List<Map<String, dynamic>>> appointmentsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    appointmentsFuture = _load();
+  }
+
+  Future<List<Map<String, dynamic>>> _load() async {
+    final rows = await sb.from('appointments')
+        .select('id,starts_at,ends_at,status,requires_business_approval,businesses(name),services(name)')
+        .eq('customer_id', uid)
+        .order('starts_at', ascending: false)
+        .limit(100);
+    final all = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    return filterCustomerAppointments(all, widget.group);
+  }
+
+  Future<void> refresh() async {
+    final next = _load();
+    if (mounted) setState(() => appointmentsFuture = next);
+    await next;
+  }
+
+  Widget _appointmentCard(Map<String, dynamic> appointment) {
+    final business = appointment['businesses'] as Map<String, dynamic>? ?? {};
+    final service = appointment['services'] as Map<String, dynamic>? ?? {};
+    final status = (appointment['status'] ?? '').toString();
+    final color = status == 'completed'
+        ? Colors.greenAccent
+        : status == 'cancelled' || status == 'no_show'
+            ? Colors.redAccent
+            : gold;
+    final parsed = DateTime.tryParse(
+      (appointment['starts_at'] ?? '').toString(),
+    )?.toLocal();
+    final day = parsed == null
+        ? 'Tarih bilgisi yok'
+        : '${parsed.day.toString().padLeft(2, '0')}.${parsed.month.toString().padLeft(2, '0')}.${parsed.year}';
+    final time = parsed == null
+        ? '--:--'
+        : '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 11),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 43,
+              height: 43,
+              decoration: BoxDecoration(
+                color: gold.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.storefront_rounded, color: gold),
+            ),
+            const SizedBox(width: 11),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (business['name'] ?? 'İşletme').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  (service['name'] ?? 'Hizmet').toString(),
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ],
+            )),
+            StatusTag(
+              appointment['requires_business_approval'] == true
+                  ? 'İŞLETME ONAYI BEKLENİYOR'
+                  : appointmentStatusLabel(status),
+              color: appointment['requires_business_approval'] == true ? Colors.orangeAccent : color,
+            ),
+          ]),
+          const SizedBox(height: 13),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: ink,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: border),
+            ),
+            child: Row(children: [
+              const Icon(Icons.calendar_month_rounded, size: 17, color: gold),
+              const SizedBox(width: 8),
+              Expanded(child: Text(day, style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ))),
+              const Icon(Icons.schedule_rounded, size: 17, color: gold),
+              const SizedBox(width: 6),
+              Text(time, style: const TextStyle(
+                color: goldLight,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              )),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(widget.title),
+      actions: [
+        IconButton(
+          tooltip: 'Yenile',
+          onPressed: refresh,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+    ),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: appointmentsFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const LoadingPage();
+        }
+        if (snap.hasError) return ErrorPage(message: err(snap.error!));
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                ScreenHeading(
+                  title: widget.title,
+                  subtitle: widget.subtitle,
+                  icon: Icons.event_note_rounded,
+                ),
+                const AppPanel(
+                  child: EmptyStateView(
+                    icon: Icons.event_busy_rounded,
+                    title: 'Bu bölümde randevu yok',
+                    subtitle: 'Yeni bir randevu oluştuğunda burada göreceksin.',
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: refresh,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+            itemCount: rows.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return ScreenHeading(
+                  title: widget.title,
+                  subtitle: widget.subtitle,
+                  icon: Icons.event_note_rounded,
+                );
+              }
+              return _appointmentCard(rows[index - 1]);
+            },
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class CustomerPage extends StatefulWidget {
+ const CustomerPage({super.key});
+ @override State<CustomerPage> createState()=>_CustomerPageState();
+}
+class _CustomerPageState extends State<CustomerPage>{
+ int tab=0;
+ late Future<List<Map<String,dynamic>>> memberships;
+ @override void initState(){super.initState();memberships=_load();}
+ Future<List<Map<String,dynamic>>> _load()async{
+  final rows=await sb.from('business_memberships').select('business_id,businesses(id,name)').eq('customer_id',uid);
+  return (rows as List).map((e)=>e['businesses']).whereType<Map<String,dynamic>>().toList();
+ }
+ Future<void> _join()async{
+  final code=await Navigator.of(context).push<String>(MaterialPageRoute(builder:(_)=>const CustomerQrScannerPage()));
+  if(code==null||code.trim().isEmpty)return;
+  try{await sb.rpc('join_business_by_code',params:{'p_code':code.trim().toUpperCase()});if(!mounted)return;setState(()=>memberships=_load());toast(context,'İşletmeye katıldın');}
+  catch(e){if(mounted)toast(context,err(e));}
+ }
+ Future<void> _profile()async{
+  final changed=await Navigator.of(context).push<bool>(MaterialPageRoute(builder:(_)=>const CustomerProfilePage()));
+  if(changed==true&&mounted)setState(()=>memberships=_load());
+ }
+ void _openBusiness(Map<String,dynamic> business){
+  Navigator.of(context).push(MaterialPageRoute(builder:(_)=>CustomerBookingFlowPage(businesses:[business])));
+ }
+ Widget _businessCard(Map<String,dynamic> business,int index){
+  final name=(business['name']??'Berber dükkanı').toString();
+  return Padding(
+   padding:const EdgeInsets.only(bottom:12),
+   child:Material(
+    color:Colors.transparent,
+    child:InkWell(
+     borderRadius:BorderRadius.circular(25),
+     onTap:()=>_openBusiness(business),
+     child:Ink(
+      decoration:BoxDecoration(
+       borderRadius:BorderRadius.circular(25),
+       gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:index.isEven?const [Color(0xFF28251F),Color(0xFF1A1B20),Color(0xFF121317)]:const [Color(0xFF22262A),Color(0xFF1A1B20),Color(0xFF121317)]),
+       border:Border.all(color:gold.withValues(alpha:.28)),
+       boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:.16),blurRadius:20,offset:const Offset(0,9))],
+      ),
+      child:Padding(
+       padding:const EdgeInsets.all(17),
+       child:Row(children:[
+        Container(width:58,height:58,decoration:BoxDecoration(borderRadius:BorderRadius.circular(19),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[goldLight,gold]),boxShadow:[BoxShadow(color:gold.withValues(alpha:.15),blurRadius:16,offset:const Offset(0,6))]),child:const Icon(Icons.content_cut_rounded,color:ink,size:28)),
+        const SizedBox(width:14),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Row(children:[Flexible(child:Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w900,letterSpacing:-.25))),const SizedBox(width:6),const Icon(Icons.verified_rounded,color:goldLight,size:15)]),
+         const SizedBox(height:7),
+         Row(children:[Container(width:7,height:7,decoration:const BoxDecoration(color:Color(0xFF78C99A),shape:BoxShape.circle)),const SizedBox(width:6),const Text('ÜYELİĞİN AKTİF',style:TextStyle(color:Color(0xFFB8DCC5),fontSize:9,fontWeight:FontWeight.w900,letterSpacing:.8))]),
+         const SizedBox(height:7),
+         const Text('Bu dükkândan randevu al',style:TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600)),
+        ])),
+        const SizedBox(width:8),
+        Container(width:38,height:38,decoration:BoxDecoration(color:gold.withValues(alpha:.13),borderRadius:BorderRadius.circular(13)),child:const Icon(Icons.arrow_forward_rounded,color:goldLight,size:20)),
+       ]),
+      ),
+     ),
+    ),
+   ),
+  );
+ }
+ @override Widget build(BuildContext c)=>Scaffold(
+  appBar:AppBar(
+   title:Row(children:[Container(width:34,height:34,decoration:BoxDecoration(gradient:const LinearGradient(colors:[goldLight,gold]),borderRadius:BorderRadius.circular(11)),child:const Icon(Icons.content_cut_rounded,color:ink,size:19)),const SizedBox(width:10),const Text('Kuaförüm',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:-.5))]),
+   actions:[
+    IconButton(tooltip:'Randevularım',onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerAppointmentsPage())),icon:const Icon(Icons.event_note_rounded)),
+    notificationAction(context),
+    PopupMenuButton<String>(onSelected:(v){if(v=='profile')_profile();},itemBuilder:(_)=>const [PopupMenuItem(value:'profile',child:ListTile(contentPadding:EdgeInsets.zero,leading:Icon(Icons.person_outline_rounded),title:Text('Profilim')))]),
+    IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaförüm(),icon:const Icon(Icons.logout_rounded)),
+   ],
+  ),
+  body:IndexedStack(index:tab,children:[FutureBuilder<List<Map<String,dynamic>>>(future:memberships,builder:(c,s){
+   if(s.connectionState!=ConnectionState.done)return const LoadingPage();
+   if(s.hasError)return ErrorPage(message:err(s.error!));
+   final businesses=s.data??[];
+   return RefreshIndicator(
+    onRefresh:()async{setState(()=>memberships=_load());await memberships;},
+    child:ListView(
+     physics:const AlwaysScrollableScrollPhysics(),
+     padding:const EdgeInsets.fromLTRB(18,10,18,30),
+     children:[
+      Container(
+       padding:const EdgeInsets.fromLTRB(21,21,18,20),
+       decoration:BoxDecoration(borderRadius:BorderRadius.circular(28),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF383126),Color(0xFF202127),Color(0xFF111216)]),border:Border.all(color:gold.withValues(alpha:.34)),boxShadow:[BoxShadow(color:gold.withValues(alpha:.07),blurRadius:28,offset:const Offset(0,12))]),
+       child:Stack(children:[
+        Positioned(right:-12,top:-17,child:Icon(Icons.content_cut_rounded,size:132,color:gold.withValues(alpha:.07))),
+        Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:7),decoration:BoxDecoration(color:gold.withValues(alpha:.13),borderRadius:BorderRadius.circular(30),border:Border.all(color:gold.withValues(alpha:.25))),child:const Text('BAKIMININ YENİ ADRESİ',style:TextStyle(color:goldLight,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.25))),
+         const SizedBox(height:16),
+         const Text('Tarzını tamamla.\nKuaförünü seç.',style:TextStyle(fontSize:27,height:1.12,fontWeight:FontWeight.w900,letterSpacing:-.9)),
+         const SizedBox(height:9),
+         const Text('Sana özel randevu deneyimi için bağlı olduğun dükkânı seç.',style:TextStyle(color:Color(0xFFC0C0C3),fontSize:12,height:1.5)),
+         const SizedBox(height:18),
+         Row(children:[const Icon(Icons.schedule_rounded,color:goldLight,size:16),const SizedBox(width:7),const Text('Kolay seçim  ·  Hızlı randevu',style:TextStyle(color:goldLight,fontSize:10,fontWeight:FontWeight.w800))]),
+        ]),
+       ]),
+      ),
+      const SizedBox(height:25),
+      Row(crossAxisAlignment:CrossAxisAlignment.end,children:[
+       const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text('SENİN DÜKKÂNLARIN',style:TextStyle(color:gold,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+        SizedBox(height:6),
+        Text('Dükkânını seç',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,letterSpacing:-.55)),
+        SizedBox(height:4),
+        Text('Randevu almak istediğin berberi seç.',style:TextStyle(color:muted,fontSize:11)),
+       ])),
+       Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:7),decoration:BoxDecoration(color:panelRaised,borderRadius:BorderRadius.circular(13),border:Border.all(color:border)),child:Text('${businesses.length} DÜKKÂN',style:const TextStyle(color:goldLight,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:.5))),
+      ]),
+      const SizedBox(height:14),
+      if(businesses.isEmpty)
+       AppPanel(padding:const EdgeInsets.fromLTRB(18,21,18,18),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+        Container(height:104,decoration:BoxDecoration(borderRadius:BorderRadius.circular(21),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF302B22),Color(0xFF1B1C21)])),child:const Center(child:Icon(Icons.storefront_rounded,color:goldLight,size:46))),
+        const SizedBox(height:17),
+        const Text('İlk kuaförünü ekle',textAlign:TextAlign.center,style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+        const SizedBox(height:7),
+        const Text('Dükkândaki QR kodu okut veya işletme kodunu gir. Berberinle eşleş, randevunu buradan yönet.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:12,height:1.5)),
+        const SizedBox(height:17),
+        SizedBox(height:50,child:ElevatedButton.icon(onPressed:_join,icon:const Icon(Icons.qr_code_scanner_rounded),label:const Text('DÜKKÂNIMI EKLE'))),
+       ]))
+      else ...[
+       ...businesses.asMap().entries.map((entry)=>_businessCard(entry.value,entry.key)),
+       OutlinedButton.icon(onPressed:_join,icon:const Icon(Icons.add_business_rounded,size:18),label:const Text('Başka bir dükkân ekle'),style:OutlinedButton.styleFrom(minimumSize:const Size.fromHeight(48),foregroundColor:goldLight,side:BorderSide(color:gold.withValues(alpha:.35)),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)))),
+      ],
+      const SizedBox(height:23),
+      AppPanel(padding:const EdgeInsets.all(16),child:Row(children:[
+       Container(width:44,height:44,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(14)),child:const Icon(Icons.calendar_month_rounded,color:gold,size:22)),
+       const SizedBox(width:12),
+       const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Randevularım',style:TextStyle(fontWeight:FontWeight.w900,fontSize:14)),SizedBox(height:3),Text('Yaklaşan ve geçmiş randevularını takip et.',style:TextStyle(color:muted,fontSize:10))])),
+       IconButton(onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerAppointmentsPage())),icon:const Icon(Icons.arrow_forward_rounded,color:gold)),
+      ])),
+      const SizedBox(height:13),
+      const Center(child:Text('KUAFÖRÜM  ·  BAKIMIN SANA ÖZEL',style:TextStyle(color:Color(0xFF666A72),fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.1))),
+     ],
+    ),
+   );
+  }),
+   const FeedTimelinePage(mode:'followed'),
+   const FeedTimelinePage(mode:'discover'),
+   const CustomerConversationsPage(),
+  ]),
+  bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const [
+   NavigationDestination(icon:Icon(Icons.storefront_outlined),selectedIcon:Icon(Icons.storefront_rounded),label:'İşletmeler'),
+   NavigationDestination(icon:Icon(Icons.favorite_border_rounded),selectedIcon:Icon(Icons.favorite_rounded),label:'Takip Edilen'),
+   NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore_rounded),label:'Keşfet'),
+   NavigationDestination(icon:Icon(Icons.chat_bubble_outline_rounded),selectedIcon:Icon(Icons.chat_bubble_rounded),label:'Mesajlar'),
+  ]),
+ );
+}
+
+
+class FeedTimelinePage extends StatefulWidget {
+ const FeedTimelinePage({super.key,required this.mode});
+ final String mode;
+ @override State<FeedTimelinePage> createState()=>_FeedTimelinePageState();
+}
+class _FeedTimelinePageState extends State<FeedTimelinePage>{
+ late Future<List<Map<String,dynamic>>> future;
+ @override void initState(){super.initState();future=load();}
+ Future<List<Map<String,dynamic>>> load()async{
+  if(widget.mode=='followed'){
+   final ms=await sb.from('business_memberships').select('business_id').eq('customer_id',uid);
+   final ids=(ms as List).map((e)=>e['business_id'].toString()).toList();
+   if(ids.isEmpty)return [];
+   final rows=await sb.from('feed_posts').select('*,businesses(name),employees(display_name)').inFilter('business_id',ids).order('created_at',ascending:false).limit(100);
+   return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
+  }
+  final rows=await sb.from('feed_posts').select('*,businesses!inner(name,discover_enabled),employees(display_name)').eq('businesses.discover_enabled',true).order('created_at',ascending:false).limit(100);
+  return (rows as List).map((e)=>Map<String,dynamic>.from(e)).toList();
+ }
+ Future<void> message(Map<String,dynamic> post)async{
+  try{
+   final emp=post['employee_id'].toString();
+   final old=await sb.from('conversations').select('id').eq('employee_id',emp).eq('customer_id',uid).maybeSingle();
+   final conv=old??await sb.from('conversations').insert({'business_id':post['business_id'],'employee_id':emp,'customer_id':uid,'source_post_id':post['id']}).select('id').single();
+   if(!mounted)return;
+   await Navigator.push(context,MaterialPageRoute(builder:(_)=>ConversationPage(conversationId:conv['id'].toString(),title:(post['employees']?['display_name']??'Çalışan').toString())));
+  }catch(e){if(mounted)toast(context,err(e));}
+ }
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:Text(widget.mode=='followed'?'Takip Edilen':'Keşfet'),actions:[IconButton(onPressed:()=>setState(()=>future=load()),icon:const Icon(Icons.refresh_rounded))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();
+  if(s.hasError)return ErrorPage(message:err(s.error!));
+  final rows=s.data??[];
+  if(rows.isEmpty)return Center(child:EmptyStateView(icon:widget.mode=='followed'?Icons.favorite_border:Icons.explore_outlined,title:widget.mode=='followed'?'Henüz paylaşım yok':'Keşfet henüz boş',subtitle:widget.mode=='followed'?'Bağlı olduğun işletmelerin çalışan paylaşımları burada görünür.':'Keşfet yetkisi açılmış işletmelerin paylaşımları burada görünür.'));
+  return RefreshIndicator(onRefresh:()async{setState(()=>future=load());await future;},child:ListView(padding:const EdgeInsets.all(14),children:rows.map((p)=>FeedPostCard(post:p,onMessage:()=>message(p))).toList()));
+ }));
+}
+
+class FeedPostCard extends StatelessWidget{
+ const FeedPostCard({super.key,required this.post,required this.onMessage});
+ final Map<String,dynamic> post;final VoidCallback onMessage;
+ @override Widget build(BuildContext c){
+  final video=post['media_type']=='video';
+  return AppPanel(margin:const EdgeInsets.only(bottom:14),padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+   Row(children:[const CircleAvatar(backgroundColor:Color(0xFFF8ECEE),child:Icon(Icons.spa_rounded,color:gold)),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text((post['businesses']?['name']??'Kuaför salonu').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),Text((post['employees']?['display_name']??'Çalışan').toString(),style:const TextStyle(color:muted,fontSize:11))]))]),
+   const SizedBox(height:12),
+   ClipRRect(borderRadius:BorderRadius.circular(17),child:video?FeedVideoPlayer(url:post['media_url'].toString()):Image.network(post['media_url'].toString(),height:250,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>Container(height:180,color:panelRaised,child:const Icon(Icons.image_not_supported_outlined,color:muted,size:40)))),
+   if((post['caption']??'').toString().trim().isNotEmpty)Padding(padding:const EdgeInsets.only(top:12),child:Text(post['caption'].toString(),style:const TextStyle(fontSize:13,height:1.45))),
+   const SizedBox(height:8),
+   OutlinedButton.icon(onPressed:onMessage,icon:const Icon(Icons.chat_bubble_outline_rounded),label:const Text('Bu çalışanla mesajlaş')),
+  ]));
+ }
+}
+
+class FeedVideoPlayer extends StatefulWidget{
+ const FeedVideoPlayer({super.key,required this.url});final String url;
+ @override State<FeedVideoPlayer> createState()=>_FeedVideoPlayerState();
+}
+class _FeedVideoPlayerState extends State<FeedVideoPlayer>{
+ late final VideoPlayerController player;
+ @override void initState(){super.initState();player=VideoPlayerController.networkUrl(Uri.parse(widget.url))..initialize().then((_){if(mounted)setState((){});}).catchError((_){if(mounted)setState((){});});}
+ @override void dispose(){player.dispose();super.dispose();}
+ @override Widget build(BuildContext c){
+  if(!player.value.isInitialized)return Container(height:220,color:panelRaised,child:const Center(child:CircularProgressIndicator()));
+  return GestureDetector(onTap:(){setState(()=>player.value.isPlaying?player.pause():player.play());},child:AspectRatio(aspectRatio:player.value.aspectRatio,child:Stack(fit:StackFit.expand,children:[VideoPlayer(player),if(!player.value.isPlaying)const Center(child:Icon(Icons.play_circle_fill_rounded,color:Colors.white,size:58))])));
+ }
+}
+
+class EmployeeFeedComposerPage extends StatefulWidget{
+ const EmployeeFeedComposerPage({super.key,required this.employee});final Map<String,dynamic> employee;
+ @override State<EmployeeFeedComposerPage> createState()=>_EmployeeFeedComposerPageState();
+}
+class _EmployeeFeedComposerPageState extends State<EmployeeFeedComposerPage>{
+ final picker=ImagePicker();final caption=TextEditingController();XFile? media;String type='image';bool busy=false;
+ Future<void> choose(String t)async{final f=t=='video'?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88,maxWidth:2200);if(f!=null&&mounted)setState(()=>{media=f,type=t});}
+ Future<void> publish()async{
+  if(media==null){toast(context,'Fotoğraf veya video seç');return;}
+  setState(()=>busy=true);
+  try{
+   final bytes=await media!.readAsBytes();final ext=media!.name.contains('.')?media!.name.split('.').last.toLowerCase():(type=='video'?'mp4':'jpg');
+   final path=widget.employee['business_id'].toString()+'/'+uid+'_'+DateTime.now().millisecondsSinceEpoch.toString()+'.'+ext;
+   await sb.storage.from('salon-feed').uploadBinary(path,bytes,fileOptions:FileOptions(contentType:type=='video'?'video/mp4':'image/jpeg'));
+   final url=sb.storage.from('salon-feed').getPublicUrl(path);
+   await sb.from('feed_posts').insert({'business_id':widget.employee['business_id'],'employee_id':widget.employee['id'],'author_user_id':uid,'caption':caption.text.trim(),'media_url':url,'media_type':type});
+   if(!mounted)return;toast(context,'Paylaşım yayınlandı');Navigator.pop(context,true);
+  }catch(e){if(mounted)toast(context,err(e));}finally{if(mounted)setState(()=>busy=false);}
+ }
+ @override void dispose(){caption.dispose();super.dispose();}
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Çalışmanı paylaş')),body:ListView(padding:const EdgeInsets.all(18),children:[
+  const ScreenHeading(eyebrow:'KUAFÖRÜM AKIŞI',title:'Yeni paylaşım',subtitle:'Yaptığın işlemleri fotoğraf veya kısa video olarak müşterilerinle paylaş.',icon:Icons.auto_awesome_rounded),
+  Row(children:[Expanded(child:OutlinedButton.icon(onPressed:busy?null:()=>choose('image'),icon:const Icon(Icons.photo_outlined),label:const Text('Fotoğraf'))),const SizedBox(width:8),Expanded(child:OutlinedButton.icon(onPressed:busy?null:()=>choose('video'),icon:const Icon(Icons.video_library_outlined),label:const Text('Video')))]),
+  if(media!=null)Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text('Seçildi: '+media!.name,style:const TextStyle(color:gold,fontWeight:FontWeight.w700))),
+  const SizedBox(height:10),TextField(controller:caption,maxLines:4,maxLength:1000,decoration:const InputDecoration(labelText:'Açıklama',hintText:'Yaptığın işlemi anlat...')),
+  const SizedBox(height:18),SizedBox(height:52,child:ElevatedButton.icon(onPressed:busy?null:publish,icon:const Icon(Icons.publish_rounded),label:Text(busy?'Paylaşılıyor...':'Paylaşımı yayınla'))),
+ ]));
+}
+
+class CustomerConversationsPage extends StatefulWidget{
+ const CustomerConversationsPage({super.key});
+ @override State<CustomerConversationsPage> createState()=>_CustomerConversationsPageState();
+}
+class _CustomerConversationsPageState extends State<CustomerConversationsPage>{
+ late Future<List<Map<String,dynamic>>> future;
+ @override void initState(){super.initState();future=load();}
+ Future<List<Map<String,dynamic>>> load()async{final r=await sb.from('conversations').select('id,updated_at,employees(display_name),businesses(name)').eq('customer_id',uid).order('updated_at',ascending:false);return (r as List).map((e)=>Map<String,dynamic>.from(e)).toList();}
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Mesajlar'),actions:[IconButton(onPressed:()=>setState(()=>future=load()),icon:const Icon(Icons.refresh_rounded))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));final rows=s.data??[];
+  if(rows.isEmpty)return const Center(child:EmptyStateView(icon:Icons.chat_bubble_outline_rounded,title:'Henüz sohbetin yok',subtitle:'Bir çalışanın paylaşımından sohbet başlatabilirsin.'));
+  return ListView(padding:const EdgeInsets.all(14),children:rows.map((r)=>AppPanel(margin:const EdgeInsets.only(bottom:8),child:ListTile(leading:const CircleAvatar(child:Icon(Icons.person_outline_rounded)),title:Text((r['employees']?['display_name']??'Çalışan').toString()),subtitle:Text((r['businesses']?['name']??'Kuaför salonu').toString()),trailing:const Icon(Icons.chevron_right_rounded),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>ConversationPage(conversationId:r['id'].toString(),title:(r['employees']?['display_name']??'Çalışan').toString()))))).toList());
+ }));
+}
+
+class EmployeeConversationsPage extends StatefulWidget{
+ const EmployeeConversationsPage({super.key,required this.employeeId});final String employeeId;
+ @override State<EmployeeConversationsPage> createState()=>_EmployeeConversationsPageState();
+}
+class _EmployeeConversationsPageState extends State<EmployeeConversationsPage>{
+ late Future<List<Map<String,dynamic>>> future;
+ @override void initState(){super.initState();future=load();}
+ Future<List<Map<String,dynamic>>> load()async{final r=await sb.from('conversations').select('id,updated_at,customer_id').eq('employee_id',widget.employeeId).order('updated_at',ascending:false);return (r as List).map((e)=>Map<String,dynamic>.from(e)).toList();}
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Müşteri mesajları')),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
+  if(s.connectionState!=ConnectionState.done)return const LoadingPage();if(s.hasError)return ErrorPage(message:err(s.error!));final rows=s.data??[];
+  if(rows.isEmpty)return const Center(child:EmptyStateView(icon:Icons.chat_bubble_outline_rounded,title:'Henüz mesaj yok',subtitle:'Paylaşımlarına gelen müşteri mesajları burada görünür.'));
+  return ListView(padding:const EdgeInsets.all(14),children:rows.map((r)=>AppPanel(margin:const EdgeInsets.only(bottom:8),child:ListTile(leading:const CircleAvatar(child:Icon(Icons.person_outline_rounded)),title:const Text('Müşteri sohbeti'),subtitle:Text(r['updated_at'].toString()),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>ConversationPage(conversationId:r['id'].toString(),title:'Müşteri'))))).toList());
+ }));
+}
+
+class ConversationPage extends StatefulWidget{
+ const ConversationPage({super.key,required this.conversationId,required this.title});final String conversationId,title;
+ @override State<ConversationPage> createState()=>_ConversationPageState();
+}
+class _ConversationPageState extends State<ConversationPage>{
+ final input=TextEditingController();bool sending=false;late final Stream<List<Map<String,dynamic>>> stream;
+ @override void initState(){super.initState();stream=sb.from('messages').stream(primaryKey:['id']).eq('conversation_id',widget.conversationId).order('created_at');}
+ Future<void> send()async{final body=input.text.trim();if(body.isEmpty||sending)return;setState(()=>sending=true);try{await sb.from('messages').insert({'conversation_id':widget.conversationId,'sender_id':uid,'body':body});input.clear();}catch(e){if(mounted)toast(context,err(e));}finally{if(mounted)setState(()=>sending=false);}}
+ @override void dispose(){input.dispose();super.dispose();}
+ @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:Text(widget.title)),body:Column(children:[
+  Expanded(child:StreamBuilder<List<Map<String,dynamic>>>(stream:stream,builder:(c,s){if(s.hasError)return ErrorPage(message:err(s.error!));if(!s.hasData)return const LoadingPage();final rows=s.data??[];if(rows.isEmpty)return const Center(child:Text('Sohbeti başlatmak için mesaj gönder.',style:TextStyle(color:muted)));return ListView.builder(padding:const EdgeInsets.all(14),itemCount:rows.length,itemBuilder:(c,i){final r=rows[i];final mine=r['sender_id']==uid;return Align(alignment:mine?Alignment.centerRight:Alignment.centerLeft,child:Container(constraints:const BoxConstraints(maxWidth:310),margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.symmetric(horizontal:14,vertical:10),decoration:BoxDecoration(color:mine?gold.withValues(alpha:.16):panel,borderRadius:BorderRadius.circular(16),border:Border.all(color:border)),child:Text(r['body'].toString())));});})),
+  SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(12,8,12,12),child:Row(children:[Expanded(child:TextField(controller:input,minLines:1,maxLines:4,decoration:const InputDecoration(hintText:'Mesajını yaz...'))),const SizedBox(width:8),IconButton.filled(onPressed:sending?null:send,icon:const Icon(Icons.send_rounded))]))),
+ ]));
+}
+
+class CustomerBookingFlowPage extends StatelessWidget{
+ final List<Map<String,dynamic>> businesses;
+ const CustomerBookingFlowPage({super.key,required this.businesses});
+ Future<Map<String,dynamic>?> _pick(BuildContext context,{required String title,required String subtitle,required List<Map<String,dynamic>> rows,required String nameKey,required IconData icon,required int step,String? detailKey}){
+  return Navigator.of(context).push<Map<String,dynamic>>(MaterialPageRoute(builder:(_)=>CustomerRecordPickerPage(title:title,subtitle:subtitle,rows:rows,nameKey:nameKey,icon:icon,step:step,detailKey:detailKey)));
+ }
+ Future<void> _start(BuildContext context,Map<String,dynamic> b)async{
+  try{
+   final er=await sb.from('employees').select().eq('business_id',b['id']).eq('is_active',true);
+   final employees=(er as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+   if(!context.mounted)return;
+   if(employees.isEmpty){toast(context,'Bu işletmede aktif çalışan bulunamadı');return;}
+   final employee=await _pick(context,title:'Kuaförünü seç',subtitle:'Randevunu almak istediğin berberi seç.',rows:employees,nameKey:'display_name',icon:Icons.person_outline_rounded,step:2);
+   if(employee==null||!context.mounted)return;
+   final sr=await sb.from('services').select().eq('business_id',b['id']).eq('is_active',true);
+   final services=(sr as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+   if(!context.mounted)return;
+   if(services.isEmpty){toast(context,'Bu işletmede aktif hizmet bulunamadı');return;}
+   final service=await _pick(context,title:'Hizmetini seç',subtitle:'Almak istediğin hizmeti belirle.',rows:services,nameKey:'name',icon:Icons.content_cut_rounded,step:3,detailKey:'price');
+   if(service==null||!context.mounted)return;
+   await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>CustomerDateTimePage(business:b,employee:employee,service:service)));
+  }catch(e){if(context.mounted)toast(context,err(e));}
+ }
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(title:const Text('1 / 4 · İşletme')),
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,10,18,24),children:[
+   const ScreenHeading(eyebrow:'ADIM 1 / 4',title:'İşletmeni seç',subtitle:'Randevu almak istediğin işletmeyi seçerek devam et.',icon:Icons.storefront_rounded),
+   ...businesses.map((b)=>AppPanel(margin:const EdgeInsets.only(bottom:9),child:ListTile(
+    contentPadding:EdgeInsets.zero,leading:const Icon(Icons.storefront_rounded,color:gold),
+    title:Text((b['name']??'İşletme').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
+    trailing:const Icon(Icons.chevron_right_rounded,color:gold),
+    onTap:()=>_start(context,b),
+   ))),
+  ]),
+ );
+}
+
+class CustomerRecordPickerPage extends StatelessWidget{
+ final String title,subtitle,nameKey;final String? detailKey;final List<Map<String,dynamic>> rows;final IconData icon;final int step;
+ const CustomerRecordPickerPage({super.key,required this.title,required this.subtitle,required this.rows,required this.nameKey,required this.icon,required this.step,this.detailKey});
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(title:Text('$step / 4 · $title')),
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,10,18,24),children:[
+   ScreenHeading(eyebrow:'ADIM $step / 4',title:title,subtitle:subtitle,icon:icon),
+   ...rows.map((row)=>AppPanel(margin:const EdgeInsets.only(bottom:9),child:ListTile(
+    contentPadding:EdgeInsets.zero,
+    leading:Container(width:42,height:42,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:gold)),
+    title:Text((row[nameKey]??'').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
+    subtitle:detailKey==null?null:Text(detailKey=='price'?' ${row['price']} TL  •  ${row['duration_minutes']} dk':(row[detailKey]??'').toString(),style:const TextStyle(color:muted,fontSize:11)),
+    trailing:const Icon(Icons.arrow_forward_ios_rounded,size:16,color:gold),
+    onTap:()=>Navigator.of(context).pop(row),
+   ))),
+  ]),
+ );
+}
+
+class CustomerDateTimePage extends StatefulWidget{
+ final Map<String,dynamic> business,employee,service;
+ const CustomerDateTimePage({super.key,required this.business,required this.employee,required this.service});
+ @override State<CustomerDateTimePage> createState()=>_CustomerDateTimePageState();
+}
+class _CustomerDateTimePageState extends State<CustomerDateTimePage>{
+ DateTime day=DateTime.now().add(const Duration(days:1));String selectedTime='';bool busy=false;
+ String _date(DateTime d)=>'${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+ Future<List<String>> _slots()async{
+  final rows=await sb.rpc('get_available_slots',params:{'p_business_id':widget.business['id'],'p_employee_id':widget.employee['id'],'p_service_id':widget.service['id'],'p_date':_date(day)});
+  return (rows as List).map((r)=>(r['slot_start']??'').toString().substring(0,5)).toList();
+ }
+ Future<void> _book()async{
+  setState(()=>busy=true);
+  try{
+   final p=selectedTime.split(':').map(int.parse).toList();final local=DateTime(day.year,day.month,day.day,p[0],p[1]);
+   final appointmentId = await sb.rpc('book_appointment',params:{'p_business_id':widget.business['id'],'p_employee_id':widget.employee['id'],'p_service_id':widget.service['id'],'p_starts_at':local.toUtc().toIso8601String()});
+   final booking = await sb.from('appointments').select('requires_business_approval').eq('id', appointmentId.toString()).maybeSingle();
+   if(!mounted)return;
+   toast(context, booking?['requires_business_approval'] == true
+       ? 'Üç kez randevuna gelmediğin için işletme onayı bekleniyor.'
+       : 'Randevun oluşturuldu');
+   Navigator.of(context).popUntil((r)=>r.isFirst);
+  }catch(e){if(mounted)toast(context,err(e));}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(title:const Text('4 / 4 · Tarih ve saat')),
+  body:ListView(padding:const EdgeInsets.fromLTRB(18,10,18,24),children:[
+   const ScreenHeading(eyebrow:'ADIM 4 / 4',title:'Zamanını belirle',subtitle:'Önce günü, sonra müsait saatlerden birini seç.',icon:Icons.calendar_month_rounded),
+   AppPanel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text((widget.business['name']??'').toString(),style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15)),
+    const SizedBox(height:5),Text('${widget.service['name']} · ${widget.service['duration_minutes']} dk',style:const TextStyle(color:muted,fontSize:12)),
+    const SizedBox(height:3),Text((widget.employee['display_name']??'').toString(),style:const TextStyle(color:gold,fontSize:12)),
+   ])),
+   const SizedBox(height:14),
+   AppPanel(child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    const SectionHeading('Tarih seç'),
+    OutlinedButton.icon(onPressed:()async{
+     final d=await showDatePicker(context:context,initialDate:day,firstDate:DateTime.now(),lastDate:DateTime.now().add(const Duration(days:90)));
+     if(d!=null&&mounted)setState((){day=d;selectedTime='';});
+    },icon:const Icon(Icons.calendar_today_rounded),label:Text(_date(day))),
+    const SizedBox(height:16),const SectionHeading('Müsait saatler'),
+    FutureBuilder<List<String>>(future:_slots(),builder:(c,s){
+     if(s.connectionState!=ConnectionState.done)return const Padding(padding:EdgeInsets.all(14),child:Center(child:CircularProgressIndicator()));
+     if(s.hasError)return Text(err(s.error!),style:const TextStyle(color:Colors.redAccent,fontSize:12));
+     final slots=s.data??[];
+     if(slots.isEmpty)return const EmptyStateView(icon:Icons.event_busy_rounded,title:'Uygun saat yok',subtitle:'Başka bir tarih seçerek tekrar deneyebilirsin.');
+     return Wrap(spacing:8,runSpacing:8,children:slots.map((t)=>ChoiceChip(label:Text(t),selected:selectedTime==t,onSelected:(_)=>setState(()=>selectedTime=t))).toList());
+    }),
+   ])),
+   const SizedBox(height:16),
+   SizedBox(height:52,child:ElevatedButton.icon(onPressed:busy||selectedTime.isEmpty?null:_book,icon:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:ink)):const Icon(Icons.check_circle_outline_rounded),label:Text(busy?'Randevu oluşturuluyor…':'Randevumu onayla'))),
+  ]),
+ );
+}
