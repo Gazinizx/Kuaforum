@@ -59,6 +59,29 @@ jobs:
           manifest.write_text(text)
           print("Kuaförüm Android label, permissions and auth deep link configured.")
           PY
+      - name: Enable Java core library desugaring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          app = Path("android/app/build.gradle.kts")
+          kotlin_dsl = app.exists()
+          if not kotlin_dsl:
+              app = Path("android/app/build.gradle")
+          if not app.exists():
+              raise SystemExit("Android app Gradle file not found")
+          text = app.read_text()
+          if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
+              marker = "compileOptions {"
+              if marker not in text:
+                  raise SystemExit("compileOptions block not found")
+              setting = "\\n        isCoreLibraryDesugaringEnabled = true" if kotlin_dsl else "\\n        coreLibraryDesugaringEnabled true"
+              text = text.replace(marker, marker + setting, 1)
+          if "desugar_jdk_libs" not in text:
+              dep = '\\ndependencies {\\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")\\n}\\n' if kotlin_dsl else "\\ndependencies {\\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'\\n}\\n"
+              text += dep
+          app.write_text(text)
+          print("Java core library desugaring enabled for flutter_local_notifications.")
+          PY
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
