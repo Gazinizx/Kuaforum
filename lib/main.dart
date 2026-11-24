@@ -2145,13 +2145,16 @@ class _FeedTimelinePageState extends State<FeedTimelinePage>{
    await Navigator.push(context,MaterialPageRoute(builder:(_)=>ConversationPage(conversationId:conv['id'].toString(),title:(post['employees']?['display_name']??'Çalışan').toString())));
   }catch(e){if(mounted)toast(context,err(e));}
  }
- @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:Text(widget.mode=='followed'?'Takip Edilen':'Keşfet'),actions:[IconButton(onPressed:()=>setState(()=>future=load()),icon:const Icon(Icons.refresh_rounded))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
-  if(s.connectionState!=ConnectionState.done)return const LoadingPage();
-  if(s.hasError)return ErrorPage(message:err(s.error!));
-  final rows=s.data??[];
-  if(rows.isEmpty)return Center(child:EmptyStateView(icon:widget.mode=='followed'?Icons.favorite_border:Icons.explore_outlined,title:widget.mode=='followed'?'Henüz paylaşım yok':'Keşfet henüz boş',subtitle:widget.mode=='followed'?'Bağlı olduğun işletmelerin çalışan paylaşımları burada görünür.':'Keşfet yetkisi açılmış işletmelerin paylaşımları burada görünür.'));
-  return RefreshIndicator(onRefresh:()async{setState(()=>future=load());await future;},child:ListView(padding:const EdgeInsets.all(14),children:rows.map((p)=>FeedPostCard(post:p,onMessage:()=>message(p))).toList()));
- }));
+ @override Widget build(BuildContext c)=>Column(children:[
+  Padding(padding:const EdgeInsets.fromLTRB(18,14,12,4),child:Row(children:[Expanded(child:Text(widget.mode=='followed'?'Takip Edilen':'Keşfet',style:Theme.of(c).textTheme.titleLarge)),IconButton(onPressed:()=>setState(()=>future=load()),icon:const Icon(Icons.refresh_rounded))])),
+  Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
+   if(s.connectionState!=ConnectionState.done)return const LoadingPage();
+   if(s.hasError)return ErrorPage(message:err(s.error!));
+   final rows=s.data??[];
+   if(rows.isEmpty)return Center(child:EmptyStateView(icon:widget.mode=='followed'?Icons.favorite_border:Icons.explore_outlined,title:widget.mode=='followed'?'Henüz paylaşım yok':'Keşfet henüz boş',subtitle:widget.mode=='followed'?'Bağlı olduğun işletmelerin çalışan paylaşımları burada görünür.':'Keşfet yetkisi açılmış işletmelerin paylaşımları burada görünür.'));
+   return RefreshIndicator(onRefresh:()async{setState(()=>future=load());await future;},child:ListView(padding:const EdgeInsets.all(14),children:rows.map((p)=>FeedPostCard(post:p,onMessage:()=>message(p))).toList()));
+  })),
+ ]);
 }
 
 class FeedPostCard extends StatelessWidget{
@@ -2226,43 +2229,31 @@ class _CustomerConversationsPageState extends State<CustomerConversationsPage> {
       .eq('customer_id', uid).order('updated_at', ascending:false);
     return (result as List).map((e) => Map<String,dynamic>.from(e)).toList();
   }
-  @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Mesajlar'), actions: [
-      IconButton(onPressed: () => setState(() => future = load()), icon: const Icon(Icons.refresh_rounded)),
-    ]),
-    body: FutureBuilder<List<Map<String,dynamic>>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingPage();
-        if (snapshot.hasError) return ErrorPage(message: err(snapshot.error!));
-        final rows = snapshot.data ?? [];
-        if (rows.isEmpty) return const Center(child: EmptyStateView(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: 'Henüz sohbetin yok',
-          subtitle: 'Bir çalışanın paylaşımından sohbet başlatabilirsin.',
-        ));
-        return ListView(
-          padding: const EdgeInsets.all(14),
-          children: rows.map((row) {
-            final employeeName = (row['employees']?['display_name'] ?? 'Çalışan').toString();
-            final businessName = (row['businesses']?['name'] ?? 'Kuaför salonu').toString();
-            return AppPanel(
-              margin: const EdgeInsets.only(bottom:8),
-              child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
-                title: Text(employeeName),
-                subtitle: Text(businessName),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => ConversationPage(conversationId: row['id'].toString(), title: employeeName),
-                )),
-              ),
-            );
-          }).toList(),
-        );
+  @override Widget build(BuildContext context) => Column(children:[
+    Padding(padding:const EdgeInsets.fromLTRB(18,14,12,4),child:Row(children:[
+      Expanded(child:Text('Mesajlar',style:Theme.of(context).textTheme.titleLarge)),
+      IconButton(onPressed:()=>setState(()=>future=load()),icon:const Icon(Icons.refresh_rounded)),
+    ])),
+    Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(
+      future:future,
+      builder:(context,snapshot){
+        if(snapshot.connectionState!=ConnectionState.done)return const LoadingPage();
+        if(snapshot.hasError)return ErrorPage(message:err(snapshot.error!));
+        final rows=snapshot.data??[];
+        if(rows.isEmpty)return const Center(child:EmptyStateView(icon:Icons.chat_bubble_outline_rounded,title:'Henüz sohbetin yok',subtitle:'Bir çalışanın paylaşımından sohbet başlatabilirsin.'));
+        return ListView(padding:const EdgeInsets.all(14),children:rows.map((row){
+          final employeeName=(row['employees']?['display_name']??'Çalışan').toString();
+          final businessName=(row['businesses']?['name']??'Kuaför salonu').toString();
+          return AppPanel(margin:const EdgeInsets.only(bottom:8),child:ListTile(
+            leading:const CircleAvatar(child:Icon(Icons.person_outline_rounded)),
+            title:Text(employeeName),subtitle:Text(businessName),
+            trailing:const Icon(Icons.chevron_right_rounded),
+            onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>ConversationPage(conversationId:row['id'].toString(),title:employeeName))),
+          ));
+        }).toList());
       },
-    ),
-  );
+    )),
+  ]);
 }
 
 class EmployeeConversationsPage extends StatefulWidget {
