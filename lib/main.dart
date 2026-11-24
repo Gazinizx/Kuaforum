@@ -2226,9 +2226,12 @@ class _EmployeeFeedComposerPageState extends State<EmployeeFeedComposerPage>{
   if(media==null){toast(context,'Fotoğraf veya video seç');return;}
   setState(()=>busy=true);
   try{
-   final bytes=await media!.readAsBytes();final ext=media!.name.contains('.')?media!.name.split('.').last.toLowerCase():(type=='video'?'mp4':'jpg');
+   final bytes=await media!.readAsBytes();
+   if(bytes.length>50*1024*1024)throw Exception('Dosya 50 MB sınırını aşıyor. Daha kısa bir video seç.');
+   final ext=media!.name.contains('.')?media!.name.split('.').last.toLowerCase():(type=='video'?'mp4':'jpg');
+   final contentType=type=='video'?(ext=='mov'?'video/quicktime':'video/mp4'):(ext=='png'?'image/png':ext=='webp'?'image/webp':'image/jpeg');
    final path=widget.employee['business_id'].toString()+'/'+uid+'_'+DateTime.now().millisecondsSinceEpoch.toString()+'.'+ext;
-   await sb.storage.from('salon-feed').uploadBinary(path,bytes,fileOptions:FileOptions(contentType:type=='video'?'video/mp4':'image/jpeg'));
+   await sb.storage.from('salon-feed').uploadBinary(path,bytes,fileOptions:FileOptions(contentType:contentType));
    final url=sb.storage.from('salon-feed').getPublicUrl(path);
    await sb.from('feed_posts').insert({'business_id':widget.employee['business_id'],'employee_id':widget.employee['id'],'author_user_id':uid,'caption':caption.text.trim(),'media_url':url,'media_type':type});
    if(!mounted)return;toast(context,'Paylaşım yayınlandı');Navigator.pop(context,true);
