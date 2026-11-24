@@ -584,7 +584,7 @@ class _ProfilePageState extends State<ProfilePage>{
     const SizedBox(height:22),
     const SectionHeading('İşletme bilgileri'),
     const FieldLabel('İŞLETME ADI'),
-    TextField(controller:shop,decoration:const InputDecoration(hintText:'Berber dükkanının adı',prefixIcon:Icon(Icons.storefront_outlined))),
+    TextField(controller:shop,decoration:const InputDecoration(hintText:'Kuaför salonunun adı',prefixIcon:Icon(Icons.storefront_outlined))),
     const SizedBox(height:16),
     const FieldLabel('ADRES (İSTEĞE BAĞLI)'),
     TextField(controller:address,maxLines:2,decoration:const InputDecoration(hintText:'Mahalle, cadde, sokak…',prefixIcon:Icon(Icons.location_on_outlined))),
@@ -1062,6 +1062,32 @@ class _BarberPageState extends State<BarberPage> {
     }),
   ]);
 
+  Future<void> _shareAsOwner() async {
+    try {
+      final employee = await sb.from('employees')
+        .select('id,business_id,display_name')
+        .eq('business_id', widget.business['id'])
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (!mounted) return;
+      if (employee == null) { toast(context, 'İşletme sahibi çalışan profili bulunamadı.'); return; }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => EmployeeFeedComposerPage(employee: Map<String,dynamic>.from(employee))));
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
+  Future<void> _openOwnerMessages() async {
+    try {
+      final employee = await sb.from('employees')
+        .select('id')
+        .eq('business_id', widget.business['id'])
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (!mounted) return;
+      if (employee == null) { toast(context, 'İşletme sahibi çalışan profili bulunamadı.'); return; }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => EmployeeConversationsPage(employeeId: employee['id'].toString())));
+    } catch (e) { if (mounted) toast(context, err(e)); }
+  }
+
   Widget _settingsPage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
     _heading('İŞLETME AYARLARI', 'Tüm işletme ayarları', 'Çalışanlarını, hizmetlerini ve çalışma düzenini buradan yönet.', Icons.tune_rounded),
     AppPanel(child: Column(children:[
@@ -1104,6 +1130,8 @@ class _BarberPageState extends State<BarberPage> {
 
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.business['name'] ?? 'İşletme paneli'), actions: [
+      IconButton(tooltip: 'Çalışmanı paylaş', onPressed: _shareAsOwner, icon: const Icon(Icons.add_a_photo_outlined)),
+      IconButton(tooltip: 'Müşteri mesajları', onPressed: _openOwnerMessages, icon: const Icon(Icons.chat_bubble_outline_rounded)),
       IconButton(tooltip: 'Tüm randevular', onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusinessOverviewPage(business: widget.business))), icon: const Icon(Icons.dashboard_outlined)),
       notificationAction(context),
       IconButton(tooltip: 'Çıkış yap', onPressed: () => signOutKuaforum(), icon: const Icon(Icons.logout_rounded)),
@@ -1992,7 +2020,7 @@ class _CustomerPageState extends State<CustomerPage>{
   Navigator.of(context).push(MaterialPageRoute(builder:(_)=>CustomerBookingFlowPage(businesses:[business])));
  }
  Widget _businessCard(Map<String,dynamic> business,int index){
-  final name=(business['name']??'Berber dükkanı').toString();
+  final name=(business['name']??'Kuaför salonu').toString();
   return Padding(
    padding:const EdgeInsets.only(bottom:12),
    child:Material(
@@ -2003,7 +2031,7 @@ class _CustomerPageState extends State<CustomerPage>{
      child:Ink(
       decoration:BoxDecoration(
        borderRadius:BorderRadius.circular(25),
-       gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:index.isEven?const [Color(0xFF28251F),Color(0xFF1A1B20),Color(0xFF121317)]:const [Color(0xFF22262A),Color(0xFF1A1B20),Color(0xFF121317)]),
+       gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:index.isEven?const [Color(0xFFFFF3F4),Color(0xFFF8E8EB),Color(0xFFF2DDE1)]:const [Color(0xFFFFF8F6),Color(0xFFF6E8EA),Color(0xFFEEDADD)]),
        border:Border.all(color:gold.withValues(alpha:.28)),
        boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:.16),blurRadius:20,offset:const Offset(0,9))],
       ),
@@ -2050,7 +2078,7 @@ class _CustomerPageState extends State<CustomerPage>{
      children:[
       Container(
        padding:const EdgeInsets.fromLTRB(21,21,18,20),
-       decoration:BoxDecoration(borderRadius:BorderRadius.circular(28),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF383126),Color(0xFF202127),Color(0xFF111216)]),border:Border.all(color:gold.withValues(alpha:.34)),boxShadow:[BoxShadow(color:gold.withValues(alpha:.07),blurRadius:28,offset:const Offset(0,12))]),
+       decoration:BoxDecoration(borderRadius:BorderRadius.circular(28),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFFFFF2F3),Color(0xFFF7E5E9),Color(0xFFF0DDE2)]),border:Border.all(color:gold.withValues(alpha:.34)),boxShadow:[BoxShadow(color:gold.withValues(alpha:.07),blurRadius:28,offset:const Offset(0,12))]),
        child:Stack(children:[
         Positioned(right:-12,top:-17,child:Icon(Icons.content_cut_rounded,size:132,color:gold.withValues(alpha:.07))),
         Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -2058,7 +2086,7 @@ class _CustomerPageState extends State<CustomerPage>{
          const SizedBox(height:16),
          const Text('Tarzını tamamla.\nKuaförünü seç.',style:TextStyle(fontSize:27,height:1.12,fontWeight:FontWeight.w900,letterSpacing:-.9)),
          const SizedBox(height:9),
-         const Text('Sana özel randevu deneyimi için bağlı olduğun dükkânı seç.',style:TextStyle(color:Color(0xFFC0C0C3),fontSize:12,height:1.5)),
+         const Text('Sana özel randevu deneyimi için bağlı olduğun dükkânı seç.',style:TextStyle(color:Color(0xFF846D73),fontSize:12,height:1.5)),
          const SizedBox(height:18),
          Row(children:[const Icon(Icons.schedule_rounded,color:goldLight,size:16),const SizedBox(width:7),const Text('Kolay seçim  ·  Hızlı randevu',style:TextStyle(color:goldLight,fontSize:10,fontWeight:FontWeight.w800))]),
         ]),
@@ -2071,7 +2099,7 @@ class _CustomerPageState extends State<CustomerPage>{
         SizedBox(height:6),
         Text('Dükkânını seç',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,letterSpacing:-.55)),
         SizedBox(height:4),
-        Text('Randevu almak istediğin berberi seç.',style:TextStyle(color:muted,fontSize:11)),
+        Text('Randevu almak istediğin kuaförünü seç.',style:TextStyle(color:muted,fontSize:11)),
        ])),
        Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:7),decoration:BoxDecoration(color:panelRaised,borderRadius:BorderRadius.circular(13),border:Border.all(color:border)),child:Text('${businesses.length} DÜKKÂN',style:const TextStyle(color:goldLight,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:.5))),
       ]),
@@ -2082,7 +2110,7 @@ class _CustomerPageState extends State<CustomerPage>{
         const SizedBox(height:17),
         const Text('İlk kuaförünü ekle',textAlign:TextAlign.center,style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
         const SizedBox(height:7),
-        const Text('Dükkândaki QR kodu okut veya işletme kodunu gir. Berberinle eşleş, randevunu buradan yönet.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:12,height:1.5)),
+        const Text('Dükkândaki QR kodu okut veya işletme kodunu gir. Kuaförünle eşleş, randevunu buradan yönet.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:12,height:1.5)),
         const SizedBox(height:17),
         SizedBox(height:50,child:ElevatedButton.icon(onPressed:_join,icon:const Icon(Icons.qr_code_scanner_rounded),label:const Text('DÜKKÂNIMI EKLE'))),
        ]))
@@ -2331,7 +2359,7 @@ class CustomerBookingFlowPage extends StatelessWidget{
    final employees=(er as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
    if(!context.mounted)return;
    if(employees.isEmpty){toast(context,'Bu işletmede aktif çalışan bulunamadı');return;}
-   final employee=await _pick(context,title:'Kuaförünü seç',subtitle:'Randevunu almak istediğin berberi seç.',rows:employees,nameKey:'display_name',icon:Icons.person_outline_rounded,step:2);
+   final employee=await _pick(context,title:'Kuaförünü seç',subtitle:'Randevunu almak istediğin kuaförünü seç.',rows:employees,nameKey:'display_name',icon:Icons.person_outline_rounded,step:2);
    if(employee==null||!context.mounted)return;
    final sr=await sb.from('services').select().eq('business_id',b['id']).eq('is_active',true);
    final services=(sr as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
