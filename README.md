@@ -22,3 +22,8 @@ GitHub Actions → **Build Kuaforum Android APK** → son başarılı çalışma
 
 ## Bildirimler
 Kuaförüm'e ait ayrı Firebase Android/iOS yapılandırmaları henüz eklenmedi. Bu nedenle push bildirimleri Firebase kurulumu tamamlanana kadar etkin değildir.
+
+## Mobile app identifiers
+- Android application ID / iOS bundle ID: `com.gazinizx.kuaforum`
+- Auth callback scheme: `kuaforum://login-callback`
+- Feed media is stored in the dedicated `salon-feed` bucket.
