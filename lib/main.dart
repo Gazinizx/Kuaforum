@@ -625,7 +625,7 @@ class _AdminPageState extends State<AdminPage>{
  Future<void> review(String id,String status)async{try{await sb.rpc('review_business',params:{'p_business_id':id,'p_status':status});if(mounted)setState((){});toast(context,'İşletme durumu güncellendi');}catch(e){toast(context,err(e));}}
  Future<void> block(String id,bool value)async{try{await sb.rpc('admin_set_user_blocked',params:{'p_user_id':id,'p_blocked':value});if(mounted)setState((){});}catch(e){toast(context,err(e));}}
  Future<void> setDiscover(String id,bool value)async{try{await sb.from('businesses').update({'discover_enabled':value}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet açıldı':'Keşfet kapatıldı');}}catch(e){if(mounted)toast(context,err(e));}}
- Future<void> setDiscoverPaid(String id,bool value)async{try{await sb.from('businesses').update({'discover_paid':value,'discover_enabled':value?false:false}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet ödemesi tanımlandı':'Keşfet ödemesi kaldırıldı');}}catch(e){if(mounted)toast(context,err(e));}}
+ Future<void> setDiscoverPaid(String id,bool value)async{try{await sb.from('businesses').update({'discover_paid':value,'discover_enabled':false}).eq('id',id);if(mounted){setState((){});toast(context,value?'Keşfet ödemesi tanımlandı':'Keşfet ödemesi kaldırıldı');}}catch(e){if(mounted)toast(context,err(e));}}
  Widget heading(String a,String b)=>ScreenHeading(title:a,subtitle:b,eyebrow:'KUAFÖRÜM YÖNETİM',icon:Icons.admin_panel_settings_rounded);
  Widget metric(String label,int n,IconData icon)=>Expanded(child:AppPanel(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Container(width:36,height:36,decoration:BoxDecoration(color:gold.withValues(alpha:.12),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:gold,size:19)),
@@ -1063,7 +1063,12 @@ class _BarberPageState extends State<BarberPage> {
   ]);
 
   Widget _settingsPage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
-    _heading('İŞLETME AYARLARI', 'Çalışma düzeni', 'Açılış, kapanış, mola ve randevu sıklığını belirle.', Icons.tune_rounded),
+    _heading('İŞLETME AYARLARI', 'Tüm işletme ayarları', 'Çalışanlarını, hizmetlerini ve çalışma düzenini buradan yönet.', Icons.tune_rounded),
+    AppPanel(child: Column(children:[
+      ListTile(contentPadding:EdgeInsets.zero,leading:const CircleAvatar(backgroundColor:Color(0xFFF8ECEE),child:Icon(Icons.groups_rounded,color:gold)),title:const Text('Çalışanlar',style:TextStyle(fontWeight:FontWeight.w800)),subtitle:const Text('Çalışan ekle ve ekip bilgilerini yönet.',style:TextStyle(color:muted,fontSize:11)),trailing:const Icon(Icons.chevron_right_rounded),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:const Text('Çalışanlar')),body:_employeesPage())))),
+      const Divider(height:1),
+      ListTile(contentPadding:EdgeInsets.zero,leading:const CircleAvatar(backgroundColor:Color(0xFFF8ECEE),child:Icon(Icons.content_cut_rounded,color:gold)),title:const Text('Hizmetler',style:TextStyle(fontWeight:FontWeight.w800)),subtitle:const Text('Hizmet, fiyat ve süre bilgilerini yönet.',style:TextStyle(color:muted,fontSize:11)),trailing:const Icon(Icons.chevron_right_rounded),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:const Text('Hizmetler')),body:_servicesPage())))),
+    ])),
     AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SectionHeading('Çalışma saatleri'),
       Row(children: [
@@ -1104,7 +1109,7 @@ class _BarberPageState extends State<BarberPage> {
       IconButton(tooltip: 'Çıkış yap', onPressed: () => signOutKuaförüm(), icon: const Icon(Icons.logout_rounded)),
     ]),
     body: IndexedStack(index: tab, children: [
-      _homePage(), _appointmentsPage(), _employeesPage(), _servicesPage(), _settingsPage(),
+      _homePage(), _appointmentsPage(), _settingsPage(),
     ]),
     bottomNavigationBar: NavigationBar(
       selectedIndex: tab,
@@ -1112,8 +1117,6 @@ class _BarberPageState extends State<BarberPage> {
       destinations: const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Ana sayfa'),
         NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note_rounded), label: 'Randevularım'),
-        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups_rounded), label: 'Çalışanlar'),
-        NavigationDestination(icon: Icon(Icons.content_cut_outlined), selectedIcon: Icon(Icons.content_cut_rounded), label: 'Hizmetler'),
         NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune_rounded), label: 'Ayarlar'),
       ],
     ),
