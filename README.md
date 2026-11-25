@@ -22,7 +22,9 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Müşterinin uygun gün/saat seçerek randevu oluşturması
 - Uygun saat hesabında hizmet süresi, çalışma saatleri, molalar ve mevcut randevuların dikkate alınması
 - Müşteri randevu geçmişi; çalışan kendi randevuları; işletme sahibi tüm çalışan randevuları ve onay bekleyen talepler
-- Üç veya daha fazla gelmeme kaydından sonra yeni randevunun işletme onayına düşmesi
+- Üç veya daha fazla gelmeme kaydında müşterinin otomatik kara listeye alınması; işletme sahibinin listeden çıkarabilmesi
+- Kara listedeki müşterinin yeni randevularının işletme onayına düşmesi
+- İşletmenin müşteri listesi, randevu/gelmeme sayıları ve kara liste yönetimi
 - Randevu bildirimlerinin uygulama içindeki Bildirimler ekranında görüntülenmesi ve okundu işaretlenmesi
 
 ## Henüz tamamlanmayan bölümler
