@@ -23,12 +23,13 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Uygun saat hesabında hizmet süresi, çalışma saatleri, molalar ve mevcut randevuların dikkate alınması
 - Müşteri randevu geçmişi; çalışan kendi randevuları; işletme sahibi tüm çalışan randevuları ve onay bekleyen talepler
 - Üç veya daha fazla gelmeme kaydından sonra yeni randevunun işletme onayına düşmesi
+- Randevu bildirimlerinin uygulama içindeki Bildirimler ekranında görüntülenmesi ve okundu işaretlenmesi
 
 ## Henüz tamamlanmayan bölümler
 
 - Normal kullanıcı kayıt/giriş ekranı ve çalışan davet kodunu giriş sırasında kullanma akışı son aşamada tamamlanacaktır.
 - Ana yönetici ekranındaki Keşfet görünürlük kontrollerinin veritabanına bağlanması tamamlanmamıştır.
-- Bildirim ekranı ve bildirim tercihleri tam olarak bağlanmamıştır.
+- Firebase Cloud Messaging ile gerçek push teslimi henüz Kuaförüm projesine bağlanmamıştır. Eski projeye giden hatalı push tetikleyicisi güvenlik için kaldırılmıştır.
 - iOS derlemesi ve App Store hazırlığı tamamlanmamıştır.
 
 ## Android derleme
