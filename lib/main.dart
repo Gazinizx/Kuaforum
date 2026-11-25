@@ -478,12 +478,25 @@ class QuickTiles extends StatelessWidget {
 
   void open(BuildContext context, int index) {
     if (!ownerMode) {
+      final title = switch (index) {
+        0 => 'Randevularım',
+        1 => 'Keşfet',
+        _ => 'Takip Edilenler',
+      };
       final page = switch (index) {
         0 => const CustomerAppointmentsPage(),
         1 => const DiscoverPage(),
         _ => const FollowingPage(),
       };
-      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: cream,
+          appBar: AppBar(
+            title: Text(title, style: const TextStyle(color: wine, fontWeight: FontWeight.w800)),
+          ),
+          body: page,
+        ),
+      ));
       return;
     }
 
