@@ -3517,6 +3517,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     final page = switch (section) {
       'Randevu Yönetimi' => const OwnerAppointments(),
       'Müşterilerim' => const CustomersPage(),
+      'Kara Liste' => const CustomersPage(showBlacklistedOnly: true),
       'Bildirimler' => const NotificationsPage(),
       _ => const SettingsPage(),
     };
@@ -3687,6 +3688,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
             ...[
               'Randevu Yönetimi',
               'Müşterilerim',
+              'Kara Liste',
               'İşletme Ayarları',
               'Bildirimler',
             ].map((section) => Card(
@@ -4387,7 +4389,8 @@ class _CustomersData {
 }
 
 class CustomersPage extends StatefulWidget {
-  const CustomersPage({super.key});
+  final bool showBlacklistedOnly;
+  const CustomersPage({super.key, this.showBlacklistedOnly = false});
 
   @override
   State<CustomersPage> createState() => _CustomersPageState();
@@ -4402,6 +4405,7 @@ class _CustomersPageState extends State<CustomersPage> {
   @override
   void initState() {
     super.initState();
+    _showBlacklistedOnly = widget.showBlacklistedOnly;
     data = load();
   }
 
