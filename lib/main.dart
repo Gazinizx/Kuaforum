@@ -4729,11 +4729,78 @@ class _SettingsPageState extends State<SettingsPage> {
   final repository = KuaforumFeedRepository();
   late Future<Map<String, dynamic>> business;
   int? savingInterval;
+  bool savingBusinessProfile = false;
 
   @override
   void initState() {
     super.initState();
     business = repository.fetchOwnedBusinessProfile();
+  }
+
+  Future<void> editBusinessProfile(Map<String, dynamic> value) async {
+    final nameController = TextEditingController(text: value['name']?.toString() ?? '');
+    final addressController = TextEditingController(text: value['address']?.toString() ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('İşletme bilgilerini düzenle'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              maxLength: 80,
+              decoration: const InputDecoration(labelText: 'İşletme adı'),
+            ),
+            TextField(
+              controller: addressController,
+              maxLength: 180,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Adres'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+
+    final name = nameController.text.trim();
+    final address = addressController.text.trim();
+    nameController.dispose();
+    addressController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => savingBusinessProfile = true);
+    try {
+      await repository.updateOwnedBusinessProfile(
+        businessId: value['id'] as String,
+        name: name,
+        address: address,
+      );
+      if (!mounted) return;
+      setState(() => business = repository.fetchOwnedBusinessProfile());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İşletme bilgileri güncellendi.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletme bilgileri kaydedilemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => savingBusinessProfile = false);
+    }
   }
 
   Future<void> updateInterval(String businessId, int minutes) async {
@@ -4779,6 +4846,41 @@ class _SettingsPageState extends State<SettingsPage> {
           const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
           const SizedBox(height: 5),
           const Text('İşletme ve randevu tercihlerini yönet.', style: TextStyle(color: muted)),
+          const SectionTitle('İşletme bilgileri'),
+          Card(
+            color: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: blush),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.storefront_outlined, color: wine),
+              title: Text(
+                snapshot.data?['name']?.toString() ?? 'İşletmem',
+                style: const TextStyle(color: ink, fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                snapshot.data?['address']?.toString().isNotEmpty == true
+                    ? snapshot.data!['address'].toString()
+                    : 'Adres eklenmemiş',
+                style: const TextStyle(color: muted),
+              ),
+              trailing: savingBusinessProfile
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: wine),
+                    )
+                  : IconButton(
+                      tooltip: 'İşletme bilgilerini düzenle',
+                      onPressed: snapshot.hasData
+                          ? () => editBusinessProfile(snapshot.data!)
+                          : null,
+                      icon: const Icon(Icons.edit_outlined, color: wine),
+                    ),
+            ),
+          ),
           const SectionTitle('Randevu ayarları'),
           Card(
             color: Colors.white,
