@@ -7,6 +7,10 @@ on public.conversations for insert
 to authenticated
 with check (
   customer_id = (select auth.uid())
+  and exists (
+    select 1 from public.profiles me
+    where me.id = (select auth.uid()) and me.is_blocked = false
+  )
   and source_post_id is not null
   and exists (
     select 1
@@ -161,3 +165,28 @@ revoke all on function public.can_message_employee(uuid) from public, anon;
 grant execute on function public.can_message_employee(uuid) to authenticated;
 revoke all on function public.start_employee_conversation(uuid) from public, anon;
 grant execute on function public.start_employee_conversation(uuid) to authenticated;
+
+drop policy if exists messages_send_participants on public.messages;
+create policy messages_send_participants
+on public.messages for insert
+to authenticated
+with check (
+  sender_id = (select auth.uid())
+  and exists (
+    select 1 from public.profiles me
+    where me.id = (select auth.uid()) and me.is_blocked = false
+  )
+  and exists (
+    select 1
+    from public.conversations c
+    where c.id = messages.conversation_id
+      and (
+        c.customer_id = (select auth.uid())
+        or exists (
+          select 1 from public.employees e
+          where e.id = c.employee_id
+            and e.user_id = (select auth.uid())
+        )
+      )
+  )
+);
