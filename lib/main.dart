@@ -339,12 +339,67 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   late bool liked;
   late int likes;
   bool busy = false;
+  bool followingBusiness = false;
+  bool followingAuthor = false;
+  bool followStateLoaded = false;
 
   @override
   void initState() {
     super.initState();
     liked = widget.post.isLikedByMe;
     likes = widget.post.likeCount;
+    loadFollowState();
+  }
+
+  Future<void> loadFollowState() async {
+    try {
+      final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
+      final author = widget.post.isEmployeePost && !widget.post.isOwnPost
+          ? await widget.repository.isFollowingUser(widget.post.authorUserId)
+          : false;
+      if (!mounted) return;
+      setState(() {
+        followingBusiness = business;
+        followingAuthor = author;
+        followStateLoaded = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => followStateLoaded = true);
+    }
+  }
+
+  Future<void> toggleBusinessFollow() async {
+    final wasFollowing = followingBusiness;
+    setState(() => followingBusiness = !wasFollowing);
+    try {
+      if (wasFollowing) {
+        await widget.repository.unfollowBusiness(widget.post.businessId);
+      } else {
+        await widget.repository.followBusiness(widget.post.businessId);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => followingBusiness = wasFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İşletme takibi güncellenemedi.')));
+      }
+    }
+  }
+
+  Future<void> toggleAuthorFollow() async {
+    final wasFollowing = followingAuthor;
+    setState(() => followingAuthor = !wasFollowing);
+    try {
+      if (wasFollowing) {
+        await widget.repository.unfollowUser(widget.post.authorUserId);
+      } else {
+        await widget.repository.followUser(widget.post.authorUserId);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => followingAuthor = wasFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çalışan takibi güncellenemedi.')));
+      }
+    }
   }
 
   Future<void> toggleLike() async {
@@ -389,7 +444,21 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
           Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
         ])),
-        const Icon(Icons.more_horiz, color: muted),
+        if (!widget.post.isOwnPost && followStateLoaded)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_horiz, color: muted),
+            onSelected: (value) {
+              if (value == 'business') toggleBusinessFollow();
+              if (value == 'author') toggleAuthorFollow();
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
+              if (widget.post.isEmployeePost)
+                PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
+            ],
+          )
+        else
+          const Icon(Icons.more_horiz, color: muted),
       ]),
       const SizedBox(height: 12),
       ClipRRect(
