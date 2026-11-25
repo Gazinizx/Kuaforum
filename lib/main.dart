@@ -98,31 +98,35 @@ class RolePicker extends StatelessWidget {
         password: password.text,
       );
       final user = response.user;
-      if (user == null) throw const AuthException('Oturum açılamadı.');
+      if (user == null) throw AuthException('Oturum açılamadı.');
       final profile = await auth.from('profiles')
           .select('account_type,is_admin,is_blocked')
           .eq('id', user.id)
           .maybeSingle();
       if (profile == null || profile['is_blocked'] == true) {
         await auth.auth.signOut();
-        throw const AuthException('Bu hesap uygulamaya erişemiyor.');
+        throw AuthException('Bu hesap uygulamaya erişemiyor.');
       }
       var allowed = false;
       switch (role) {
         case AppRole.admin:
           allowed = profile['is_admin'] == true;
+          break;
         case AppRole.owner:
           allowed = profile['account_type'] == 'business_owner' && profile['is_admin'] != true;
+          break;
         case AppRole.employee:
           final employee = await auth.from('employees').select('id')
               .eq('user_id', user.id).eq('is_active', true).limit(1);
           allowed = employee.isNotEmpty;
+          break;
         case AppRole.customer:
           allowed = profile['account_type'] == 'customer' && profile['is_admin'] != true;
+          break;
       }
       if (!allowed) {
         await auth.auth.signOut();
-        throw const AuthException('Bu hesap seçtiğin role bağlı değil.');
+        throw AuthException('Bu hesap seçtiğin role bağlı değil.');
       }
       if (!context.mounted) return;
       Navigator.push(context, MaterialPageRoute(builder: (_) => RoleShell(role: role)));
