@@ -5163,6 +5163,23 @@ class _AdminHomeState extends State<AdminHome> {
           'İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',
           style: TextStyle(color: muted, height: 1.5),
         ),
+        const SectionTitle('Hesap'),
+        Card(
+          color: Colors.white,
+          elevation: 0,
+          child: ListTile(
+            leading: const Icon(Icons.logout, color: wine),
+            title: const Text('Çıkış yap', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+            onTap: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const RolePicker()),
+                (_) => false,
+              );
+            },
+          ),
+        ),
       ]);
     },
   );
