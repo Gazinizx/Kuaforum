@@ -19,9 +19,9 @@ void main() {
     await tester.pumpWidget(const KuaforumApp());
     await tester.tap(find.text('İşletme Sahibi'));
     await tester.pumpAndSettle();
-    expect(find.text('Keşfet'), findsOneWidget);
-    expect(find.text('Takip'), findsOneWidget);
-    expect(find.text('Paylaş'), findsOneWidget);
+    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Keşfet')), findsOneWidget);
+    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Takip')), findsOneWidget);
+    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Paylaş')), findsOneWidget);
     expect(find.text('Mesajlar'), findsOneWidget);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
