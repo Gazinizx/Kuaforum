@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() => runApp(const KuaforumApp());
 
@@ -30,10 +32,11 @@ enum AppRole { customer, employee, owner, admin }
 
 class DemoPost {
   final String author, caption, audience;
+  final String? mediaPath;
   final bool businessPost;
   int likes;
   bool liked;
-  DemoPost({required this.author, required this.caption, required this.audience, this.businessPost=false, this.likes=0, this.liked=false});
+  DemoPost({required this.author, required this.caption, required this.audience, this.businessPost=false, this.likes=0, this.liked=false, this.mediaPath});
 }
 final ValueNotifier<List<DemoPost>> demoPosts = ValueNotifier([
   DemoPost(author:'Zeynep Kaya',caption:'Işıltılı dalgalar ✨',audience:'Çalışan',likes:12500),
@@ -97,8 +100,8 @@ class _RoleShellState extends State<RoleShell> {
         labels = ['Ana Sayfa','Randevular','Paylaşım','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
         pages = [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
       case AppRole.owner:
-        labels = ['Ana Sayfa','Keşfet','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const OwnerHome(),const DiscoverPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
+        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
         pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
@@ -176,7 +179,7 @@ class PostCard extends StatelessWidget {
     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[CircleAvatar(backgroundColor:blush,child:Icon(post?.businessPost==true?Icons.storefront:Icons.person,color:wine)),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(post?.audience??'Kuaförüm topluluğu',style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.more_horiz,color:muted)]),
       const SizedBox(height:12),
-      Container(height:215,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(17),gradient:const LinearGradient(colors:[Color(0xFFE9C5CC),Color(0xFFB66A7D),Color(0xFF6E2038)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[Positioned(right:16,top:14,child:Icon(Icons.auto_awesome,color:Colors.white.withOpacity(.8),size:28)),const Center(child:Icon(Icons.photo_camera_back_rounded,size:58,color:Colors.white70)),Positioned(left:14,bottom:14,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.22),borderRadius:BorderRadius.circular(20)),child:const Text('KUAFÖRÜM  •  İLHAM VER',style:TextStyle(color:Colors.white,fontSize:9,letterSpacing:1.2,fontWeight:FontWeight.bold))))])),
+      Container(height:215,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(17),gradient:const LinearGradient(colors:[Color(0xFFE9C5CC),Color(0xFFB66A7D),Color(0xFF6E2038)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[if(post?.mediaPath!=null) ClipRRect(borderRadius:BorderRadius.circular(17),child:Image.file(File(post!.mediaPath!),width:double.infinity,height:215,fit:BoxFit.cover)) else ...[Positioned(right:16,top:14,child:Icon(Icons.auto_awesome,color:Colors.white.withOpacity(.8),size:28)),const Center(child:Icon(Icons.photo_camera_back_rounded,size:58,color:Colors.white70))],Positioned(left:14,bottom:14,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.22),borderRadius:BorderRadius.circular(20)),child:const Text('KUAFÖRÜM  •  İLHAM VER',style:TextStyle(color:Colors.white,fontSize:9,letterSpacing:1.2,fontWeight:FontWeight.bold))))])),
       const SizedBox(height:12),Text(caption,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),
       const SizedBox(height:9),Row(children:[
         InkWell(onTap:post==null?null:(){post!.liked=!post!.liked;post!.likes+=post!.liked?1:-1;demoPosts.notifyListeners();},child:Row(children:[Icon(post?.liked==true?Icons.favorite:Icons.favorite_border,color:rose),const SizedBox(width:5),Text(post==null?likes:post!.likes.toString(),style:const TextStyle(color:muted))])),
@@ -200,12 +203,13 @@ class SharePage extends StatefulWidget {
   @override State<SharePage> createState()=>_SharePageState();
 }
 class _SharePageState extends State<SharePage> {
-  final caption=TextEditingController(); String media='Fotoğraf ekle'; String audience='Herkese Açık';
+  final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false; String audience='Herkese Açık';
+  Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(()=>{selectedMedia=file,isVideo=video}); }
   @override void dispose(){caption.dispose();super.dispose();}
   void publish(){
     final text=caption.text.trim();
     if(text.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Paylaşımına kısa bir açıklama ekle.')));return;}
-    demoPosts.value=[...demoPosts.value,DemoPost(author:widget.publisherName,caption:text,audience:widget.businessPost?'İşletme hesabı':'Çalışan hesabı',businessPost:widget.businessPost)];
+    demoPosts.value=[...demoPosts.value,DemoPost(author:widget.publisherName,caption:text,audience:widget.businessPost?'İşletme hesabı':'Çalışan hesabı',businessPost:widget.businessPost,mediaPath:selectedMedia?.path)];
     caption.clear();ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Paylaşım akışa eklendi.')));
   }
   @override Widget build(BuildContext context)=>PageBody(children:[
@@ -215,12 +219,12 @@ class _SharePageState extends State<SharePage> {
     Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(24),border:Border.all(color:blush),boxShadow:[BoxShadow(color:wine.withOpacity(.07),blurRadius:18,offset:const Offset(0,7))]),child:Column(children:[
       Container(height:230,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(colors:[Color(0xFFF4DCE2),Color(0xFFD88DA2),Color(0xFF8E2947)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[
         Positioned(right:14,top:14,child:Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Colors.white.withOpacity(.85),shape:BoxShape.circle),child:const Icon(Icons.auto_awesome,color:wine))),
-        Center(child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.add_photo_alternate_rounded,size:54,color:Colors.white),const SizedBox(height:9),Text(media,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold)),const SizedBox(height:4),const Text('En güzel dönüşümünü burada göster ♡',style:TextStyle(color:Colors.white70,fontSize:11))])),
+        Center(child:selectedMedia!=null&&!isVideo?ClipRRect(borderRadius:BorderRadius.circular(18),child:Image.file(File(selectedMedia!.path),width:double.infinity,height:230,fit:BoxFit.cover)):Column(mainAxisSize:MainAxisSize.min,children:[Icon(isVideo?Icons.videocam_rounded:Icons.add_photo_alternate_rounded,size:54,color:Colors.white),const SizedBox(height:9),Text(selectedMedia==null?'Fotoğraf veya video seç':'Video hazır',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold)),const SizedBox(height:4),const Text('En güzel dönüşümünü burada göster ♡',style:TextStyle(color:Colors.white70,fontSize:11))])),
         Positioned(left:12,bottom:12,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),borderRadius:BorderRadius.circular(18)),child:const Text('ÖN İZLEME',style:TextStyle(color:Colors.white,fontSize:9,fontWeight:FontWeight.bold,letterSpacing:1))))
       ])),
       const SizedBox(height:12),Row(children:[
-        Expanded(child:OutlinedButton.icon(onPressed:()=>setState(()=>media='Fotoğraf seçildi (demo)'),icon:const Icon(Icons.image_outlined),label:const Text('Fotoğraf'),style:OutlinedButton.styleFrom(foregroundColor:wine,side:const BorderSide(color:blush),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14))))),
-        const SizedBox(width:9),Expanded(child:OutlinedButton.icon(onPressed:()=>setState(()=>media='Video seçildi (demo)'),icon:const Icon(Icons.videocam_outlined),label:const Text('Video'),style:OutlinedButton.styleFrom(foregroundColor:wine,side:const BorderSide(color:blush),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14)))))
+        Expanded(child:OutlinedButton.icon(onPressed:()=>chooseMedia(false),icon:const Icon(Icons.image_outlined),label:const Text('Fotoğraf'),style:OutlinedButton.styleFrom(foregroundColor:wine,side:const BorderSide(color:blush),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14))))),
+        const SizedBox(width:9),Expanded(child:OutlinedButton.icon(onPressed:()=>chooseMedia(true),icon:const Icon(Icons.videocam_outlined),label:const Text('Video'),style:OutlinedButton.styleFrom(foregroundColor:wine,side:const BorderSide(color:blush),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14)))))
       ]),
       const SizedBox(height:14),TextField(controller:caption,maxLines:4,maxLength:500,decoration:InputDecoration(hintText:'Bu güzel çalışmayı anlat... ♡',filled:true,fillColor:cream,border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none),prefixIcon:const Icon(Icons.edit_note,color:wine))),
       const SizedBox(height:4),Row(children:[const Icon(Icons.public,color:wine),const SizedBox(width:9),const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Paylaşım kitlesi',style:TextStyle(color:ink,fontWeight:FontWeight.bold)),Text('Keşfet ve takip akışında görünür',style:TextStyle(color:muted,fontSize:11))])),DropdownButton<String>(value:audience,underline:const SizedBox(),items:const [DropdownMenuItem(value:'Herkese Açık',child:Text('Herkese Açık')),DropdownMenuItem(value:'Takipçilerim',child:Text('Takipçilerim'))],onChanged:(v)=>setState(()=>audience=v??audience))]),
