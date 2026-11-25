@@ -40,6 +40,9 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Herkese açık profil görünümleri güvenlik invoker ve RLS kurallarıyla çalışır
 - Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
 
+## Auth veritabanı migration'ı
+- `supabase/migrations/20261126140000_auth_signup_and_business_registration.sql`
+
 ## Henüz tamamlanması gerekenler
 - Normal e-posta/şifre giriş ve kayıt ekranı (müşteri + işletme sahibi); müşteri için ad/soyad/telefon, işletme sahibi için salon adı/adresi zorunlu.
 - Auth kaydı sonrasında profil otomatik oluşturulur; işletme sahibi kaydı güvenli RPC üzerinden `pending` durumunda açılır.
