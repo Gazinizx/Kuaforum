@@ -5708,16 +5708,17 @@ class _DiscoverControlState extends State<DiscoverControl> {
         final email = emailController.text.trim();
         final password = passwordController.text;
         if (email.isEmpty || password.isEmpty) {
-          throw const AuthException('E-posta ve şifre alanlarını doldur.');
+          throw AuthException('E-posta ve şifre alanlarını doldur.');
         }
         final response = await client.auth.signInWithPassword(
           email: email,
           password: password,
         );
         user = response.user;
+        if (mounted) setState(() {});
       }
       if (user == null) {
-        throw const AuthException('Hesap oturumu açılamadı.');
+        throw AuthException('Hesap oturumu açılamadı.');
       }
 
       final employeeId = await repository.claimEmployeeInvite(code);
@@ -5736,13 +5737,13 @@ class _DiscoverControlState extends State<DiscoverControl> {
           profile == null ||
           profile['account_type'] != 'employee' ||
           profile['is_blocked'] == true) {
-        throw const AuthException('Çalışan hesabı doğrulanamadı. İşletme yöneticinle iletişime geç.');
+        throw AuthException('Çalışan hesabı doğrulanamadı. İşletme yöneticinle iletişime geç.');
       }
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const RoleShell(role: AppRole.employee)),
-        (route) => route.isFirst,
+        (_) => false,
       );
     } on AuthException catch (error) {
       if (mounted) {
