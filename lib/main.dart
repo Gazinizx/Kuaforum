@@ -1,8 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() => runApp(const KuaforumApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://zhvfudtdnvgsqywojjrz.supabase.co',
+    publishableKey: 'sb_publishable_TQrHgIVWUTdaxB_-OrGzWA_pAK4cj57',
+  );
+  runApp(const KuaforumApp());
+}
 
 const wine = Color(0xFF8E2947);
 const rose = Color(0xFFC65B79);
@@ -65,11 +73,81 @@ class RolePicker extends StatelessWidget {
       const Text('Tasarım ön izlemesi • Örnek içerikler kullanılır', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
     ])),
   );
+  Future<void> _openRole(BuildContext context, AppRole role) async {
+    final email = TextEditingController();
+    final password = TextEditingController();
+    final credentials = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Test hesabıyla devam et'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'E-posta')),
+          TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Devam et')),
+        ],
+      ),
+    );
+    if (credentials != true || !context.mounted) return;
+    try {
+      final auth = Supabase.instance.client;
+      final response = await auth.auth.signInWithPassword(
+        email: email.text.trim(),
+        password: password.text,
+      );
+      final user = response.user;
+      if (user == null) throw const AuthException('Oturum açılamadı.');
+      final profile = await auth.from('profiles')
+          .select('account_type,is_admin,is_blocked')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (profile == null || profile['is_blocked'] == true) {
+        await auth.auth.signOut();
+        throw const AuthException('Bu hesap uygulamaya erişemiyor.');
+      }
+      var allowed = false;
+      switch (role) {
+        case AppRole.admin:
+          allowed = profile['is_admin'] == true;
+        case AppRole.owner:
+          allowed = profile['account_type'] == 'business_owner' && profile['is_admin'] != true;
+        case AppRole.employee:
+          final employee = await auth.from('employees').select('id')
+              .eq('user_id', user.id).eq('is_active', true).limit(1);
+          allowed = employee.isNotEmpty;
+        case AppRole.customer:
+          allowed = profile['account_type'] == 'customer' && profile['is_admin'] != true;
+      }
+      if (!allowed) {
+        await auth.auth.signOut();
+        throw const AuthException('Bu hesap seçtiğin role bağlı değil.');
+      }
+      if (!context.mounted) return;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => RoleShell(role: role)));
+    } on AuthException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: wine),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Giriş yapılamadı. Bağlantını ve hesap bilgilerini kontrol et.'), backgroundColor: wine),
+        );
+      }
+    } finally {
+      email.dispose();
+      password.dispose();
+    }
+  }
   Widget _role(BuildContext context, AppRole role, String title, String subtitle, IconData icon) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RoleShell(role: role))),
+      onTap: () => _openRole(context, role),
       child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: blush), boxShadow: [BoxShadow(color: wine.withOpacity(.05), blurRadius: 16, offset: const Offset(0, 5))]), child: Row(children: [
         Container(width: 48, height: 48, decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: wine, size: 25)),
         const SizedBox(width: 13), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: ink)), const SizedBox(height: 3), Text(subtitle, style: const TextStyle(color: muted, fontSize: 12))])),
