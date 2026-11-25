@@ -1180,7 +1180,291 @@ class _FollowingPageState extends State<FollowingPage> {
 
 class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
 class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
-class MessagesPage extends StatelessWidget {const MessagesPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Mesajlar',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kişi veya sohbet ara...'),const SizedBox(height:12),...['Zeynep Kaya','Luxe Beauty Salon','Merve Demir','Ayşe Yılmaz','Elif Demir'].map((n)=>ListTile(contentPadding:const EdgeInsets.symmetric(vertical:5),leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Merhaba, randevu için bilgi alabilir miyim?'),trailing:const Text('14:20',style:TextStyle(color:muted,fontSize:11))))]);}
+class MessagesPage extends StatefulWidget {
+  const MessagesPage({super.key});
+
+  @override
+  State<MessagesPage> createState() => _MessagesPageState();
+}
+
+class _MessagesPageState extends State<MessagesPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> conversations;
+
+  @override
+  void initState() {
+    super.initState();
+    conversations = repository.fetchConversations();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchConversations();
+    setState(() => conversations = next);
+    await next;
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: conversations,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Mesajlar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('Paylaşım yapan çalışanlarla sohbetlerin.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(
+              padding: EdgeInsets.all(34),
+              child: Center(child: CircularProgressIndicator(color: wine)),
+            )
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.chat_bubble_outline,
+              title: 'Mesajlar yüklenemedi',
+              detail: 'Bağlantını kontrol edip tekrar dene.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(
+              icon: Icons.forum_outlined,
+              title: 'Henüz sohbetin yok',
+              detail: 'Keşfet bölümünde paylaşım yapan bir çalışanın profiline girip mesaj gönderebilirsin.',
+            )
+          else
+            ...snapshot.data!.map((row) {
+              final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+              final isCustomer = row['customer_id'] == currentUserId;
+              final title = isCustomer
+                  ? row['employee_name'] as String? ?? 'Çalışan'
+                  : row['customer_name'] as String? ?? 'Müşteri';
+              final avatarUrl = isCustomer
+                  ? row['employee_avatar_url'] as String?
+                  : row['customer_avatar_url'] as String?;
+              final updated = DateTime.tryParse(row['updated_at'] as String? ?? '')?.toLocal();
+              final time = updated == null
+                  ? ''
+                  : '${updated.day}.${updated.month} • ${updated.hour.toString().padLeft(2, '0')}:${updated.minute.toString().padLeft(2, '0')}';
+              return Card(
+                color: Colors.white,
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(17),
+                  side: const BorderSide(color: blush),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  leading: CircleAvatar(
+                    radius: 25,
+                    backgroundColor: blush,
+                    backgroundImage: avatarUrl == null || avatarUrl.isEmpty
+                        ? null
+                        : NetworkImage(avatarUrl),
+                    child: avatarUrl == null || avatarUrl.isEmpty
+                        ? const Icon(Icons.person, color: wine)
+                        : null,
+                  ),
+                  title: Text(title, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                  subtitle: Text(
+                    row['business_name'] as String? ?? 'Kuaförüm',
+                    style: const TextStyle(color: muted, fontSize: 11),
+                  ),
+                  trailing: Text(time, style: const TextStyle(color: muted, fontSize: 10)),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ChatPage(
+                      conversationId: row['id'] as String,
+                      title: title,
+                      subtitle: row['business_name'] as String? ?? 'Kuaförüm',
+                    ),
+                  )),
+                ),
+              );
+            }),
+        ],
+      ),
+    ),
+  );
+}
+
+class ChatPage extends StatefulWidget {
+  final String conversationId;
+  final String title;
+  final String subtitle;
+  const ChatPage({
+    super.key,
+    required this.conversationId,
+    required this.title,
+    this.subtitle = 'Kuaförüm',
+  });
+
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final repository = KuaforumFeedRepository();
+  final controller = TextEditingController();
+  late final Stream<List<Map<String, dynamic>>> messages;
+  bool sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    messages = repository.streamMessages(widget.conversationId);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> send() async {
+    if (sending) return;
+    final body = controller.text.trim();
+    if (body.isEmpty) return;
+    setState(() => sending = true);
+    try {
+      await repository.sendMessage(widget.conversationId, body);
+      controller.clear();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mesaj gönderilemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title, style: const TextStyle(color: wine, fontWeight: FontWeight.w800, fontSize: 16)),
+          Text(widget.subtitle, style: const TextStyle(color: muted, fontSize: 10)),
+        ],
+      ),
+    ),
+    body: SafeArea(
+      child: Column(children: [
+        Expanded(
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: messages,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator(color: wine));
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Sohbet yüklenemedi.', style: TextStyle(color: muted)));
+              }
+              final rows = [...(snapshot.data ?? [])];
+              rows.sort((a, b) => DateTime.parse(a['created_at'] as String)
+                  .compareTo(DateTime.parse(b['created_at'] as String)));
+              if (rows.isEmpty) {
+                return const Center(child: Text('Sohbeti başlatmak için bir mesaj gönder.', style: TextStyle(color: muted)));
+              }
+              final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(14, 16, 14, 20),
+                itemCount: rows.length,
+                itemBuilder: (context, index) {
+                  final message = rows[index];
+                  final mine = message['sender_id'] == currentUserId;
+                  final created = DateTime.tryParse(message['created_at'] as String? ?? '')?.toLocal();
+                  final time = created == null
+                      ? ''
+                      : '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}';
+                  return Align(
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: mine ? wine : Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(17),
+                          topRight: const Radius.circular(17),
+                          bottomLeft: Radius.circular(mine ? 17 : 4),
+                          bottomRight: Radius.circular(mine ? 4 : 17),
+                        ),
+                        border: mine ? null : Border.all(color: blush),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            message['body'] as String? ?? '',
+                            style: TextStyle(color: mine ? Colors.white : ink, height: 1.35),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(time, style: TextStyle(
+                            color: mine ? Colors.white70 : muted,
+                            fontSize: 9,
+                          )),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: blush)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              maxLength: 4000,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => send(),
+              decoration: InputDecoration(
+                hintText: 'Mesajını yaz...',
+                counterText: '',
+                filled: true,
+                fillColor: cream,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            )),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: sending ? null : send,
+              style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              icon: sending
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ))
+                  : const Icon(Icons.send_rounded),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  );
+}
+
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
