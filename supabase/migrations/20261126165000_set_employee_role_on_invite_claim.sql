@@ -1,3 +1,10 @@
+ALTER TABLE public.profiles
+  DROP CONSTRAINT IF EXISTS profiles_account_type_check;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_account_type_check
+  CHECK (account_type = ANY (ARRAY['customer'::text, 'business_owner'::text, 'employee'::text));
+
 CREATE OR REPLACE FUNCTION private.claim_employee_invite(p_code text)
 RETURNS uuid
 LANGUAGE plpgsql
