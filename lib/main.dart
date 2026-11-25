@@ -4113,7 +4113,7 @@ class _OwnerHomeState extends State<OwnerHome> {
           )),
         ),
         const SizedBox(height: 14), Row(children: [_StatCard(todayCount.toString(), 'Bugünkü Randevu'), _StatCard(value.appointments.length.toString(), 'Toplam Randevu'), _StatCard(value.customerCount.toString(), 'Müşteri')]),
-        const SectionTitle('Yaklaşan Randevular', action: 'Tümünü Gör'),
+        const SectionTitle('Yaklaşan Randevular'),
         if (upcoming.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Yaklaşan randevu bulunmuyor.', style: TextStyle(color: muted)))
         else ...upcoming.take(3).map((row) => AppointmentTile(name: row['customer_name']?.toString() ?? 'Müşteri', service: row['service_name']?.toString() ?? 'Hizmet', time: appointmentTime(row), status: row['status'] == 'pending' ? 'Onay bekliyor' : row['status'] == 'confirmed' ? 'Onaylandı' : row['status']?.toString() ?? 'Aktif')),
         const SectionTitle('Hızlı Yönetim'), const QuickTiles(ownerMode: true),
@@ -5066,13 +5066,12 @@ class _SettingsPageState extends State<SettingsPage> {
           Card(
             color: Colors.white,
             elevation: 0,
-            child: Column(children: const [
-              ListTile(leading: Icon(Icons.notifications_outlined, color: wine), title: Text('Bildirim Ayarları')),
-              Divider(height: 1, color: blush),
-              ListTile(leading: Icon(Icons.security_outlined, color: wine), title: Text('Güvenlik')),
-              Divider(height: 1, color: blush),
-              ListTile(leading: Icon(Icons.help_outline, color: wine), title: Text('Yardım ve Destek')),
-            ]),
+            child: ListTile(
+              leading: const Icon(Icons.notifications_outlined, color: wine),
+              title: const Text('Bildirimler', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+              trailing: const Icon(Icons.chevron_right, color: muted),
+              onTap: () => openPage(const NotificationsPage(), 'Bildirimler'),
+            ),
           ),
         ],
       );
