@@ -1543,6 +1543,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
       } else if (action == 'cancel') {
         await repository.cancelAppointment(id);
       }
+      if (!mounted) return;
       await refresh();
     } catch (error) {
       if (mounted) {
@@ -1927,7 +1928,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     try {
       await repository.cancelAppointment(id);
       if (!mounted) return;
@@ -3323,7 +3324,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     );
     final name = nameController.text.trim();
     nameController.dispose();
-    if (accepted != true || name.isEmpty) return;
+    if (accepted != true || name.isEmpty || !mounted) return;
     try {
       final code = await repository.createEmployeeInvite(
         businessId: businessId,
@@ -3587,7 +3588,7 @@ class _ServicesPageState extends State<ServicesPage> {
         ),
       ),
     );
-    if (result != true) {
+    if (result != true || !mounted) {
       nameController.dispose();
       priceController.dispose();
       return;
@@ -3942,7 +3943,7 @@ class _CustomersPageState extends State<CustomersPage> {
     }
     final reason = reasonController.text.trim();
     reasonController.dispose();
-    if (accepted != true) return;
+    if (accepted != true || !mounted) return;
     try {
       await repository.setCustomerBlacklist(
         businessId: businessId,
@@ -4109,6 +4110,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> markRead(String id) async {
     try {
       await repository.markNotificationRead(id);
+      if (!mounted) return;
       await refresh();
     } catch (error) {
       if (mounted) {
@@ -4122,6 +4124,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> markAllRead() async {
     try {
       await repository.markAllNotificationsRead();
+      if (!mounted) return;
       await refresh();
     } catch (error) {
       if (mounted) {
