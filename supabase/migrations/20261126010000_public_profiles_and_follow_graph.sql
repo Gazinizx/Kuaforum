@@ -66,15 +66,91 @@ begin
   if p_user_id is not null then
     return query
     select
-      (select count(*) from public.feed_follows f where f.followed_user_id = p_user_id),
-      (select count(*) from public.feed_follows f where f.follower_user_id = p_user_id),
-      (select count(*) from public.feed_posts p where p.author_user_id = p_user_id);
+      (
+        select count(*)
+        from public.feed_follows f
+        join public.public_profiles pp on pp.id = f.follower_user_id
+        where f.followed_user_id = p_user_id
+      ),
+      (
+        select count(*)
+        from public.feed_follows f
+        where f.follower_user_id = p_user_id
+          and (
+            (f.followed_user_id is not null and exists (
+              select 1 from public.public_profiles pp where pp.id = f.followed_user_id
+            ))
+            or
+            (f.followed_business_id is not null and exists (
+              select 1 from public.businesses b
+              where b.id = f.followed_business_id and b.status = 'active'
+            ))
+          )
+      ),
+      (
+        select count(*)
+        from public.feed_posts p
+        join public.businesses b on b.id = p.business_id
+        where p.author_user_id = p_user_id
+          and b.status = 'active'
+          and (
+            (b.discover_paid and b.discover_enabled)
+            or b.owner_id = (select auth.uid())
+            or exists (
+              select 1 from public.business_memberships bm
+              where bm.business_id = b.id and bm.customer_id = (select auth.uid())
+            )
+            or exists (
+              select 1 from public.employees e
+              where e.business_id = b.id and e.user_id = (select auth.uid()) and e.is_active
+            )
+            or exists (
+              select 1 from public.feed_follows f
+              where f.follower_user_id = (select auth.uid())
+                and (
+                  f.followed_business_id = b.id
+                  or f.followed_user_id = p.author_user_id
+                )
+            )
+          )
+      );
   else
     return query
     select
-      (select count(*) from public.feed_follows f where f.followed_business_id = p_business_id),
+      (
+        select count(*)
+        from public.feed_follows f
+        join public.public_profiles pp on pp.id = f.follower_user_id
+        where f.followed_business_id = p_business_id
+      ),
       0::bigint,
-      (select count(*) from public.feed_posts p where p.business_id = p_business_id);
+      (
+        select count(*)
+        from public.feed_posts p
+        join public.businesses b on b.id = p.business_id
+        where p.business_id = p_business_id
+          and b.status = 'active'
+          and (
+            (b.discover_paid and b.discover_enabled)
+            or b.owner_id = (select auth.uid())
+            or exists (
+              select 1 from public.business_memberships bm
+              where bm.business_id = b.id and bm.customer_id = (select auth.uid())
+            )
+            or exists (
+              select 1 from public.employees e
+              where e.business_id = b.id and e.user_id = (select auth.uid()) and e.is_active
+            )
+            or exists (
+              select 1 from public.feed_follows f
+              where f.follower_user_id = (select auth.uid())
+                and (
+                  f.followed_business_id = b.id
+                  or f.followed_user_id = p.author_user_id
+                )
+            )
+          )
+      );
   end if;
 end;
 $$;
