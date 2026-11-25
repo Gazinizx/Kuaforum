@@ -5340,21 +5340,3 @@ class _DiscoverControlState extends State<DiscoverControl> {
       ]);
 }
 
-class _PrimaryButton extends StatelessWidget {
-  final String label;
-  const _PrimaryButton(this.label);
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: wine,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      onPressed: () {},
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-    ),
-  );
-}
