@@ -10,8 +10,11 @@ BEGIN
   IF NOT public.is_current_user_active() THEN
     RAISE EXCEPTION 'Hesabınız geçici olarak kısıtlandı';
   END IF;
-  IF p_name IS NULL OR length(btrim(p_name)) < 2 THEN
-    RAISE EXCEPTION 'İşletme adı en az 2 karakter olmalı';
+  IF p_name IS NULL OR length(btrim(p_name)) < 2 OR length(btrim(p_name)) > 80 THEN
+    RAISE EXCEPTION 'İşletme adı 2-80 karakter arasında olmalı';
+  END IF;
+  IF length(btrim(coalesce(p_address, ''))) > 180 THEN
+    RAISE EXCEPTION 'Adres en fazla 180 karakter olabilir';
   END IF;
   UPDATE public.businesses
   SET name = btrim(p_name),
