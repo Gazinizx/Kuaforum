@@ -5805,7 +5805,8 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     if (Supabase.instance.client.auth.currentSession != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openCurrentAccount());
+      _openingAccount = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openCurrentAccount(fromStartup: true));
     }
   }
 
@@ -5920,8 +5921,8 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  Future<void> _openCurrentAccount() async {
-    if (_openingAccount) return;
+  Future<void> _openCurrentAccount({bool fromStartup = false}) async {
+    if (_openingAccount && !fromStartup) return;
     _openingAccount = true;
     final client = Supabase.instance.client;
     try {
