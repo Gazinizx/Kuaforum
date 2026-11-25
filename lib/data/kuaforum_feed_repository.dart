@@ -921,10 +921,10 @@ class KuaforumFeedRepository {
   }
 
   Future<void> setEmployeeActive(String employeeId, bool isActive) async {
-    await _client
-        .from('employees')
-        .update({'is_active': isActive})
-        .eq('id', employeeId);
+    await _client.rpc('set_employee_active', params: {
+      'p_employee_id': employeeId,
+      'p_is_active': isActive,
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchBusinessServices(
