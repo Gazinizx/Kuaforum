@@ -12,16 +12,28 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Paylaşım yapan uygun çalışanlarla müşteri arasında gerçek zamanlı mesajlaşma
 - Supabase RLS ve güvenli profil alanları; e-posta, telefon ve yönetici yetkileri herkese açık değildir
 
+## Tamamlanan randevu ve işletme özellikleri
+
+- Müşterinin aktif salonları araması ve işletme profillerini görüntülemesi
+- İşletme katılım koduyla üyelik
+- İşletme sahibinin hizmet, fiyat ve süre yönetimi
+- Çalışan daveti oluşturma, davet kodu görüntüleme ve çalışanı aktif/pasif yapma
+- Haftalık çalışma saatleri ve randevu aralığı ayarları
+- Müşterinin uygun gün/saat seçerek randevu oluşturması
+- Uygun saat hesabında hizmet süresi, çalışma saatleri, molalar ve mevcut randevuların dikkate alınması
+- Müşteri randevu geçmişi; çalışan kendi randevuları; işletme sahibi tüm çalışan randevuları ve onay bekleyen talepler
+- Üç veya daha fazla gelmeme kaydından sonra yeni randevunun işletme onayına düşmesi
+
 ## Henüz tamamlanmayan bölümler
 
-- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü hâlâ örnek veri/tasarım aşamasındadır.
+- Normal kullanıcı kayıt/giriş ekranı ve çalışan davet kodunu giriş sırasında kullanma akışı son aşamada tamamlanacaktır.
 - Ana yönetici ekranındaki Keşfet görünürlük kontrollerinin veritabanına bağlanması tamamlanmamıştır.
-- Normal kullanıcı kayıt/giriş ekranı son aşamada eklenecektir.
+- Bildirim ekranı ve bildirim tercihleri tam olarak bağlanmamıştır.
 - iOS derlemesi ve App Store hazırlığı tamamlanmamıştır.
 
 ## Android derleme
 
-Android APK iş akışı artık otomatik çalışmaz. Yalnızca kullanıcı açıkça istediğinde GitHub Actions içinden manuel olarak başlatılır.
+Android APK iş akışı yalnızca kullanıcı açıkça istediğinde GitHub Actions içinden manuel başlatılır. Kod güncellemeleri otomatik derleme başlatmaz.
 
 Yerel derleme komutları:
 
