@@ -1641,8 +1641,16 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                 decoration: BoxDecoration(
                   color: blush,
                   borderRadius: BorderRadius.circular(28),
+                  image: (value.business['logo_url'] as String?)?.isNotEmpty == true
+                      ? DecorationImage(
+                          image: NetworkImage(value.business['logo_url'] as String),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: const Icon(Icons.storefront_rounded, color: wine, size: 48),
+                child: (value.business['logo_url'] as String?)?.isNotEmpty == true
+                    ? null
+                    : const Icon(Icons.storefront_rounded, color: wine, size: 48),
               )),
               const SizedBox(height: 12),
               Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
@@ -1804,6 +1812,7 @@ class OwnerProfilePage extends StatefulWidget {
 class _OwnerProfilePageState extends State<OwnerProfilePage> {
   final repository = KuaforumFeedRepository();
   late Future<_BusinessProfileData> data;
+  bool logoBusy = false;
 
   Future<_BusinessProfileData> load() async {
     final business = await repository.fetchOwnedBusinessProfile();
@@ -1823,6 +1832,35 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   void initState() {
     super.initState();
     data = load();
+  }
+
+  Future<void> chooseLogo() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 86,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => logoBusy = true);
+    try {
+      await repository.uploadBusinessLogo(File(picked.path));
+      if (!mounted) return;
+      final next = load();
+      setState(() => data = next);
+      await next;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletme fotoğrafı güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletme fotoğrafı yüklenemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => logoBusy = false);
+    }
   }
 
   void open(BuildContext context, String section) {
@@ -1870,11 +1908,48 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            Center(child: Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(28)),
-              child: const Icon(Icons.storefront, size: 48, color: wine),
+            Center(child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    color: blush,
+                    borderRadius: BorderRadius.circular(28),
+                    image: (value.business['logo_url'] as String?)?.isNotEmpty == true
+                        ? DecorationImage(
+                            image: NetworkImage(value.business['logo_url'] as String),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: (value.business['logo_url'] as String?)?.isNotEmpty == true
+                      ? null
+                      : const Icon(Icons.storefront, size: 48, color: wine),
+                ),
+                Positioned(
+                  right: -5,
+                  bottom: -5,
+                  child: IconButton.filled(
+                    onPressed: logoBusy ? null : chooseLogo,
+                    style: IconButton.styleFrom(
+                      backgroundColor: wine,
+                      foregroundColor: Colors.white,
+                      fixedSize: const Size(34, 34),
+                      minimumSize: const Size(34, 34),
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: logoBusy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.camera_alt_rounded, size: 17),
+                  ),
+                ),
+              ],
             )),
             const SizedBox(height: 10),
             Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)),
