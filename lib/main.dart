@@ -230,9 +230,8 @@ class CustomerHome extends StatelessWidget {
   @override Widget build(BuildContext context)=>PageBody(children:[
     const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
     const SizedBox(height:15),
-    SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
+    Row(children: [
+      Expanded(child: OutlinedButton.icon(
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const CustomerAppointmentsPage()),
@@ -242,10 +241,60 @@ class CustomerHome extends StatelessWidget {
           side: const BorderSide(color: blush),
           padding: const EdgeInsets.symmetric(vertical: 13),
         ),
-        icon: const Icon(Icons.calendar_month_outlined),
+        icon: const Icon(Icons.calendar_month_outlined, size: 18),
         label: const Text('Randevularım'),
-      ),
-    ),
+      )),
+      const SizedBox(width: 8),
+      Expanded(child: OutlinedButton.icon(
+        onPressed: () async {
+          final controller = TextEditingController();
+          final accepted = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('İşletmeye katıl'),
+              content: TextField(
+                controller: controller,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'İşletme katılım kodu',
+                  hintText: 'Örn. ABC123',
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+                FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
+              ],
+            ),
+          );
+          final code = controller.text.trim();
+          controller.dispose();
+          if (accepted != true || code.isEmpty) return;
+          try {
+            final businessId = await KuaforumFeedRepository().joinBusinessByCode(code);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('İşletmeye başarıyla katıldın.')),
+            );
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => BusinessProfilePage(businessId: businessId),
+            ));
+          } catch (error) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('İşletmeye katılınamadı: $error')),
+              );
+            }
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          foregroundColor: wine,
+          side: const BorderSide(color: blush),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+        ),
+        icon: const Icon(Icons.store_mall_directory_outlined, size: 18),
+        label: const Text('İşletmeye katıl'),
+      )),
+    ]),
     const SizedBox(height:12),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
     const SalonCard(name:'Luxe Beauty Salon',detail:'Melikgazi • Saç, bakım ve renklendirme'),
     const SalonCard(name:'Rose Hair Studio',detail:'Talas • Kesim ve profesyonel bakım'),
