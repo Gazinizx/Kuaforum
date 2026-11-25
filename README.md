@@ -39,7 +39,7 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
 
 ## Henüz tamamlanması gerekenler
-- Normal müşteri/işletme kayıt ve giriş akışı ile çalışan davet kodu üzerinden hesap aktivasyonu. Hızlı rol/test ekranı yalnızca geliştirme testi içindir; normal giriş akışı son aşamada yapılacaktır.
+- Normal müşteri/işletme kayıt ve giriş ekranı ile çalışan davet kodunu kullanma arayüzü. Çalışan daveti backend aktivasyon RPC'si hazır; hızlı rol/test ekranı yalnızca geliştirme testi içindir ve normal giriş akışı son aşamada eklenecektir.
 - Firebase Cloud Messaging ile gerçek push bildirim teslimi. Uygulama içi bildirim merkezi vardır; push teslimi henüz bağlanmamıştır.
 - iOS yapılandırması, imzalama ve App Store hazırlığı.
 - Son cihaz testleri, Flutter analiz/test ve yayın derlemesi.
