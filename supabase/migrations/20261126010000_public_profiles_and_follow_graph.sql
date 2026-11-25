@@ -18,7 +18,7 @@ drop policy if exists feed_follows_read on public.feed_follows;
 create policy feed_follows_read
 on public.feed_follows for select
 to authenticated
-using (true);
+using (public.is_current_user_active());
 
 drop policy if exists feed_follows_insert on public.feed_follows;
 create policy feed_follows_insert
