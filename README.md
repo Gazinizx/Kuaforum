@@ -9,7 +9,7 @@ Kadın kuaförleri için premium salon keşif, randevu ve sosyal paylaşım uygu
 - İşletme sahibi ve aktif çalışan hesapları fotoğraf/video paylaşabilir.
 - Keşfet ve Takip akışları, beğeniler, takip ilişkileri ve yorumlar Supabase üzerinden kalıcı olarak çalışır.
 - Paylaşılan medya özel `salon-feed` Storage alanında saklanır; görüntüleme izinleri işletme ve Keşfet görünürlüğü kurallarına bağlıdır.
-- Ana yönetici Keşfet erişim kurallarının sahibidir; test işletmesinin görünürlüğü kendiliğinden açılmaz.
+- Keşfet görünürlüğü veritabanında işletme bazında tutulur; ana yönetici ekranındaki erişim anahtarlarının veritabanına bağlanması henüz tamamlanmamıştır. Test işletmesinin görünürlüğü kapalıdır.
 
 ## Henüz tamamlanmayan bölümler
 
