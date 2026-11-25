@@ -25,7 +25,7 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Üç gelmeme kaydından sonra otomatik kara liste; işletme sahibi manuel ekleme/çıkarma yapabilir.
 - Kara listedeki müşterinin yeni randevu talepleri işletme onayına düşer.
 - Kara listedeki müşterinin yeni randevularında işletme onayı
-- İşletme müşteri listesi, ayrı Kara Liste filtresi, müşteri ekleme/çıkarma, not kaydı, randevu ve gelmeme kayıtları
+- İşletme panelinde ayrı Kara Liste menüsü ve Müşterilerim içinden filtre; işletme sahibi müşteri ekleyebilir/çıkarabilir, gerekçe notu görebilir ve randevu/gelmeme kayıtlarını inceleyebilir
 
 ### Ana yönetici
 - İşletmeleri listeleme, onaylama ve askıya alma
