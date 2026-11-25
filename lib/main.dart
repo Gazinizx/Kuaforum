@@ -225,17 +225,57 @@ class SalonCard extends StatelessWidget {
   final String name,detail; final String rating; const SalonCard({super.key,required this.name,required this.detail,this.rating='4.9'});
   @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20),border:Border.all(color:blush)),child:Row(children:[Container(width:88,height:88,decoration:BoxDecoration(borderRadius:BorderRadius.circular(15),gradient:const LinearGradient(colors:[Color(0xFFE8C1C9),Color(0xFFB66B7D)])),child:const Icon(Icons.spa_rounded,color:Colors.white,size:38)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.w800,color:ink,fontSize:15)),const SizedBox(height:5),Text(detail,style:const TextStyle(color:muted,fontSize:12)),const SizedBox(height:8),Row(children:[const Icon(Icons.star_rounded,color:Color(0xFFE5A93D),size:16),Text(' $rating  •  1.2 km',style:const TextStyle(fontSize:11,color:muted)),const Spacer(),const Icon(Icons.favorite_border,color:rose,size:19)])]))]));
 }
-class CustomerHome extends StatelessWidget {
+class CustomerHome extends StatefulWidget {
   const CustomerHome({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[
-    const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
-    const SizedBox(height:15),
+
+  @override
+  State<CustomerHome> createState() => _CustomerHomeState();
+}
+
+class _CustomerHomeState extends State<CustomerHome> {
+  final repository = KuaforumFeedRepository();
+  final searchController = TextEditingController();
+  late Future<List<Map<String, dynamic>>> businesses;
+
+  @override
+  void initState() {
+    super.initState();
+    businesses = repository.fetchActiveBusinesses();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void searchBusinesses() {
+    setState(() {
+      businesses = repository.fetchActiveBusinesses(
+        searchQuery: searchController.text,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => PageBody(children: [
+    const Text('Merhaba, Güzellik! ♡', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)),
+    const SizedBox(height: 4),
+    const Text('Bugün kendine biraz zaman ayır.', style: TextStyle(color: muted)),
+    const SizedBox(height: 16),
+    const HeroPanel(
+      eyebrow: 'Stilini keşfet',
+      title: 'Hayal ettiğin saç stili burada',
+      subtitle: 'İlham al, salonunu bul ve kolayca randevu oluştur.',
+      icon: Icons.auto_awesome,
+      button: 'Şimdi keşfet  →',
+    ),
+    const SizedBox(height: 15),
     Row(children: [
       Expanded(child: OutlinedButton.icon(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const CustomerAppointmentsPage()),
-        ),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(
+          builder: (_) => const CustomerAppointmentsPage(),
+        )),
         style: OutlinedButton.styleFrom(
           foregroundColor: wine,
           side: const BorderSide(color: blush),
@@ -270,7 +310,7 @@ class CustomerHome extends StatelessWidget {
           controller.dispose();
           if (accepted != true || code.isEmpty) return;
           try {
-            final businessId = await KuaforumFeedRepository().joinBusinessByCode(code);
+            final businessId = await repository.joinBusinessByCode(code);
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('İşletmeye başarıyla katıldın.')),
@@ -295,12 +335,85 @@ class CustomerHome extends StatelessWidget {
         label: const Text('İşletmeye katıl'),
       )),
     ]),
-    const SizedBox(height:12),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
-    const SalonCard(name:'Luxe Beauty Salon',detail:'Melikgazi • Saç, bakım ve renklendirme'),
-    const SalonCard(name:'Rose Hair Studio',detail:'Talas • Kesim ve profesyonel bakım'),
-    const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
+    const SizedBox(height: 14),
+    TextField(
+      controller: searchController,
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => searchBusinesses(),
+      decoration: InputDecoration(
+        hintText: 'Kuaför veya salon adı ara...',
+        prefixIcon: const Icon(Icons.search, color: wine),
+        suffixIcon: IconButton(
+          onPressed: searchBusinesses,
+          icon: const Icon(Icons.arrow_forward_rounded, color: wine),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: blush),
+        ),
+      ),
+    ),
+    const SectionTitle('Aktif kuaförler'),
+    FutureBuilder<List<Map<String, dynamic>>>(
+      future: businesses,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator(color: wine)),
+          );
+        }
+        if (snapshot.hasError) {
+          return const _FeedMessage(
+            icon: Icons.store_mall_directory_outlined,
+            title: 'Kuaförler yüklenemedi',
+            detail: 'Bağlantını kontrol edip tekrar dene.',
+          );
+        }
+        final rows = snapshot.data ?? [];
+        if (rows.isEmpty) {
+          return const _FeedMessage(
+            icon: Icons.search_off,
+            title: 'İşletme bulunamadı',
+            detail: 'Farklı bir salon adı deneyebilirsin.',
+          );
+        }
+        return Column(children: rows.map((business) {
+          final logoUrl = business['logo_url'] as String?;
+          return Card(
+            color: Colors.white,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(17),
+              side: const BorderSide(color: blush),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              leading: CircleAvatar(
+                radius: 25,
+                backgroundColor: blush,
+                backgroundImage: logoUrl == null ? null : NetworkImage(logoUrl),
+                child: logoUrl == null ? const Icon(Icons.storefront, color: wine) : null,
+              ),
+              title: Text(business['name'] as String? ?? 'Kuaförüm işletmesi', style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+              subtitle: Text(business['address'] as String? ?? 'Adres bilgisi eklenmemiş', style: const TextStyle(color: muted, fontSize: 11)),
+              trailing: const Icon(Icons.chevron_right, color: muted),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => BusinessProfilePage(businessId: business['id'] as String),
+              )),
+            ),
+          );
+        }).toList());
+      },
+    ),
+    const SectionTitle('Senin için seçtiklerimiz'),
+    const QuickTiles(),
   ]);
 }
+
 class QuickTiles extends StatelessWidget {
   const QuickTiles({super.key});
   @override Widget build(BuildContext context)=>Row(children:[_tile(Icons.calendar_month,'Randevu Al'),_tile(Icons.diamond,'Keşfet'),_tile(Icons.favorite,'Takip Edilen')]);
