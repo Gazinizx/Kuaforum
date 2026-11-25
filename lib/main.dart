@@ -200,9 +200,85 @@ class SectionTitle extends StatelessWidget {
   @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:22,bottom:12),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:ink))),if(action!=null) Text(action!,style:const TextStyle(color:rose,fontWeight:FontWeight.bold,fontSize:12))]));
 }
 class HeroPanel extends StatelessWidget {
-  final String eyebrow,title,subtitle; final IconData icon; final String button;
-  const HeroPanel({super.key,required this.eyebrow,required this.title,required this.subtitle,required this.icon,this.button='Keşfet'});
-  @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF6E2038),Color(0xFFC45B78)],begin:Alignment.topLeft,end:Alignment.bottomRight),borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:wine.withOpacity(.18),blurRadius:18,offset:const Offset(0,8))]),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow.toUpperCase(),style:const TextStyle(color:Color(0xFFFFDDE5),fontSize:10,letterSpacing:1.5,fontWeight:FontWeight.bold)),const SizedBox(height:9),Text(title,style:const TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),const SizedBox(height:7),Text(subtitle,style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4)),const SizedBox(height:14),Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20)),child:Text(button,style:const TextStyle(color:wine,fontWeight:FontWeight.bold,fontSize:12)))])),const SizedBox(width:10),Container(width:82,height:100,decoration:BoxDecoration(color:Colors.white.withOpacity(.13),borderRadius:BorderRadius.circular(22)),child:Icon(icon,size:54,color:Colors.white))]));
+  final String eyebrow, title, subtitle;
+  final IconData icon;
+  final String button;
+  final VoidCallback? onTap;
+
+  const HeroPanel({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    this.button = 'Keşfet',
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF6E2038), Color(0xFFC45B78)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: wine.withOpacity(.18),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: Row(children: [
+      Expanded(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(eyebrow.toUpperCase(), style: const TextStyle(
+            color: Color(0xFFFFDDE5), fontSize: 10, letterSpacing: 1.5,
+            fontWeight: FontWeight.bold,
+          )),
+          const SizedBox(height: 9),
+          Text(title, style: const TextStyle(
+            color: Colors.white, fontSize: 23, fontWeight: FontWeight.w800,
+            height: 1.15,
+          )),
+          const SizedBox(height: 7),
+          Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4)),
+          const SizedBox(height: 14),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(button, style: const TextStyle(color: wine, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(width: 5),
+                  const Icon(Icons.arrow_forward_rounded, size: 14, color: wine),
+                ]),
+              ),
+            ),
+          ),
+        ],
+      )),
+      const SizedBox(width: 10),
+      Container(
+        width: 82,
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.13),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Icon(icon, size: 54, color: Colors.white),
+      ),
+    ]),
+  );
 }
 class CustomerHome extends StatefulWidget {
   const CustomerHome({super.key});
@@ -242,12 +318,15 @@ class _CustomerHomeState extends State<CustomerHome> {
     const SizedBox(height: 4),
     const Text('Bugün kendine biraz zaman ayır.', style: TextStyle(color: muted)),
     const SizedBox(height: 16),
-    const HeroPanel(
+    HeroPanel(
       eyebrow: 'Stilini keşfet',
       title: 'Hayal ettiğin saç stili burada',
       subtitle: 'İlham al, salonunu bul ve kolayca randevu oluştur.',
       icon: Icons.auto_awesome,
-      button: 'Şimdi keşfet  →',
+      button: 'Şimdi keşfet',
+      onTap: () => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const DiscoverPage(),
+      )),
     ),
     const SizedBox(height: 15),
     Row(children: [
@@ -3109,12 +3188,18 @@ class _EmployeeHomeState extends State<EmployeeHome> {
               _StatCard(upcoming.length.toString(), 'Yaklaşan'),
             ]),
             const SizedBox(height: 16),
-            const HeroPanel(
+            HeroPanel(
               eyebrow: 'Portfolyonu büyüt',
               title: 'Çalışmalarını paylaş',
               subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve portfolyonu büyüt.',
               icon: Icons.camera_alt,
-              button: 'Paylaşım yap →',
+              button: 'Paylaşım yap',
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('Yeni paylaşım', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+                  body: const SharePage(),
+                ),
+              )),
             ),
             const SectionTitle('Yaklaşan Randevular'),
             if (upcoming.isEmpty)
@@ -3997,7 +4082,19 @@ class _OwnerHomeState extends State<OwnerHome> {
       final businessName = value.business['name'] as String? ?? 'İşletmem'; final address = value.business['address'] as String? ?? 'İşletme bilgilerini yönet';
       return RefreshIndicator(color: wine, onRefresh: refresh, child: ListView(padding: const EdgeInsets.fromLTRB(18,10,18,24), children: [
         const Text('İşletme Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)), const SizedBox(height: 14),
-        HeroPanel(eyebrow: 'İşletme paneli', title: businessName, subtitle: address.isEmpty ? 'İşletmeni, ekibini ve müşteri deneyimini yönet.' : address, icon: Icons.storefront, button: 'İşletme paneli'),
+        HeroPanel(
+          eyebrow: 'İşletme paneli',
+          title: businessName,
+          subtitle: address.isEmpty ? 'İşletmeni, ekibini ve müşteri deneyimini yönet.' : address,
+          icon: Icons.storefront,
+          button: 'Ayarları aç',
+          onTap: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('İşletme Ayarları', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+              body: const SettingsPage(),
+            ),
+          )),
+        ),
         const SizedBox(height: 14), Row(children: [_StatCard(todayCount.toString(), 'Bugünkü Randevu'), _StatCard(value.appointments.length.toString(), 'Toplam Randevu'), _StatCard(value.customerCount.toString(), 'Müşteri')]),
         const SectionTitle('Yaklaşan Randevular', action: 'Tümünü Gör'),
         if (upcoming.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Yaklaşan randevu bulunmuyor.', style: TextStyle(color: muted)))
@@ -5026,12 +5123,18 @@ class _AdminHomeState extends State<AdminHome> {
       return PageBody(children: [
         const Text('Ana Yönetici', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
         const SizedBox(height: 14),
-        const HeroPanel(
+        HeroPanel(
           eyebrow: 'Platform kontrolü',
           title: 'Kuaförüm ekosistemini yönet',
           subtitle: 'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',
           icon: Icons.admin_panel_settings,
-          button: 'Platformu yönet',
+          button: 'İşletmeleri yönet',
+          onTap: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('İşletme Yönetimi', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+              body: const AdminBusinesses(),
+            ),
+          )),
         ),
         const SizedBox(height: 14),
         Row(children: [
