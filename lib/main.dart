@@ -3446,6 +3446,23 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
                 post: post,
                 repository: repository,
               )),
+            const SectionTitle('Hesap'),
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.logout, color: wine),
+                title: const Text('Çıkış yap', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                onTap: () async {
+                  await Supabase.instance.client.auth.signOut();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const RolePicker()),
+                    (_) => false,
+                  );
+                },
+              ),
+            ),
           ],
         ),
       );
