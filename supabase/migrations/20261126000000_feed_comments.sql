@@ -1,3 +1,20 @@
+create or replace function public.is_current_user_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_blocked = false
+  );
+$$;
+
+revoke all on function public.is_current_user_active() from public, anon;
+grant execute on function public.is_current_user_active() to authenticated;
+
 -- Feed comments: public comment author labels and row-level access.
 -- Safe to apply to projects where feed_comments already exists.
 
@@ -58,10 +75,7 @@ on public.feed_comments for insert
 to authenticated
 with check (
   user_id = (select auth.uid())
-  and exists (
-    select 1 from public.profiles me
-    where me.id = (select auth.uid()) and me.is_blocked = false
-  )
+  and public.is_current_user_active()
   and exists (
     select 1 from public.feed_posts p
     where p.id = feed_comments.post_id
