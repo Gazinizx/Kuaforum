@@ -8,6 +8,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  if not public.is_current_user_active() then
+    raise exception 'Hesabınız geçici olarak kısıtlandı';
+  end if;
+
   update public.employees e
   set is_active = p_is_active
   from public.businesses b
