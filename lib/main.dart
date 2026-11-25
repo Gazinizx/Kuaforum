@@ -1139,8 +1139,8 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
     setState(() => sending = true);
     try {
       await widget.repository.addComment(widget.postId, text);
-      controller.clear();
       if (!mounted) return;
+      controller.clear();
       setState(() => comments = widget.repository.fetchComments(widget.postId));
     } catch (error) {
       if (!mounted) return;
@@ -1730,10 +1730,13 @@ class _BookingPageState extends State<BookingPage> {
       ));
     } catch (error) {
       if (mounted) {
+        setState(() {
+          selectedSlot = null;
+          slots = loadSlots();
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Randevu oluşturulamadı: $error')),
         );
-        setState(() => slots = loadSlots());
       }
     } finally {
       if (mounted) setState(() => booking = false);
@@ -1927,6 +1930,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage> {
     if (confirmed != true) return;
     try {
       await repository.cancelAppointment(id);
+      if (!mounted) return;
       await refresh();
     } catch (error) {
       if (mounted) {
