@@ -8,10 +8,7 @@ to authenticated
 with check (
   customer_id = (select auth.uid())
   and employee_id is not null
-  and exists (
-    select 1 from public.profiles me
-    where me.id = (select auth.uid()) and me.is_blocked = false
-  )
+  and public.is_current_user_active()
   and source_post_id is not null
   and exists (
     select 1
@@ -177,10 +174,7 @@ on public.messages for insert
 to authenticated
 with check (
   sender_id = (select auth.uid())
-  and exists (
-    select 1 from public.profiles me
-    where me.id = (select auth.uid()) and me.is_blocked = false
-  )
+  and public.is_current_user_active()
   and exists (
     select 1
     from public.conversations c
