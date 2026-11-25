@@ -74,6 +74,14 @@ using (
 revoke update on public.profiles from authenticated;
 grant update (full_name, phone, avatar_url) on public.profiles to authenticated;
 
+drop policy if exists "profiles update own row" on public.profiles;
+drop policy if exists profiles_update_own_active on public.profiles;
+create policy profiles_update_own_active
+on public.profiles for update
+to authenticated
+using (id = (select auth.uid()) and public.is_current_user_active())
+with check (id = (select auth.uid()) and public.is_current_user_active());
+
 create or replace view public.public_profiles
 with (security_barrier = true, security_invoker = false)
 as
