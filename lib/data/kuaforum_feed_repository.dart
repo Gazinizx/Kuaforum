@@ -425,6 +425,16 @@ class KuaforumFeedRepository {
     return business;
   }
 
+  Future<String> fetchMyBusinessJoinCode(String businessId) async {
+    final result = await _client.rpc('get_my_business_join_code', params: {
+      'p_business_id': businessId,
+    });
+    if (result == null || result.toString().isEmpty) {
+      throw const PostgrestException(message: 'İşletme katılım kodu alınamadı.');
+    }
+    return result.toString();
+  }
+
   Future<List<Map<String, dynamic>>> fetchActiveBusinesses({
     String searchQuery = '',
     int limit = 50,
