@@ -1331,6 +1331,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => sending = true);
     try {
       await repository.sendMessage(widget.conversationId, body);
+      if (!mounted) return;
       controller.clear();
     } catch (error) {
       if (mounted) {
