@@ -48,8 +48,12 @@ begin
   end if;
   if not exists (
     select 1 from public.employees e
+    join public.profiles employee_profile
+      on employee_profile.id = e.user_id
+     and employee_profile.is_blocked = false
     where e.id = p_employee_id
       and e.business_id = p_business_id
+      and e.user_id is not null
       and e.is_active = true
   ) then
     raise exception 'Çalışan bulunamadı veya aktif değil';
