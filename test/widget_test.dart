@@ -8,12 +8,37 @@ void main() {
     expect(find.text('Müşteri'), findsOneWidget);
     expect(find.text('Çalışan'), findsOneWidget);
     expect(find.text('İşletme Sahibi'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Ana Yönetici'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('Ana Yönetici'), findsOneWidget);
+  });
+
+  testWidgets('business owner has social feed and publishing tabs', (tester) async {
+    await tester.view.setPhysicalSize(const Size(1000, 1800));
+    await tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(const KuaforumApp());
+    await tester.tap(find.text('İşletme Sahibi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Keşfet'), findsOneWidget);
+    expect(find.text('Takip'), findsOneWidget);
+    expect(find.text('Paylaş'), findsOneWidget);
+    expect(find.text('Mesajlar'), findsOneWidget);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  });
+
+  testWidgets('admin navigation has no customer appointment tab', (tester) async {
+    await tester.view.setPhysicalSize(const Size(1000, 1800));
+    await tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(const KuaforumApp());
+    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Ana Yönetici'));
+    await tester.pumpAndSettle();
+    expect(find.text('İşletmeler'), findsOneWidget);
+    expect(find.text('Kullanıcılar'), findsOneWidget);
+    expect(find.text('Keşfet Yönetimi'), findsOneWidget);
+    expect(find.text('Randevular'), findsNothing);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
   });
 }
