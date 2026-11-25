@@ -439,11 +439,31 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+        InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => widget.post.isEmployeePost
+                ? PublicUserProfilePage(userId: widget.post.authorUserId)
+                : BusinessProfilePage(businessId: widget.post.businessId),
+          )),
+          child: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+        ),
         const SizedBox(width: 9),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-          Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
+          InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => widget.post.isEmployeePost
+                  ? PublicUserProfilePage(userId: widget.post.authorUserId)
+                  : BusinessProfilePage(businessId: widget.post.businessId),
+            )),
+            child: Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+          ),
+          InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => BusinessProfilePage(businessId: widget.post.businessId),
+            )),
+            child: Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
+          ),
         ])),
         if (!widget.post.isOwnPost && followStateLoaded)
           PopupMenuButton<String>(
@@ -928,7 +948,482 @@ class _FollowingPageState extends State<FollowingPage> {
 class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
 class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
 class MessagesPage extends StatelessWidget {const MessagesPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Mesajlar',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kişi veya sohbet ara...'),const SizedBox(height:12),...['Zeynep Kaya','Luxe Beauty Salon','Merve Demir','Ayşe Yılmaz','Elif Demir'].map((n)=>ListTile(contentPadding:const EdgeInsets.symmetric(vertical:5),leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Merhaba, randevu için bilgi alabilir miyim?'),trailing:const Text('14:20',style:TextStyle(color:muted,fontSize:11))))]);}
-class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      return const _FeedMessage(
+        icon: Icons.person_off_outlined,
+        title: 'Oturum bulunamadı',
+        detail: 'Profilini görmek için tekrar giriş yapmalısın.',
+      );
+    }
+    return PublicUserProfilePage(userId: userId, isOwn: true);
+  }
+}
+
+class _UserProfileData {
+  final Map<String, dynamic> profile;
+  final Map<String, int> stats;
+  final List<KuaforumFeedPost> posts;
+  const _UserProfileData(this.profile, this.stats, this.posts);
+}
+
+class PublicUserProfilePage extends StatefulWidget {
+  final String userId;
+  final bool isOwn;
+  const PublicUserProfilePage({
+    super.key,
+    required this.userId,
+    this.isOwn = false,
+  });
+
+  @override
+  State<PublicUserProfilePage> createState() => _PublicUserProfilePageState();
+}
+
+class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_UserProfileData> data;
+  bool following = false;
+  bool followBusy = false;
+
+  Future<_UserProfileData> load() async {
+    final values = await Future.wait([
+      repository.fetchPublicProfile(widget.userId),
+      repository.fetchSocialStats(userId: widget.userId),
+      repository.fetchProfilePosts(userId: widget.userId),
+    ]);
+    return _UserProfileData(
+      values[0] as Map<String, dynamic>,
+      values[1] as Map<String, int>,
+      values[2] as List<KuaforumFeedPost>,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+    if (!widget.isOwn) loadFollowState();
+  }
+
+  Future<void> loadFollowState() async {
+    try {
+      final value = await repository.isFollowingUser(widget.userId);
+      if (mounted) setState(() => following = value);
+    } catch (_) {}
+  }
+
+  Future<void> toggleFollow() async {
+    if (followBusy) return;
+    setState(() {
+      followBusy = true;
+      following = !following;
+    });
+    try {
+      if (following) {
+        await repository.followUser(widget.userId);
+      } else {
+        await repository.unfollowUser(widget.userId);
+      }
+      if (mounted) setState(() => data = load());
+    } catch (error) {
+      if (mounted) {
+        setState(() => following = !following);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Takip işlemi yapılamadı: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  void openList(String mode) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => FollowListPage(
+        profileId: widget.userId,
+        mode: mode,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_UserProfileData>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || !snapshot.hasData) {
+        return const _FeedMessage(
+          icon: Icons.person_search_outlined,
+          title: 'Profil açılamadı',
+          detail: 'Profil bilgileri şu anda yüklenemiyor.',
+        );
+      }
+      final value = snapshot.data!;
+      final name = (value.profile['full_name'] as String? ?? '').trim();
+      final accountType = value.profile['account_type'] as String? ?? 'customer';
+      final roleLabel = switch (accountType) {
+        'business_owner' => 'İşletme sahibi',
+        'employee' => 'Kuaför / Çalışan',
+        _ => 'Kuaförüm üyesi',
+      };
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: () async => setState(() => data = load()),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+          children: [
+            Center(child: CircleAvatar(
+              radius: 45,
+              backgroundColor: blush,
+              child: Text(
+                name.isEmpty ? 'K' : name.characters.first.toUpperCase(),
+                style: const TextStyle(color: wine, fontSize: 30, fontWeight: FontWeight.w800),
+              ),
+            )),
+            const SizedBox(height: 12),
+            Text(
+              name.isEmpty ? 'Kuaförüm kullanıcısı' : name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink),
+            ),
+            const SizedBox(height: 4),
+            Text(roleLabel, textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+            const SizedBox(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              _ProfileMetric(
+                value.stats['posts'] ?? 0,
+                'Gönderi',
+                onTap: null,
+              ),
+              _ProfileMetric(
+                value.stats['followers'] ?? 0,
+                'Takipçi',
+                onTap: () => openList('followers'),
+              ),
+              _ProfileMetric(
+                value.stats['following'] ?? 0,
+                'Takip',
+                onTap: () => openList('following'),
+              ),
+            ]),
+            if (!widget.isOwn) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: followBusy ? null : toggleFollow,
+                style: FilledButton.styleFrom(
+                  backgroundColor: following ? blush : wine,
+                  foregroundColor: following ? wine : Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+                icon: Icon(following ? Icons.check : Icons.person_add_alt_1),
+                label: Text(following ? 'Takip ediliyor' : 'Takip et'),
+              ),
+            ],
+            const SectionTitle('Paylaşımlar'),
+            if (value.posts.isEmpty)
+              const _FeedMessage(
+                icon: Icons.photo_library_outlined,
+                title: 'Henüz paylaşım yok',
+                detail: 'Bu profilde görüntülenebilecek herkese açık paylaşım bulunmuyor.',
+              )
+            else
+              ...value.posts.map((post) => LiveFeedPostCard(
+                post: post,
+                repository: repository,
+              )),
+            if (widget.isOwn) ...[
+              const SectionTitle('Hesap'),
+              Card(
+                color: Colors.white,
+                elevation: 0,
+                child: ListTile(
+                  leading: const Icon(Icons.logout, color: wine),
+                  title: const Text('Çıkış yap', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                  onTap: () async {
+                    await Supabase.instance.client.auth.signOut();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const RolePicker()),
+                      (_) => false,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _ProfileMetric extends StatelessWidget {
+  final int value;
+  final String label;
+  final VoidCallback? onTap;
+  const _ProfileMetric(this.value, this.label, {this.onTap});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(children: [
+        Text('$value', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: wine)),
+        Text(label, style: const TextStyle(fontSize: 11, color: muted)),
+      ]),
+    ),
+  );
+}
+
+class FollowListPage extends StatefulWidget {
+  final String profileId;
+  final String mode;
+  final bool businessProfile;
+  const FollowListPage({
+    super.key,
+    required this.profileId,
+    required this.mode,
+    this.businessProfile = false,
+  });
+
+  @override
+  State<FollowListPage> createState() => _FollowListPageState();
+}
+
+class _FollowListPageState extends State<FollowListPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> people;
+
+  @override
+  void initState() {
+    super.initState();
+    people = load();
+  }
+
+  Future<List<Map<String, dynamic>>> load() {
+    if (widget.businessProfile) {
+      return repository.fetchBusinessFollowers(widget.profileId);
+    }
+    return widget.mode == 'followers'
+        ? repository.fetchUserFollowers(widget.profileId)
+        : repository.fetchUserFollowing(widget.profileId);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      title: Text(
+        widget.mode == 'followers' ? 'Takipçiler' : 'Takip Edilenler',
+        style: const TextStyle(color: wine, fontWeight: FontWeight.w800),
+      ),
+    ),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: people,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: wine));
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Liste yüklenemedi.', style: TextStyle(color: muted)));
+        }
+        final rows = snapshot.data ?? [];
+        if (rows.isEmpty) {
+          return const Center(child: Text('Henüz burada kimse yok.', style: TextStyle(color: muted)));
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const Divider(color: blush),
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final isBusiness = row['kind'] == 'business';
+            final id = row['id'] as String? ?? row['follower_user_id'] as String? ?? '';
+            final name = row['name'] as String? ??
+                row['full_name'] as String? ?? 'Kuaförüm kullanıcısı';
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              leading: CircleAvatar(
+                backgroundColor: blush,
+                child: Icon(isBusiness ? Icons.storefront : Icons.person, color: wine),
+              ),
+              title: Text(name, style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+              subtitle: Text(isBusiness ? 'İşletme' : 'Kuaförüm üyesi', style: const TextStyle(color: muted)),
+              trailing: const Icon(Icons.chevron_right, color: muted),
+              onTap: id.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => isBusiness
+                    ? BusinessProfilePage(businessId: id)
+                    : PublicUserProfilePage(userId: id),
+              )),
+            );
+          },
+        );
+      },
+    ),
+  );
+}
+
+class _BusinessProfileData {
+  final Map<String, dynamic> business;
+  final Map<String, int> stats;
+  final List<KuaforumFeedPost> posts;
+  const _BusinessProfileData(this.business, this.stats, this.posts);
+}
+
+class BusinessProfilePage extends StatefulWidget {
+  final String businessId;
+  const BusinessProfilePage({super.key, required this.businessId});
+
+  @override
+  State<BusinessProfilePage> createState() => _BusinessProfilePageState();
+}
+
+class _BusinessProfilePageState extends State<BusinessProfilePage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_BusinessProfileData> data;
+  bool following = false;
+  bool followBusy = false;
+
+  Future<_BusinessProfileData> load() async {
+    final values = await Future.wait([
+      repository.fetchBusinessProfile(widget.businessId),
+      repository.fetchSocialStats(businessId: widget.businessId),
+      repository.fetchProfilePosts(businessId: widget.businessId),
+    ]);
+    return _BusinessProfileData(
+      values[0] as Map<String, dynamic>,
+      values[1] as Map<String, int>,
+      values[2] as List<KuaforumFeedPost>,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+    loadFollowState();
+  }
+
+  Future<void> loadFollowState() async {
+    try {
+      final value = await repository.isFollowingBusiness(widget.businessId);
+      if (mounted) setState(() => following = value);
+    } catch (_) {}
+  }
+
+  Future<void> toggleFollow() async {
+    if (followBusy) return;
+    setState(() {
+      followBusy = true;
+      following = !following;
+    });
+    try {
+      if (following) {
+        await repository.followBusiness(widget.businessId);
+      } else {
+        await repository.unfollowBusiness(widget.businessId);
+      }
+      if (mounted) setState(() => data = load());
+    } catch (error) {
+      if (mounted) {
+        setState(() => following = !following);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletme takibi güncellenemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(title: const Text('İşletme Profili', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+    body: FutureBuilder<_BusinessProfileData>(
+      future: data,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: wine));
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const _FeedMessage(icon: Icons.store_mall_directory_outlined, title: 'İşletme profili açılamadı', detail: 'İşletme bilgileri şu anda yüklenemiyor.');
+        }
+        final value = snapshot.data!;
+        final name = value.business['name'] as String? ?? 'Kuaförüm işletmesi';
+        final address = value.business['address'] as String? ?? '';
+        return RefreshIndicator(
+          color: wine,
+          onRefresh: () async => setState(() => data = load()),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+            children: [
+              Center(child: Container(
+                width: 92,
+                height: 92,
+                decoration: BoxDecoration(
+                  color: blush,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Icon(Icons.storefront_rounded, color: wine, size: 48),
+              )),
+              const SizedBox(height: 12),
+              Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+              if (address.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(address, textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+              ],
+              const SizedBox(height: 18),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _ProfileMetric(value.stats['posts'] ?? 0, 'Gönderi'),
+                _ProfileMetric(
+                  value.stats['followers'] ?? 0,
+                  'Takipçi',
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => FollowListPage(
+                      profileId: widget.businessId,
+                      mode: 'followers',
+                      businessProfile: true,
+                    ),
+                  )),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: followBusy ? null : toggleFollow,
+                style: FilledButton.styleFrom(
+                  backgroundColor: following ? blush : wine,
+                  foregroundColor: following ? wine : Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+                icon: Icon(following ? Icons.check : Icons.add),
+                label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
+              ),
+              const SectionTitle('Salon paylaşımları'),
+              if (value.posts.isEmpty)
+                const _FeedMessage(icon: Icons.photo_library_outlined, title: 'Henüz paylaşım yok', detail: 'İşletmenin herkese açık paylaşımı bulunmuyor.')
+              else
+                ...value.posts.map((post) => LiveFeedPostCard(post: post, repository: repository)),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+
+class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
