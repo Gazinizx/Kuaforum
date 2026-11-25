@@ -5880,7 +5880,7 @@ class _AuthGateState extends State<AuthGate> {
           ],
           TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, autocorrect: false,
             decoration: _decoration('E-posta', Icons.email_outlined),
-            validator: (v) => v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+).hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
+            validator: (v) => v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
           const SizedBox(height: 12),
           TextFormField(controller: _password, obscureText: _obscurePassword,
             decoration: _decoration('Şifre', Icons.lock_outline).copyWith(suffixIcon: IconButton(
