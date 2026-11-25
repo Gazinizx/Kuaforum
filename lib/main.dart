@@ -4607,13 +4607,169 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
-class AdminBusinesses extends StatefulWidget { const AdminBusinesses({super.key}); @override State<AdminBusinesses> createState()=>_AdminBusinessesState(); }
+class AdminBusinesses extends StatefulWidget {
+  const AdminBusinesses({super.key});
+  @override
+  State<AdminBusinesses> createState() => _AdminBusinessesState();
+}
+
 class _AdminBusinessesState extends State<AdminBusinesses> {
-  final client=Supabase.instance.client; final search=TextEditingController(); late Future<List<Map<String,dynamic>>> data;
-  @override void initState(){super.initState();data=load();}
-  @override void dispose(){search.dispose();super.dispose();}
-  Future<List<Map<String,dynamic>>> load() async { final rows=await client.from('businesses').select('id,name,address,status,discover_paid,discover_enabled,created_at').order('created_at',ascending:false); return rows.map((e)=>Map<String,dynamic>.from(e)).toList(); }
-  @override Widget build(BuildContext context)=>FutureBuilder<List<Map<String,dynamic>>>(future:data,builder:(context,s)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),TextField(controller:search,decoration:const InputDecoration(hintText:'İşletme ara...',prefixIcon:Icon(Icons.search)),onChanged:(_)=>setState((){})),const SectionTitle('İşletmeler'),if(s.connectionState==ConnectionState.waiting) const Center(child:CircularProgressIndicator(color:wine)) else if(s.hasError) _FeedMessage(icon:Icons.store_outlined,title:'İşletmeler yüklenemedi',detail:'Yönetici yetkisini ve bağlantıyı kontrol et.',action:'Yeniden dene',onPressed:()=>setState(()=>data=load())) else ...s.data!.where((b)=>(b['name']?.toString().toLowerCase()??'').contains(search.text.trim().toLowerCase())).map((b)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(b['name']?.toString()??'İsimsiz işletme',style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:Text((b['status']??'Durum yok').toString()+' • '+(b['discover_paid']==true?'Keşfet hakkı var':'Keşfet hakkı yok')+' • '+(b['discover_enabled']==true?'Görünür':'Gizli')),trailing:Icon(b['status']=='active'?Icons.check_circle_outline:Icons.hourglass_empty,color:b['status']=='active'?Colors.green:muted)))]));
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> data;
+  final Set<String> saving = {};
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final rows = await client
+        .from('businesses')
+        .select('id,name,address,status,discover_paid,discover_enabled,created_at')
+        .order('created_at', ascending: false);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> changeBusinessStatus(Map<String, dynamic> business) async {
+    final id = business['id'] as String;
+    final currentStatus = business['status']?.toString() ?? '';
+    final activating = currentStatus != 'active';
+    if (saving.contains(id)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(activating ? 'İşletmeyi onayla?' : 'İşletmeyi askıya al?'),
+        content: Text(activating
+            ? 'İşletme aktif edilecek ve uygulama özelliklerine erişebilecek.'
+            : 'İşletme pasife alınacak. Yeni randevu ve herkese açık akış erişimi durdurulacak.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: Text(activating ? 'Onayla' : 'Askıya al'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => saving.add(id));
+    try {
+      final updated = await client
+          .from('businesses')
+          .update({'status': activating ? 'active' : 'suspended'})
+          .eq('id', id)
+          .select('id,status')
+          .single();
+      if (!mounted) return;
+      setState(() {
+        business['status'] = updated['status'];
+        saving.remove(id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(activating
+            ? 'İşletme onaylandı ve aktif edildi.'
+            : 'İşletme askıya alındı.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => saving.remove(id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletme durumu değiştirilemedi: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: data,
+    builder: (context, snapshot) => PageBody(children: [
+      const Text('İşletme Yönetimi',
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 12),
+      TextField(
+        controller: search,
+        decoration: const InputDecoration(
+          hintText: 'İşletme ara...',
+          prefixIcon: Icon(Icons.search),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+      const SectionTitle('İşletmeler'),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        _FeedMessage(
+          icon: Icons.store_outlined,
+          title: 'İşletmeler yüklenemedi',
+          detail: 'Yönetici yetkisini ve bağlantıyı kontrol et.',
+          action: 'Yeniden dene',
+          onPressed: () => setState(() => data = load()),
+        )
+      else
+        ...snapshot.data!.where((business) =>
+          (business['name']?.toString().toLowerCase() ?? '')
+              .contains(search.text.trim().toLowerCase())
+        ).map((business) {
+          final id = business['id'] as String;
+          final active = business['status'] == 'active';
+          final paid = business['discover_paid'] == true;
+          final visible = business['discover_enabled'] == true;
+          return Card(
+            color: Colors.white,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: const BorderSide(color: blush),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: blush,
+                child: Icon(Icons.store, color: wine),
+              ),
+              title: Text(
+                business['name']?.toString() ?? 'İsimsiz işletme',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: ink),
+              ),
+              subtitle: Text(
+                '${active ? 'Aktif' : 'Pasif / Onay bekliyor'}'
+                ' • ${paid ? 'Keşfet hakkı var' : 'Keşfet hakkı yok'}'
+                ' • ${visible ? 'Keşfet açık' : 'Keşfet kapalı'}',
+              ),
+              trailing: saving.contains(id)
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: wine),
+                    )
+                  : IconButton(
+                      tooltip: active ? 'İşletmeyi askıya al' : 'İşletmeyi onayla',
+                      onPressed: () => changeBusinessStatus(business),
+                      icon: Icon(
+                        active ? Icons.pause_circle_outline : Icons.check_circle_outline,
+                        color: active ? Colors.redAccent : Colors.green,
+                      ),
+                    ),
+            ),
+          );
+        }),
+    ]),
+  );
 }
 
 class AdminUsers extends StatefulWidget {
