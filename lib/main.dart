@@ -3094,10 +3094,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   void open(BuildContext context, String section) {
     final page = switch (section) {
       'Randevu Yönetimi' => const OwnerAppointments(),
-      'Çalışan Randevuları' => const OwnerAppointments(),
       'Müşterilerim' => const CustomersPage(),
-      'Çalışanlar' => const EmployeeManagementPage(),
-      'Hizmetler' => const ServicesPage(),
       _ => const SettingsPage(),
     };
     Navigator.push(context, MaterialPageRoute(
@@ -3213,11 +3210,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
             const SectionTitle('İşletme Yönetimi'),
             ...[
               'Randevu Yönetimi',
-              'Çalışan Randevuları',
               'Müşterilerim',
-              'Çalışanlar',
-              'Hizmetler',
-              'Çalışma Saatleri',
               'İşletme Ayarları',
               'Bildirimler',
             ].map((section) => Card(
