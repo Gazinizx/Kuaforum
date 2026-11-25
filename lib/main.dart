@@ -9,7 +9,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const gold = Color(0xFFB76E79);
-const goldLight = Color(0xFFE7B9C1);
+const goldLight = Color(0xFF9C5367);
 const ink = Color(0xFF573B43);
 const panel = Color(0xFFFFFBFA);
 const ivory = Color(0xFF49363C);
@@ -274,10 +274,18 @@ class AppPanel extends StatelessWidget {
     margin: margin,
     padding: padding,
     decoration: BoxDecoration(
-      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B1E24), Color(0xFF14161A)]),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFFFFF), Color(0xFFFFF4F5), Color(0xFFF9EDEF)],
+        stops: [0, .58, 1],
+      ),
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: border.withValues(alpha: .9)),
-      boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 22, offset: Offset(0, 10))],
+      border: Border.all(color: const Color(0xFFEAD3D9), width: 1),
+      boxShadow: const [
+        BoxShadow(color: Color(0x1AB76E79), blurRadius: 26, offset: Offset(0, 11)),
+        BoxShadow(color: Color(0x66FFFFFF), blurRadius: 1, offset: Offset(0, -1)),
+      ],
     ),
     child: child,
   );
@@ -343,7 +351,7 @@ class BrandMark extends StatelessWidget {
     const SizedBox(height: 12),
     const Text('KUAFÖRÜM', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: 3.2)),
     const SizedBox(height: 3),
-    const Text('BAKIMININ YENİ RANDEVU NOKTASI', style: TextStyle(color: muted, fontSize: 9, letterSpacing: 1.25, fontWeight: FontWeight.w700)),
+    const Text('GÜZELLİĞİN EN KOLAY YOLU', style: TextStyle(color: muted, fontSize: 9, letterSpacing: 1.25, fontWeight: FontWeight.w700)),
   ]);
 }
 
