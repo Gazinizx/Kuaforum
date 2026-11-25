@@ -1496,6 +1496,288 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   );
 }
 
+class _BookingInitData {
+  final List<Map<String, dynamic>> services;
+  final List<Map<String, dynamic>> employees;
+  const _BookingInitData(this.services, this.employees);
+}
+
+class BookingPage extends StatefulWidget {
+  final String businessId;
+  final String businessName;
+  const BookingPage({
+    super.key,
+    required this.businessId,
+    required this.businessName,
+  });
+
+  @override
+  State<BookingPage> createState() => _BookingPageState();
+}
+
+class _BookingPageState extends State<BookingPage> {
+  final repository = KuaforumFeedRepository();
+  final noteController = TextEditingController();
+  late Future<_BookingInitData> data;
+  Future<List<Map<String, dynamic>>>? slots;
+  String? selectedServiceId;
+  String? selectedEmployeeId;
+  String? selectedSlot;
+  DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+  bool booking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_BookingInitData> load() async {
+    final values = await Future.wait([
+      repository.fetchBusinessServices(widget.businessId),
+      repository.fetchBusinessEmployees(widget.businessId),
+    ]);
+    final services = (values[0] as List<Map<String, dynamic>>)
+        .where((row) => row['is_active'] == true)
+        .toList();
+    final employees = values[1] as List<Map<String, dynamic>>;
+    return _BookingInitData(services, employees);
+  }
+
+  @override
+  void dispose() {
+    noteController.dispose();
+    super.dispose();
+  }
+
+  void ensureSelection(_BookingInitData value) {
+    selectedServiceId ??= value.services.isEmpty ? null : value.services.first['id'] as String;
+    selectedEmployeeId ??= value.employees.isEmpty ? null : value.employees.first['id'] as String;
+    if (slots == null && selectedServiceId != null && selectedEmployeeId != null) {
+      slots = loadSlots();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> loadSlots() {
+    return repository.fetchAvailableAppointmentSlots(
+      businessId: widget.businessId,
+      employeeId: selectedEmployeeId!,
+      serviceId: selectedServiceId!,
+      date: selectedDate,
+    );
+  }
+
+  void updateSelection({String? serviceId, String? employeeId, DateTime? date}) {
+    setState(() {
+      if (serviceId != null) selectedServiceId = serviceId;
+      if (employeeId != null) selectedEmployeeId = employeeId;
+      if (date != null) selectedDate = date;
+      selectedSlot = null;
+      slots = selectedServiceId == null || selectedEmployeeId == null
+          ? null
+          : loadSlots();
+    });
+  }
+
+  Future<void> chooseDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate.isBefore(today) ? today : selectedDate,
+      firstDate: DateTime(today.year, today.month, today.day),
+      lastDate: DateTime(today.year, today.month, today.day).add(const Duration(days: 45)),
+      helpText: 'Randevu gününü seç',
+    );
+    if (picked != null) updateSelection(date: picked);
+  }
+
+  String timeLabel(String value) {
+    final time = DateTime.parse(value).toLocal();
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> submitBooking() async {
+    if (booking || selectedSlot == null || selectedServiceId == null || selectedEmployeeId == null) return;
+    setState(() => booking = true);
+    try {
+      await repository.bookAppointment(
+        businessId: widget.businessId,
+        employeeId: selectedEmployeeId!,
+        serviceId: selectedServiceId!,
+        startsAt: selectedSlot!,
+        customerNote: noteController.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu talebin oluşturuldu.')),
+      );
+      Navigator.pushReplacement(context, MaterialPageRoute(
+        builder: (_) => const CustomerAppointmentsPage(),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu oluşturulamadı: $error')),
+        );
+        setState(() => slots = loadSlots());
+      }
+    } finally {
+      if (mounted) setState(() => booking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      title: const Text('Randevu Oluştur', style: TextStyle(color: wine, fontWeight: FontWeight.w800)),
+    ),
+    body: FutureBuilder<_BookingInitData>(
+      future: data,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: wine));
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const _FeedMessage(icon: Icons.calendar_month_outlined, title: 'Randevu ekranı açılamadı', detail: 'İşletme bilgileri yüklenemedi.');
+        }
+        final value = snapshot.data!;
+        ensureSelection(value);
+        if (value.services.isEmpty || value.employees.isEmpty) {
+          return const _FeedMessage(
+            icon: Icons.event_busy_outlined,
+            title: 'Randevu için bilgiler eksik',
+            detail: 'İşletmenin aktif hizmet ve çalışan tanımlaması gerekiyor.',
+          );
+        }
+        final selectedService = value.services.firstWhere(
+          (row) => row['id'] == selectedServiceId,
+          orElse: () => value.services.first,
+        );
+        final selectedEmployee = value.employees.firstWhere(
+          (row) => row['id'] == selectedEmployeeId,
+          orElse: () => value.employees.first,
+        );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 26),
+          children: [
+            Text(widget.businessName, style: const TextStyle(color: ink, fontSize: 21, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 5),
+            const Text('Hizmetini, çalışanını ve sana uygun saati seç.', style: TextStyle(color: muted)),
+            const SectionTitle('Hizmet seç'),
+            DropdownButtonFormField<String>(
+              value: selectedServiceId,
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(),
+              ),
+              items: value.services.map((service) {
+                final price = service['price'] as num? ?? 0;
+                final duration = service['duration_minutes'] as int? ?? 30;
+                return DropdownMenuItem(
+                  value: service['id'] as String,
+                  child: Text('${service['name']} • ${price.toStringAsFixed(0)} ₺ • $duration dk'),
+                );
+              }).toList(),
+              onChanged: (id) {
+                if (id != null) updateSelection(serviceId: id);
+              },
+            ),
+            const SectionTitle('Çalışan seç'),
+            DropdownButtonFormField<String>(
+              value: selectedEmployeeId,
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(),
+              ),
+              items: value.employees.map((employee) => DropdownMenuItem(
+                value: employee['id'] as String,
+                child: Text(employee['display_name'] as String? ?? 'Çalışan'),
+              )).toList(),
+              onChanged: (id) {
+                if (id != null) updateSelection(employeeId: id);
+              },
+            ),
+            const SectionTitle('Tarih seç'),
+            OutlinedButton.icon(
+              onPressed: chooseDate,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: wine,
+                side: const BorderSide(color: blush),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              icon: const Icon(Icons.calendar_month_outlined),
+              label: Text('${selectedDate.day.toString().padLeft(2, '0')}.${selectedDate.month.toString().padLeft(2, '0')}.${selectedDate.year}'),
+            ),
+            const SectionTitle('Uygun saatler'),
+            if (slots == null)
+              const Text('Önce hizmet ve çalışan seç.', style: TextStyle(color: muted))
+            else
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: slots,
+                builder: (context, slotSnapshot) {
+                  if (slotSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(18),
+                      child: Center(child: CircularProgressIndicator(color: wine)),
+                    );
+                  }
+                  if (slotSnapshot.hasError) {
+                    return const Text('Uygun saatler yüklenemedi.', style: TextStyle(color: muted));
+                  }
+                  final options = slotSnapshot.data ?? [];
+                  if (options.isEmpty) {
+                    return const Text('Bu gün için uygun saat bulunamadı.', style: TextStyle(color: muted));
+                  }
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: options.map((slot) {
+                      final start = slot['slot_start'] as String;
+                      final selected = selectedSlot == start;
+                      return ChoiceChip(
+                        label: Text(timeLabel(start)),
+                        selected: selected,
+                        onSelected: (_) => setState(() => selectedSlot = start),
+                        selectedColor: blush,
+                        backgroundColor: Colors.white,
+                        labelStyle: TextStyle(color: selected ? wine : muted, fontWeight: FontWeight.w700),
+                        side: const BorderSide(color: blush),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            const SectionTitle('Not (isteğe bağlı)'),
+            TextField(
+              controller: noteController,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                hintText: 'İşletmeye iletmek istediğin bir not var mı?',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: blush)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: selectedSlot == null || booking ? null : submitBooking,
+              style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 15)),
+              icon: booking
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_circle_outline),
+              label: Text(booking ? 'Oluşturuluyor...' : 'Randevuyu onayla'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 class CustomerAppointmentsPage extends StatefulWidget {
   const CustomerAppointmentsPage({super.key});
 
