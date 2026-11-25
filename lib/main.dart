@@ -4615,6 +4615,14 @@ class _CustomersPageState extends State<CustomersPage> {
                             child: Text('Son randevu: ${_appointmentDateLabel(lastAppointment)}', style: const TextStyle(color: muted, fontSize: 10)),
                           ),
                         ),
+                      if (blocked && (customer['blacklist_reason'] as String? ?? '').trim().isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text('Not: ${customer['blacklist_reason']}', style: const TextStyle(color: wine, fontSize: 11)),
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerRight,
