@@ -326,6 +326,148 @@ class KuaforumFeedRepository {
         .eq('user_id', _userId);
   }
 
+  Future<Map<String, dynamic>> fetchPublicProfile(String userId) async {
+    final row = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type')
+        .eq('id', userId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Bu profil bulunamadı veya erişime kapalı.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
+    final row = await _client
+        .from('businesses')
+        .select('id,name,address,owner_id,status')
+        .eq('id', businessId)
+        .maybeSingle();
+    if (row == null || (row['status'] != 'active' &&
+        row['owner_id'] != _userId)) {
+      throw const PostgrestException(message: 'Bu işletme profili şu anda görüntülenemiyor.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<Map<String, int>> fetchSocialStats({
+    String? userId,
+    String? businessId,
+  }) async {
+    if ((userId == null) == (businessId == null)) {
+      throw ArgumentError('Bir kullanıcı veya işletme kimliği verilmelidir.');
+    }
+    final rows = await _client.rpc('get_social_profile_stats', params: {
+      'p_user_id': userId,
+      'p_business_id': businessId,
+    });
+    final row = (rows as List).first as Map<String, dynamic>;
+    return {
+      'followers': (row['follower_count'] as num).toInt(),
+      'following': (row['following_count'] as num).toInt(),
+      'posts': (row['post_count'] as num).toInt(),
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserFollowers(String userId) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('follower_user_id')
+        .eq('followed_user_id', userId);
+    final ids = rows
+        .map((row) => row['follower_user_id'] as String)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return const [];
+    final profiles = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type')
+        .inFilter('id', ids);
+    return profiles.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserFollowing(String userId) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('followed_user_id,followed_business_id')
+        .eq('follower_user_id', userId);
+    final userIds = <String>{};
+    final businessIds = <String>{};
+    for (final row in rows) {
+      final followedUser = row['followed_user_id'] as String?;
+      final followedBusiness = row['followed_business_id'] as String?;
+      if (followedUser != null) userIds.add(followedUser);
+      if (followedBusiness != null) businessIds.add(followedBusiness);
+    }
+
+    final result = <Map<String, dynamic>>[];
+    if (userIds.isNotEmpty) {
+      final profiles = await _client
+          .from('public_profiles')
+          .select('id,full_name,account_type')
+          .inFilter('id', userIds.toList());
+      result.addAll(profiles.map((row) => {
+        'id': row['id'],
+        'name': row['full_name'],
+        'account_type': row['account_type'],
+        'kind': 'user',
+      }));
+    }
+    if (businessIds.isNotEmpty) {
+      final businesses = await _client
+          .from('businesses')
+          .select('id,name,address,status')
+          .inFilter('id', businessIds.toList())
+          .eq('status', 'active');
+      result.addAll(businesses.map((row) => {
+        'id': row['id'],
+        'name': row['name'],
+        'account_type': 'business',
+        'kind': 'business',
+        'address': row['address'],
+      }));
+    }
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessFollowers(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('follower_user_id')
+        .eq('followed_business_id', businessId);
+    final ids = rows
+        .map((row) => row['follower_user_id'] as String)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return const [];
+    final profiles = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type')
+        .inFilter('id', ids);
+    return profiles.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<KuaforumFeedPost>> fetchProfilePosts({
+    String? userId,
+    String? businessId,
+    int limit = 30,
+  }) async {
+    if ((userId == null) == (businessId == null)) {
+      throw ArgumentError('Bir kullanıcı veya işletme kimliği verilmelidir.');
+    }
+    var query = _client.from('feed_posts').select(_postSelection);
+    query = userId != null
+        ? query.eq('author_user_id', userId)
+        : query.eq('business_id', businessId!);
+    final rows = await query
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return _mapRows(rows);
+  }
+
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
     if (currentlyLiked) {
       await _client
