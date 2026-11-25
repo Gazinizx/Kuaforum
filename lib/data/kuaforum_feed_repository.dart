@@ -421,6 +421,29 @@ class KuaforumFeedRepository {
     return business;
   }
 
+  Future<List<Map<String, dynamic>>> fetchActiveBusinesses({
+    String searchQuery = '',
+    int limit = 50,
+  }) async {
+    var query = _client
+        .from('businesses')
+        .select('id,name,address,logo_url')
+        .eq('status', 'active');
+    final term = searchQuery.trim();
+    if (term.isNotEmpty) {
+      query = query.ilike('name', '%$term%');
+    }
+    final rows = await query.order('name').limit(limit);
+    return rows.map((row) {
+      final business = Map<String, dynamic>.from(row);
+      final logoPath = business['logo_url'] as String?;
+      business['logo_url'] = logoPath == null || logoPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+      return business;
+    }).toList();
+  }
+
   Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
     final row = await _client
         .from('businesses')
