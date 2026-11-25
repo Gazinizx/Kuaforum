@@ -29,6 +29,7 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - İşletmeleri listeleme, onaylama ve askıya alma
 - Kullanıcıları listeleme, kısıtlama ve kısıtlamayı kaldırma
 - Ücretli erişim hakkı olan işletmelerin Keşfet görünürlüğünü açıp kapatma
+- Yeni işletmeler varsayılan olarak onay bekler; işletme sahibi kendi durumunu veya ücretli Keşfet yetkisini değiştiremez
 - Yetki kontrolleri istemci arayüzüne bırakılmaz; veritabanı tarafında da doğrulanır
 
 ### Güvenlik
