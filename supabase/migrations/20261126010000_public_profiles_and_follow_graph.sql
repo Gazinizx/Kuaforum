@@ -10,6 +10,10 @@ where is_blocked = false;
 
 grant select on public.public_profiles to authenticated;
 
+alter table public.feed_follows enable row level security;
+grant select, insert, delete on public.feed_follows to authenticated;
+
+
 drop policy if exists feed_follows_read on public.feed_follows;
 create policy feed_follows_read
 on public.feed_follows for select
@@ -44,6 +48,13 @@ with check (
     )
   )
 );
+
+
+drop policy if exists feed_follows_delete on public.feed_follows;
+create policy feed_follows_delete
+on public.feed_follows for delete
+to authenticated
+using (follower_user_id = (select auth.uid()));
 
 create or replace function public.get_social_profile_stats(
   p_user_id uuid default null,
