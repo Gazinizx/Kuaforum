@@ -4616,14 +4616,172 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
   @override Widget build(BuildContext context)=>FutureBuilder<List<Map<String,dynamic>>>(future:data,builder:(context,s)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),TextField(controller:search,decoration:const InputDecoration(hintText:'İşletme ara...',prefixIcon:Icon(Icons.search)),onChanged:(_)=>setState((){})),const SectionTitle('İşletmeler'),if(s.connectionState==ConnectionState.waiting) const Center(child:CircularProgressIndicator(color:wine)) else if(s.hasError) _FeedMessage(icon:Icons.store_outlined,title:'İşletmeler yüklenemedi',detail:'Yönetici yetkisini ve bağlantıyı kontrol et.',action:'Yeniden dene',onPressed:()=>setState(()=>data=load())) else ...s.data!.where((b)=>(b['name']?.toString().toLowerCase()??'').contains(search.text.trim().toLowerCase())).map((b)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(b['name']?.toString()??'İsimsiz işletme',style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:Text((b['status']??'Durum yok').toString()+' • '+(b['discover_paid']==true?'Keşfet hakkı var':'Keşfet hakkı yok')+' • '+(b['discover_enabled']==true?'Görünür':'Gizli')),trailing:Icon(b['status']=='active'?Icons.check_circle_outline:Icons.hourglass_empty,color:b['status']=='active'?Colors.green:muted)))]));
 }
 
-class AdminUsers extends StatefulWidget { const AdminUsers({super.key}); @override State<AdminUsers> createState()=>_AdminUsersState(); }
-class _AdminUsersState extends State<AdminUsers> {
-  final client=Supabase.instance.client; final search=TextEditingController(); late Future<List<Map<String,dynamic>>> data;
-  @override void initState(){super.initState();data=load();}
-  @override void dispose(){search.dispose();super.dispose();}
-  Future<List<Map<String,dynamic>>> load() async { final rows=await client.from('profiles').select('id,full_name,email,phone,account_type,is_admin,is_blocked,created_at').order('created_at',ascending:false).limit(200); return rows.map((e)=>Map<String,dynamic>.from(e)).toList(); }
-  @override Widget build(BuildContext context)=>FutureBuilder<List<Map<String,dynamic>>>(future:data,builder:(context,s)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),TextField(controller:search,decoration:const InputDecoration(hintText:'Ad veya e-posta ara...',prefixIcon:Icon(Icons.search)),onChanged:(_)=>setState((){})),const SectionTitle('Kullanıcılar'),if(s.connectionState==ConnectionState.waiting) const Center(child:CircularProgressIndicator(color:wine)) else if(s.hasError) _FeedMessage(icon:Icons.people_outline,title:'Kullanıcılar yüklenemedi',detail:'Yönetici yetkisini ve bağlantıyı kontrol et.',action:'Yeniden dene',onPressed:()=>setState(()=>data=load())) else ...s.data!.where((u){final q=search.text.trim().toLowerCase();return (u['full_name']?.toString().toLowerCase()??'').contains(q)||(u['email']?.toString().toLowerCase()??'').contains(q);}).map((u)=>ListTile(leading:CircleAvatar(backgroundColor:blush,child:Icon(u['is_admin']==true?Icons.admin_panel_settings:Icons.person,color:wine)),title:Text(u['full_name']?.toString().isNotEmpty==true?u['full_name'].toString():'İsimsiz kullanıcı',style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:Text((u['email']??'E-posta yok').toString()+' • '+(u['account_type']??'rol yok').toString()+(u['is_blocked']==true?' • Kısıtlı':'')),trailing:Icon(u['is_blocked']==true?Icons.lock_outline:Icons.circle_outlined,color:u['is_blocked']==true?Colors.red:muted)))]));
+class AdminUsers extends StatefulWidget {
+  const AdminUsers({super.key});
+  @override
+  State<AdminUsers> createState() => _AdminUsersState();
 }
+
+class _AdminUsersState extends State<AdminUsers> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> data;
+  final Set<String> saving = {};
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final rows = await client
+        .from('profiles')
+        .select('id,full_name,email,phone,account_type,is_admin,is_blocked,created_at')
+        .order('created_at', ascending: false)
+        .limit(200);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> setBlocked(Map<String, dynamic> user) async {
+    final userId = user['id'] as String;
+    final blocked = user['is_blocked'] == true;
+    if (user['is_admin'] == true || saving.contains(userId)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(blocked ? 'Kullanıcı kısıtlamasını kaldır?' : 'Kullanıcıyı kısıtla?'),
+        content: Text(blocked
+            ? 'Bu kullanıcı tekrar uygulamaya erişebilecek.'
+            : 'Bu kullanıcı uygulamaya erişemeyecek. İşlem yönetici yetkisiyle kaydedilecek.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: Text(blocked ? 'Kısıtlamayı kaldır' : 'Kısıtla'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => saving.add(userId));
+    try {
+      await client.rpc('admin_set_user_blocked', params: {
+        'p_user_id': userId,
+        'p_blocked': !blocked,
+      });
+      if (!mounted) return;
+      setState(() {
+        user['is_blocked'] = !blocked;
+        saving.remove(userId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(blocked
+            ? 'Kullanıcı kısıtlaması kaldırıldı.'
+            : 'Kullanıcı uygulamaya erişimden kısıtlandı.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => saving.remove(userId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kullanıcı durumu değiştirilemedi: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: data,
+    builder: (context, snapshot) => PageBody(children: [
+      const Text('Kullanıcı Yönetimi',
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 12),
+      TextField(
+        controller: search,
+        decoration: const InputDecoration(
+          hintText: 'Ad veya e-posta ara...',
+          prefixIcon: Icon(Icons.search),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+      const SectionTitle('Kullanıcılar'),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        _FeedMessage(
+          icon: Icons.people_outline,
+          title: 'Kullanıcılar yüklenemedi',
+          detail: 'Yönetici yetkisini ve bağlantıyı kontrol et.',
+          action: 'Yeniden dene',
+          onPressed: () => setState(() => data = load()),
+        )
+      else
+        ...snapshot.data!.where((user) {
+          final query = search.text.trim().toLowerCase();
+          return (user['full_name']?.toString().toLowerCase() ?? '').contains(query) ||
+              (user['email']?.toString().toLowerCase() ?? '').contains(query);
+        }).map((user) {
+          final blocked = user['is_blocked'] == true;
+          final isAdmin = user['is_admin'] == true;
+          final userId = user['id'] as String;
+          return Card(
+            color: Colors.white,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: const BorderSide(color: blush),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: blush,
+                child: Icon(isAdmin ? Icons.admin_panel_settings : Icons.person, color: wine),
+              ),
+              title: Text(
+                user['full_name']?.toString().isNotEmpty == true
+                    ? user['full_name'].toString()
+                    : 'İsimsiz kullanıcı',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: ink),
+              ),
+              subtitle: Text(
+                '${user['email'] ?? 'E-posta yok'} • ${user['account_type'] ?? 'rol yok'}'
+                '${blocked ? ' • Kısıtlı' : ''}',
+              ),
+              trailing: isAdmin
+                  ? const Icon(Icons.shield_outlined, color: muted)
+                  : saving.contains(userId)
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: wine),
+                        )
+                      : IconButton(
+                          tooltip: blocked ? 'Kısıtlamayı kaldır' : 'Kullanıcıyı kısıtla',
+                          onPressed: () => setBlocked(user),
+                          icon: Icon(
+                            blocked ? Icons.lock_open_outlined : Icons.block_outlined,
+                            color: blocked ? Colors.green : Colors.redAccent,
+                          ),
+                        ),
+            ),
+          );
+        }),
+    ]),
+  );
+}
+
 class DiscoverControl extends StatefulWidget {
   const DiscoverControl({super.key});
 
