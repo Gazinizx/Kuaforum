@@ -28,8 +28,8 @@ void main() {
   });
 
   testWidgets('admin navigation has no customer appointment tab', (tester) async {
-    await tester.view.setPhysicalSize(const Size(1000, 1800));
-    await tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(const KuaforumApp());
     await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Ana Yönetici'));
