@@ -5773,9 +5773,12 @@ class _DiscoverControlState extends State<DiscoverControl> {
 
 
 
+
+
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
-  @override State<AuthGate> createState() => _AuthGateState();
+  @override
+  State<AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends State<AuthGate> {
@@ -5787,10 +5790,12 @@ class _AuthGateState extends State<AuthGate> {
   final _password = TextEditingController();
   final _businessName = TextEditingController();
   final _businessAddress = TextEditingController();
+
   bool _registering = false;
   bool _businessAccount = false;
   bool _busy = false;
   bool _obscurePassword = true;
+  bool _openingAccount = false;
 
   @override
   void initState() {
@@ -5802,8 +5807,12 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   void dispose() {
-    _firstName.dispose(); _lastName.dispose(); _phone.dispose();
-    _email.dispose(); _password.dispose(); _businessName.dispose();
+    _firstName.dispose();
+    _lastName.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _password.dispose();
+    _businessName.dispose();
     _businessAddress.dispose();
     super.dispose();
   }
@@ -5834,15 +5843,41 @@ class _AuthGateState extends State<AuthGate> {
           decoration: const InputDecoration(labelText: 'Kayıtlı e-posta adresin'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Sıfırlama bağlantısı gönder')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sıfırlama bağlantısı gönder'),
+          ),
         ],
       ),
     );
     final email = emailController.text.trim();
     emailController.dispose();
     if (accepted != true || !mounted) return;
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _notice('Geçerli bir e-posta adresi gir.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'com.gazinizx.kuaforum://reset-password',
+      );
+      if (mounted) {
+        _notice('Şifre sıfırlama bağlantısı gönderildiyse e-posta gelen kutunu kontrol et.');
+      }
+    } catch (error) {
+      if (mounted) _notice(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     final client = Supabase.instance.client;
@@ -5858,7 +5893,9 @@ class _AuthGateState extends State<AuthGate> {
           metadata['requested_business_address'] = _businessAddress.text.trim();
         }
         final response = await client.auth.signUp(
-          email: _email.text.trim(), password: _password.text, data: metadata,
+          email: _email.text.trim(),
+          password: _password.text,
+          data: metadata,
         );
         if (response.session == null) {
           _notice('Hesabın oluşturuldu. E-posta doğrulamasını tamamla; ardından aynı bilgilerle giriş yap. İşletme kaydın girişte tamamlanacak.');
@@ -5866,7 +5903,10 @@ class _AuthGateState extends State<AuthGate> {
         }
         await _openCurrentAccount();
       } else {
-        await client.auth.signInWithPassword(email: _email.text.trim(), password: _password.text);
+        await client.auth.signInWithPassword(
+          email: _email.text.trim(),
+          password: _password.text,
+        );
         await _openCurrentAccount();
       }
     } catch (error) {
@@ -5877,6 +5917,8 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _openCurrentAccount() async {
+    if (_openingAccount) return;
+    _openingAccount = true;
     final client = Supabase.instance.client;
     try {
       final user = client.auth.currentUser;
@@ -5884,24 +5926,28 @@ class _AuthGateState extends State<AuthGate> {
       final metadata = user.userMetadata ?? const <String, dynamic>{};
       final requestedBusinessName = metadata['requested_business_name']?.toString().trim() ?? '';
       final requestedBusinessAddress = metadata['requested_business_address']?.toString().trim() ?? '';
+
       var rows = await client.rpc('get_my_account_status') as List;
       var profile = rows.isEmpty ? null : Map<String, dynamic>.from(rows.first as Map);
-      if (profile == null) throw AuthException('Hesap profili oluşturulamadı. Destek ekibiyle iletişime geç.');
+      if (profile == null) {
+        throw AuthException('Hesap profili oluşturulamadı. Destek ekibiyle iletişime geç.');
+      }
       if (profile['is_blocked'] == true) {
         await client.auth.signOut();
         throw AuthException('Bu hesap uygulamaya erişim için engellenmiş.');
       }
 
-      // Metadata only resumes the user's requested pending registration.
-      // The database RPC assigns the owner role and creates the pending business.
       if (profile['account_type'] == 'customer' &&
-          requestedBusinessName.isNotEmpty && requestedBusinessAddress.isNotEmpty) {
+          requestedBusinessName.isNotEmpty &&
+          requestedBusinessAddress.isNotEmpty) {
         await client.rpc('register_business', params: {
-          'p_name': requestedBusinessName, 'p_address': requestedBusinessAddress,
+          'p_name': requestedBusinessName,
+          'p_address': requestedBusinessAddress,
         });
         rows = await client.rpc('get_my_account_status') as List;
         profile = rows.isEmpty ? null : Map<String, dynamic>.from(rows.first as Map);
       }
+
       if (profile == null || profile['is_blocked'] == true) {
         await client.auth.signOut();
         throw AuthException('Hesap bilgileri doğrulanamadı.');
@@ -5925,12 +5971,16 @@ class _AuthGateState extends State<AuthGate> {
       } else {
         role = AppRole.customer;
       }
+
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => RoleShell(role: role)), (_) => false,
+        MaterialPageRoute(builder: (_) => RoleShell(role: role)),
+        (_) => false,
       );
     } catch (error) {
       if (mounted) _notice(_friendlyError(error));
+    } finally {
+      _openingAccount = false;
     }
   }
 
@@ -5942,120 +5992,187 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   InputDecoration _decoration(String label, IconData icon) => InputDecoration(
-    labelText: label, prefixIcon: Icon(icon, color: rose), filled: true, fillColor: Colors.white,
+    labelText: label,
+    prefixIcon: Icon(icon, color: rose),
+    filled: true,
+    fillColor: Colors.white,
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: blush)),
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: blush)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: rose, width: 1.5)),
   );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(child: Center(child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
-      child: ListView(padding: const EdgeInsets.fromLTRB(24, 28, 24, 28), children: [
-        Center(child: Container(width: 76, height: 76,
-          decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(25)),
-          child: const Icon(Icons.spa_rounded, color: wine, size: 44))),
-        const SizedBox(height: 14),
-        const Text('Kuaförüm', textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: wine, letterSpacing: -1)),
-        const Text('Güzelliğin Yeni Adresi ♡', textAlign: TextAlign.center,
-          style: TextStyle(color: muted, fontSize: 14, fontStyle: FontStyle.italic)),
-        const SizedBox(height: 28),
-        Container(padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(color: blush.withOpacity(.65), borderRadius: BorderRadius.circular(16)),
-          child: Row(children: [
-            Expanded(child: _modeButton('Giriş Yap', !_registering, () => setState(() => _registering = false))),
-            Expanded(child: _modeButton('Kayıt Ol', _registering, () => setState(() => _registering = true))),
-          ])),
-        const SizedBox(height: 22),
-        Text(_registering ? 'Aramıza hoş geldin' : 'Tekrar hoş geldin',
-          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-        const SizedBox(height: 5),
-        Text(_registering ? 'Hesabını oluştur, güzellik yolculuğuna başla.' : 'Randevuların ve salonların seni bekliyor.',
-          style: const TextStyle(color: muted, fontSize: 13)),
-        const SizedBox(height: 20),
-        Form(key: _formKey, child: Column(children: [
-          if (_registering) ...[
-            Row(children: [
-              Expanded(child: TextFormField(controller: _firstName, textCapitalization: TextCapitalization.words,
-                decoration: _decoration('Ad', Icons.person_outline),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Adını gir.' : null)),
-              const SizedBox(width: 10),
-              Expanded(child: TextFormField(controller: _lastName, textCapitalization: TextCapitalization.words,
-                decoration: _decoration('Soyad', Icons.person_outline),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Soyadını gir.' : null)),
-            ]),
-            const SizedBox(height: 12),
-            TextFormField(controller: _phone, keyboardType: TextInputType.phone,
-              decoration: _decoration('Telefon', Icons.phone_outlined),
-              validator: (v) => v == null || v.trim().length < 10 ? 'Geçerli bir telefon numarası gir.' : null),
-            const SizedBox(height: 14),
-            Container(padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: blush), borderRadius: BorderRadius.circular(15)),
-              child: Row(children: [
-                Expanded(child: _modeButton('Müşteri', !_businessAccount, () => setState(() => _businessAccount = false))),
-                Expanded(child: _modeButton('İşletme Sahibi', _businessAccount, () => setState(() => _businessAccount = true))),
-              ])),
-            if (_businessAccount) ...[
-              const SizedBox(height: 12),
-              TextFormField(controller: _businessName, textCapitalization: TextCapitalization.words,
-                decoration: _decoration('Salon / işletme adı', Icons.storefront_outlined),
-                validator: (v) => v == null || v.trim().length < 2 ? 'İşletme adı en az 2 karakter olmalı.' : null),
-              const SizedBox(height: 12),
-              TextFormField(controller: _businessAddress, textCapitalization: TextCapitalization.sentences,
-                decoration: _decoration('İşletme adresi', Icons.location_on_outlined),
-                validator: (v) => v == null || v.trim().length < 3 ? 'İşletme adresini gir.' : null),
-            ],
-            const SizedBox(height: 12),
-          ],
-          TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, autocorrect: false,
-            decoration: _decoration('E-posta', Icons.email_outlined),
-            validator: (v) => v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
-          const SizedBox(height: 12),
-          TextFormField(controller: _password, obscureText: _obscurePassword,
-            decoration: _decoration('Şifre', Icons.lock_outline).copyWith(suffixIcon: IconButton(
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: muted))),
-            validator: (v) => v == null || v.length < 8 ? 'Şifre en az 8 karakter olmalı.' : null),
-          if (!_registering)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _busy ? null : _forgotPassword,
-                child: const Text('Şifremi Unuttum', style: TextStyle(color: wine, fontWeight: FontWeight.w700)),
-              ),
+  Widget build(BuildContext context) {
+    if (_openingAccount) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator(color: wine)));
+    }
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+              children: [
+                Center(
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(25)),
+                    child: const Icon(Icons.spa_rounded, color: wine, size: 44),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text('Kuaförüm', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: wine, letterSpacing: -1)),
+                const Text('Güzelliğin Yeni Adresi ♡', textAlign: TextAlign.center,
+                  style: TextStyle(color: muted, fontSize: 14, fontStyle: FontStyle.italic)),
+                const SizedBox(height: 28),
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(color: blush.withOpacity(.65), borderRadius: BorderRadius.circular(16)),
+                  child: Row(children: [
+                    Expanded(child: _modeButton('Giriş Yap', !_registering, () => setState(() => _registering = false))),
+                    Expanded(child: _modeButton('Kayıt Ol', _registering, () => setState(() => _registering = true))),
+                  ]),
+                ),
+                const SizedBox(height: 22),
+                Text(_registering ? 'Aramıza hoş geldin' : 'Tekrar hoş geldin',
+                  style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+                const SizedBox(height: 5),
+                Text(_registering ? 'Hesabını oluştur, güzellik yolculuğuna başla.' : 'Randevuların ve salonların seni bekliyor.',
+                  style: const TextStyle(color: muted, fontSize: 13)),
+                const SizedBox(height: 20),
+                Form(
+                  key: _formKey,
+                  child: Column(children: [
+                    if (_registering) ...[
+                      Row(children: [
+                        Expanded(child: TextFormField(
+                          controller: _firstName,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: _decoration('Ad', Icons.person_outline),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Adını gir.' : null,
+                        )),
+                        const SizedBox(width: 10),
+                        Expanded(child: TextFormField(
+                          controller: _lastName,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: _decoration('Soyad', Icons.person_outline),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Soyadını gir.' : null,
+                        )),
+                      ]),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        decoration: _decoration('Telefon', Icons.phone_outlined),
+                        validator: (v) => v == null || v.trim().length < 10 ? 'Geçerli bir telefon numarası gir.' : null,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: blush), borderRadius: BorderRadius.circular(15)),
+                        child: Row(children: [
+                          Expanded(child: _modeButton('Müşteri', !_businessAccount, () => setState(() => _businessAccount = false))),
+                          Expanded(child: _modeButton('İşletme Sahibi', _businessAccount, () => setState(() => _businessAccount = true))),
+                        ]),
+                      ),
+                      if (_businessAccount) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _businessName,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: _decoration('Salon / işletme adı', Icons.storefront_outlined),
+                          validator: (v) => v == null || v.trim().length < 2 ? 'İşletme adı en az 2 karakter olmalı.' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _businessAddress,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: _decoration('İşletme adresi', Icons.location_on_outlined),
+                          validator: (v) => v == null || v.trim().length < 3 ? 'İşletme adresini gir.' : null,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                    ],
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      decoration: _decoration('E-posta', Icons.email_outlined),
+                      validator: (v) => v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())
+                          ? 'Geçerli bir e-posta gir.' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscurePassword,
+                      decoration: _decoration('Şifre', Icons.lock_outline).copyWith(
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: muted),
+                        ),
+                      ),
+                      validator: (v) => v == null || v.length < 8 ? 'Şifre en az 8 karakter olmalı.' : null,
+                    ),
+                    if (!_registering)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _busy ? null : _forgotPassword,
+                          child: const Text('Şifremi Unuttum', style: TextStyle(color: wine, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: _busy ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: wine,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: _busy
+                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Text(_registering ? 'Hesabımı Oluştur' : 'Giriş Yap',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+                const Text('Çalışan hesabın varsa işletmenden aldığın davet kodunu kullanabilirsin.',
+                  textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 22),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RolePicker())),
+                    icon: const Icon(Icons.developer_mode_rounded),
+                    label: const Text('Geliştirici test ekranı'),
+                  ),
+                ],
+              ],
             ),
-          const SizedBox(height: 20),
-          SizedBox(width: double.infinity, height: 54, child: FilledButton(
-            onPressed: _busy ? null : _submit,
-            style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-            child: _busy
-              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(_registering ? 'Hesabımı Oluştur' : 'Giriş Yap',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          )),
-        ])),
-        const SizedBox(height: 16),
-        const Text('Çalışan hesabın varsa işletmenden aldığın davet kodunu kullanabilirsin.',
-          textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
-        if (kDebugMode) ...[
-          const SizedBox(height: 22),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RolePicker())),
-            icon: const Icon(Icons.developer_mode_rounded), label: const Text('Geliştirici test ekranı'),
           ),
-        ],
-      ]),
-    ))),
-  );
+        ),
+      ),
+    );
+  }
 
   Widget _modeButton(String label, bool selected, VoidCallback onTap) => Material(
-    color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(12),
-    child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap,
-      child: Padding(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    color: selected ? Colors.white : Colors.transparent,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Text(label, textAlign: TextAlign.center,
-          style: TextStyle(color: selected ? wine : muted, fontWeight: FontWeight.w800, fontSize: 13)))),
+          style: TextStyle(color: selected ? wine : muted, fontWeight: FontWeight.w800, fontSize: 13)),
+      ),
+    ),
   );
 }
