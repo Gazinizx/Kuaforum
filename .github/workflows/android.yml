@@ -12,7 +12,8 @@ jobs:
         with:
           channel: stable
       - run: flutter create . --platforms=android
-      - run: sed -i '/ndkVersion/d' android/app/build.gradle.kts\n      - run: flutter pub get
+      - run: sed -i '/ndkVersion/d' android/app/build.gradle.kts
+      - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --release
