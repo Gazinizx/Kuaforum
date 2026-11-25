@@ -21,6 +21,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'salon-avatars'
+  and public.is_current_user_active()
   and (storage.foldername(name))[1] = 'profiles'
   and (storage.foldername(name))[2] = (select auth.uid())::text
 );
