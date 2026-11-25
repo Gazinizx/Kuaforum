@@ -1001,6 +1001,20 @@ class KuaforumFeedRepository {
     return result.toString();
   }
 
+  Future<String> claimEmployeeInvite(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Çalışan davet kodunu gir.');
+    }
+    final result = await _client.rpc('claim_employee_invite', params: {
+      'p_code': trimmed,
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Çalışan daveti kullanılamadı.');
+    }
+    return result.toString();
+  }
+
   Future<void> setEmployeeActive(String employeeId, bool isActive) async {
     await _client.rpc('set_employee_active', params: {
       'p_employee_id': employeeId,
