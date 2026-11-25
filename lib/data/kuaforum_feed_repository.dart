@@ -294,6 +294,38 @@ class KuaforumFeedRepository {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchComments(String postId) async {
+    final rows = await _client
+        .from('feed_comments')
+        .select('id,user_id,author_name,body,created_at')
+        .eq('post_id', postId)
+        .order('created_at', ascending: true);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> addComment(String postId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Yorum boş olamaz.');
+    }
+    if (trimmed.length > 1000) {
+      throw const PostgrestException(message: 'Yorum en fazla 1000 karakter olabilir.');
+    }
+    await _client.from('feed_comments').insert({
+      'post_id': postId,
+      'user_id': _userId,
+      'body': trimmed,
+    });
+  }
+
+  Future<void> deleteComment(String commentId) async {
+    await _client
+        .from('feed_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', _userId);
+  }
+
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
     if (currentlyLiked) {
       await _client
