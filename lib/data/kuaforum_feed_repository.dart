@@ -696,6 +696,32 @@ class KuaforumFeedRepository {
     return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
+  Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final rows = await _client
+        .from('notifications')
+        .select('id,appointment_id,title,body,created_at,read_at')
+        .eq('user_id', _userId)
+        .order('created_at', ascending: false)
+        .limit(100);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _client
+        .from('notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', notificationId)
+        .eq('user_id', _userId);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _client
+        .from('notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('user_id', _userId)
+        .isFilter('read_at', null);
+  }
+
   Future<Map<String, dynamic>> fetchMyEmployeeContext() async {
     final row = await _client
         .from('employees')
