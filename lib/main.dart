@@ -402,10 +402,93 @@ class _CustomerHomeState extends State<CustomerHome> {
 }
 
 class QuickTiles extends StatelessWidget {
-  const QuickTiles({super.key});
-  @override Widget build(BuildContext context)=>Row(children:[_tile(Icons.calendar_month,'Randevu Al'),_tile(Icons.diamond,'Keşfet'),_tile(Icons.favorite,'Takip Edilen')]);
-  Widget _tile(IconData i,String s)=>Expanded(child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])));
+  final bool ownerMode;
+  const QuickTiles({super.key, this.ownerMode = false});
+
+  void open(BuildContext context, int index) {
+    if (!ownerMode) {
+      final page = switch (index) {
+        0 => const CustomerAppointmentsPage(),
+        1 => const DiscoverPage(),
+        _ => const FollowingPage(),
+      };
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+      return;
+    }
+
+    final section = switch (index) {
+      0 => 'Randevu Yönetimi',
+      1 => 'Müşterilerim',
+      _ => 'İşletme Ayarları',
+    };
+    final page = switch (index) {
+      0 => const OwnerAppointments(),
+      1 => const CustomersPage(),
+      _ => const SettingsPage(),
+    };
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(
+          title: Text(section, style: const TextStyle(color: wine, fontWeight: FontWeight.bold)),
+        ),
+        body: page,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = ownerMode
+        ? const [
+            (Icons.calendar_month, 'Randevular'),
+            (Icons.people_alt_outlined, 'Müşteriler'),
+            (Icons.settings_outlined, 'Ayarlar'),
+          ]
+        : const [
+            (Icons.calendar_month, 'Randevularım'),
+            (Icons.diamond, 'Keşfet'),
+            (Icons.favorite, 'Takip Edilen'),
+          ];
+
+    return Row(
+      children: List.generate(items.length, (index) {
+        final item = items[index];
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => open(context, index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 5),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: blush),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(item.$1, color: wine),
+                      const SizedBox(height: 7),
+                      Text(
+                        item.$2,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: ink),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
 }
+
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
   @override
@@ -3855,7 +3938,7 @@ class _OwnerHomeState extends State<OwnerHome> {
         const SectionTitle('Yaklaşan Randevular', action: 'Tümünü Gör'),
         if (upcoming.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Yaklaşan randevu bulunmuyor.', style: TextStyle(color: muted)))
         else ...upcoming.take(3).map((row) => AppointmentTile(name: row['customer_name']?.toString() ?? 'Müşteri', service: row['service_name']?.toString() ?? 'Hizmet', time: appointmentTime(row), status: row['status'] == 'pending' ? 'Onay bekliyor' : row['status'] == 'confirmed' ? 'Onaylandı' : row['status']?.toString() ?? 'Aktif')),
-        const SectionTitle('Hızlı Yönetim'), const QuickTiles(),
+        const SectionTitle('Hızlı Yönetim'), const QuickTiles(ownerMode: true),
       ]));
     },
   );
