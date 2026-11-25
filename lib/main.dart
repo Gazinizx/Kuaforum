@@ -8,15 +8,15 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const gold = Color(0xFFB76E79);
-const goldLight = Color(0xFF9C5367);
-const ink = Color(0xFF573B43);
-const panel = Color(0xFFFFFBFA);
-const ivory = Color(0xFF49363C);
-const muted = Color(0xFF927D83);
-const border = Color(0xFFF0DDE0);
-const panelRaised = Color(0xFFF8ECEE);
-const goldShadow = Color(0x1AB76E79);
+const gold = Color(0xFFB94F78);
+const goldLight = Color(0xFF873650);
+const ink = Color(0xFF3C202D);
+const panel = Color(0xFFFFFCFB);
+const ivory = Color(0xFF3B2630);
+const muted = Color(0xFF927985);
+const border = Color(0xFFEBD5DE);
+const panelRaised = Color(0xFFF8EAF0);
+const goldShadow = Color(0x24B94F78);
 final sb = Supabase.instance.client;
 
 Future<void> signOutKuaforum() async {
@@ -55,8 +55,8 @@ class KuaforumApp extends StatelessWidget {
     theme: ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      scaffoldBackgroundColor: const Color(0xFFFFF7F6),
-      canvasColor: const Color(0xFFFFF7F6),
+      scaffoldBackgroundColor: const Color(0xFFFFF5F7),
+      canvasColor: const Color(0xFFFFF5F7),
       dividerColor: border,
       colorScheme: const ColorScheme.light(
         primary: gold,
@@ -277,8 +277,8 @@ class AppPanel extends StatelessWidget {
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFFFFFFF), Color(0xFFFFF4F5), Color(0xFFF9EDEF)],
-        stops: [0, .58, 1],
+        colors: [Color(0xFFFFFFFF), Color(0xFFFFF1F5), Color(0xFFF5E1E9)],
+        stops: [0, .52, 1],
       ),
       borderRadius: BorderRadius.circular(24),
       border: Border.all(color: const Color(0xFFEAD3D9), width: 1),
@@ -351,7 +351,7 @@ class BrandMark extends StatelessWidget {
     const SizedBox(height: 12),
     const Text('KUAFÖRÜM', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: 3.2)),
     const SizedBox(height: 3),
-    const Text('GÜZELLİĞİN EN KOLAY YOLU', style: TextStyle(color: muted, fontSize: 9, letterSpacing: 1.25, fontWeight: FontWeight.w700)),
+    const Text('GÜZELLİĞİN EN ÖZEL ADRESİ', style: TextStyle(color: muted, fontSize: 9, letterSpacing: 1.25, fontWeight: FontWeight.w700)),
   ]);
 }
 
@@ -1321,7 +1321,9 @@ class _EmployeePageState extends State<EmployeePage> {
       return RefreshIndicator(
         onRefresh: refresh,
         child: ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
-          const ScreenHeading(eyebrow: 'ÇALIŞAN PANELİ', title: 'Randevularım', subtitle: 'Yalnızca sana atanmış randevuları takip et ve durumlarını yönet.', icon: Icons.event_note_rounded),
+          AppPanel(padding:const EdgeInsets.all(18),child:Row(children:[Container(width:58,height:58,decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF51263B),Color(0xFFB94F78)]),borderRadius:BorderRadius.circular(19)),child:const Icon(Icons.content_cut_rounded,color:Colors.white,size:27)),const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('USTALIĞINI GÖSTER',style:TextStyle(color:goldLight,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.2)),const SizedBox(height:5),Text((widget.employee['display_name']??'Kuaförüm çalışanı').toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),const SizedBox(height:3),const Text('Portföyünü paylaş, müşterilerinle bağ kur.',style:TextStyle(color:muted,fontSize:11))])),IconButton.filledTonal(onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>EmployeeFeedComposerPage(employee:widget.employee))),icon:const Icon(Icons.add_a_photo_outlined,color:goldLight))])),
+          const SizedBox(height:16),
+          const ScreenHeading(eyebrow: 'ÇALIŞAN ALANI', title: 'Randevularım', subtitle: 'Yalnızca sana atanmış randevuları takip et ve durumlarını yönet.', icon: Icons.event_note_rounded),
           Row(children: [
             Expanded(child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Icon(Icons.calendar_month_rounded, color: gold), const SizedBox(height: 8),
@@ -2066,13 +2068,8 @@ class _CustomerPageState extends State<CustomerPage>{
  }
  @override Widget build(BuildContext c)=>Scaffold(
   appBar:AppBar(
-   title:Row(children:[Container(width:34,height:34,decoration:BoxDecoration(gradient:const LinearGradient(colors:[goldLight,gold]),borderRadius:BorderRadius.circular(11)),child:const Icon(Icons.content_cut_rounded,color:ink,size:19)),const SizedBox(width:10),const Text('Kuaförüm',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:-.5))]),
-   actions:[
-    IconButton(tooltip:'Randevularım',onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerAppointmentsPage())),icon:const Icon(Icons.event_note_rounded)),
-    notificationAction(context),
-    PopupMenuButton<String>(onSelected:(v){if(v=='profile')_profile();},itemBuilder:(_)=>const [PopupMenuItem(value:'profile',child:ListTile(contentPadding:EdgeInsets.zero,leading:Icon(Icons.person_outline_rounded),title:Text('Profilim')))]),
-    IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaforum(),icon:const Icon(Icons.logout_rounded)),
-   ],
+   title:Row(children:[Container(width:36,height:36,decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[goldLight,gold]),borderRadius:BorderRadius.circular(13),boxShadow:[BoxShadow(color:gold.withValues(alpha:.20),blurRadius:12,offset:const Offset(0,4))]),child:const Icon(Icons.auto_awesome_rounded,color:Colors.white,size:19)),const SizedBox(width:11),const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[Text('Kuaförüm',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:-.5)),Text('GÜZELLİĞİN EN ÖZEL ADRESİ',style:TextStyle(fontSize:8,color:muted,fontWeight:FontWeight.w800,letterSpacing:1.0))])]),
+   actions:[notificationAction(context),IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaforum(),icon:const Icon(Icons.logout_rounded))],
   ),
   body:IndexedStack(index:tab,children:[FutureBuilder<List<Map<String,dynamic>>>(future:memberships,builder:(c,s){
    if(s.connectionState!=ConnectionState.done)return const LoadingPage();
@@ -2142,12 +2139,15 @@ class _CustomerPageState extends State<CustomerPage>{
    const FeedTimelinePage(mode:'followed'),
    const FeedTimelinePage(mode:'discover'),
    const CustomerConversationsPage(),
+   const CustomerAppointmentsPage(),
+   const CustomerProfilePage(),
   ]),
   bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const [
-   NavigationDestination(icon:Icon(Icons.storefront_outlined),selectedIcon:Icon(Icons.storefront_rounded),label:'İşletmeler'),
-   NavigationDestination(icon:Icon(Icons.favorite_border_rounded),selectedIcon:Icon(Icons.favorite_rounded),label:'Takip Edilen'),
+   NavigationDestination(icon:Icon(Icons.storefront_outlined),selectedIcon:Icon(Icons.storefront_rounded),label:'Salonlar'),
+   NavigationDestination(icon:Icon(Icons.favorite_border_rounded),selectedIcon:Icon(Icons.favorite_rounded),label:'Takip'),
    NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore_rounded),label:'Keşfet'),
-   NavigationDestination(icon:Icon(Icons.chat_bubble_outline_rounded),selectedIcon:Icon(Icons.chat_bubble_rounded),label:'Mesajlar'),
+   NavigationDestination(icon:Icon(Icons.calendar_month_outlined),selectedIcon:Icon(Icons.calendar_month_rounded),label:'Randevular'),
+   NavigationDestination(icon:Icon(Icons.person_outline_rounded),selectedIcon:Icon(Icons.person_rounded),label:'Profil'),
   ]),
  );
 }
