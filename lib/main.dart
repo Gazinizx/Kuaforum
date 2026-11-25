@@ -4809,7 +4809,88 @@ class _SettingsPageState extends State<SettingsPage> {
   );
 }
 
-class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
+class _AdminDashboardStats {
+  final int businesses;
+  final int users;
+  final int posts;
+  const _AdminDashboardStats(this.businesses, this.users, this.posts);
+}
+
+class AdminHome extends StatefulWidget {
+  const AdminHome({super.key});
+
+  @override
+  State<AdminHome> createState() => _AdminHomeState();
+}
+
+class _AdminHomeState extends State<AdminHome> {
+  late Future<_AdminDashboardStats> stats;
+
+  @override
+  void initState() {
+    super.initState();
+    stats = load();
+  }
+
+  Future<_AdminDashboardStats> load() async {
+    final rows = await Supabase.instance.client.rpc('admin_dashboard_stats') as List;
+    if (rows.isEmpty) {
+      throw const PostgrestException(message: 'Yönetici istatistikleri alınamadı.');
+    }
+    final row = Map<String, dynamic>.from(rows.first as Map);
+    return _AdminDashboardStats(
+      (row['business_count'] as num).toInt(),
+      (row['user_count'] as num).toInt(),
+      (row['post_count'] as num).toInt(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_AdminDashboardStats>(
+    future: stats,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || !snapshot.hasData) {
+        return PageBody(children: [
+          const Text('Ana Yönetici', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          _FeedMessage(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Yönetim verileri yüklenemedi',
+            detail: 'Yönetici hesabını ve bağlantıyı kontrol et.',
+            action: 'Yeniden dene',
+            onPressed: () => setState(() => stats = load()),
+          ),
+        ]);
+      }
+      final value = snapshot.data!;
+      return PageBody(children: [
+        const Text('Ana Yönetici', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 14),
+        const HeroPanel(
+          eyebrow: 'Platform kontrolü',
+          title: 'Kuaförüm ekosistemini yönet',
+          subtitle: 'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',
+          icon: Icons.admin_panel_settings,
+          button: 'Platformu yönet',
+        ),
+        const SizedBox(height: 14),
+        Row(children: [
+          _StatCard(value.businesses.toString(), 'İşletme'),
+          _StatCard(value.users.toString(), 'Kullanıcı'),
+          _StatCard(value.posts.toString(), 'Paylaşım'),
+        ]),
+        const SectionTitle('Yönetim araçları'),
+        const Text(
+          'İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',
+          style: TextStyle(color: muted, height: 1.5),
+        ),
+      ]);
+    },
+  );
+}
 class AdminBusinesses extends StatefulWidget {
   const AdminBusinesses({super.key});
   @override
@@ -4835,11 +4916,8 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
   }
 
   Future<List<Map<String, dynamic>>> load() async {
-    final rows = await client
-        .from('businesses')
-        .select('id,name,address,status,discover_paid,discover_enabled,created_at')
-        .order('created_at', ascending: false);
-    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+    final rows = await client.rpc('admin_list_businesses') as List;
+    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
   Future<void> changeBusinessStatus(Map<String, dynamic> business) async {
@@ -4872,15 +4950,13 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
 
     setState(() => saving.add(id));
     try {
-      final updated = await client
-          .from('businesses')
-          .update({'status': activating ? 'active' : 'suspended'})
-          .eq('id', id)
-          .select('id,status')
-          .single();
+      await client.rpc('admin_set_business_status', params: {
+        'p_business_id': id,
+        'p_status': activating ? 'active' : 'inactive',
+      });
       if (!mounted) return;
       setState(() {
-        business['status'] = updated['status'];
+        business['status'] = activating ? 'active' : 'inactive';
         saving.remove(id);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4950,7 +5026,7 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
                 style: const TextStyle(fontWeight: FontWeight.bold, color: ink),
               ),
               subtitle: Text(
-                '${active ? 'Aktif' : 'Pasif / Onay bekliyor'}'
+                '${business['status'] == 'pending' ? 'Onay bekliyor' : business['status'] == 'rejected' ? 'Reddedildi' : active ? 'Aktif' : 'Askıda'}'
                 ' • ${paid ? 'Keşfet hakkı var' : 'Keşfet hakkı yok'}'
                 ' • ${visible ? 'Keşfet açık' : 'Keşfet kapalı'}',
               ),
@@ -5163,13 +5239,10 @@ class _DiscoverControlState extends State<DiscoverControl> {
       _error = null;
     });
     try {
-      final rows = await _client
-          .from('businesses')
-          .select('id,name,status,discover_paid,discover_enabled')
-          .order('created_at', ascending: false);
+      final rows = await _client.rpc('admin_list_businesses') as List;
       if (!mounted) return;
       setState(() {
-        _businesses = rows.map((row) => Map<String, dynamic>.from(row)).toList();
+        _businesses = rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
         _loading = false;
       });
     } catch (_) {
@@ -5186,21 +5259,13 @@ class _DiscoverControlState extends State<DiscoverControl> {
     if (business['discover_paid'] != true || _saving.contains(id)) return;
     setState(() => _saving.add(id));
     try {
-      final updated = await _client
-          .from('businesses')
-          .update({'discover_enabled': enabled})
-          .eq('id', id)
-          .eq('discover_paid', true)
-          .select('id,discover_enabled')
-          .maybeSingle();
-      if (updated == null) {
-        throw const PostgrestException(
-          message: 'Bu işletmenin Keşfet erişimi için aktif ödeme yetkisi bulunmuyor.',
-        );
-      }
+      await _client.rpc('admin_set_discover_visibility', params: {
+        'p_business_id': id,
+        'p_enabled': enabled,
+      });
       if (!mounted) return;
       setState(() {
-        business['discover_enabled'] = updated['discover_enabled'];
+        business['discover_enabled'] = enabled;
         _saving.remove(id);
       });
     } catch (_) {
@@ -5248,7 +5313,7 @@ class _DiscoverControlState extends State<DiscoverControl> {
               ),
               child: SwitchListTile(
                 value: paid && enabled,
-                onChanged: paid && !_saving.contains(id)
+                onChanged: paid && business['status'] == 'active' && !_saving.contains(id)
                     ? (value) => _setVisibility(business, value)
                     : null,
                 activeThumbColor: wine,
@@ -5258,13 +5323,15 @@ class _DiscoverControlState extends State<DiscoverControl> {
                   style: const TextStyle(fontWeight: FontWeight.bold, color: ink),
                 ),
                 subtitle: Text(
-                  !paid
-                      ? 'Keşfet erişim hakkı tanımlı değil'
-                      : _saving.contains(id)
-                          ? 'Kaydediliyor…'
-                          : enabled
-                              ? 'Keşfet görünürlüğü açık'
-                              : 'Keşfet görünürlüğü kapalı',
+                  business['status'] != 'active'
+                      ? 'İşletme aktif değil'
+                      : !paid
+                          ? 'Keşfet erişim hakkı tanımlı değil'
+                          : _saving.contains(id)
+                              ? 'Kaydediliyor…'
+                              : enabled
+                                  ? 'Keşfet görünürlüğü açık'
+                                  : 'Keşfet görünürlüğü kapalı',
                   style: const TextStyle(color: muted),
                 ),
               ),
