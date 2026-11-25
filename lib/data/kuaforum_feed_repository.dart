@@ -297,7 +297,7 @@ class KuaforumFeedRepository {
         );
       }
       businessId = business['id'] as String;
-    } else {
+    } else if (accountType == 'employee') {
       final employee = await _client
           .from('employees')
           .select('id,business_id')
@@ -312,6 +312,10 @@ class KuaforumFeedRepository {
       }
       employeeId = employee['id'] as String;
       businessId = employee['business_id'] as String;
+    } else {
+      throw const PostgrestException(
+        message: 'Yalnızca işletme sahibi ve aktif çalışan hesapları paylaşım yapabilir.',
+      );
     }
 
     final extension = mediaFile.path.split('.').last.toLowerCase();
