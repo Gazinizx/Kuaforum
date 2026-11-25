@@ -195,7 +195,7 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(onPressed: (){}, icon: const Icon(Icons.notifications_none_rounded)), const SizedBox(width: 5)]),
+    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())), icon: const Icon(Icons.notifications_none_rounded)), const SizedBox(width: 5)]),
     body: IndexedStack(index:index, children:pages),
     bottomNavigationBar: NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
