@@ -43,10 +43,10 @@ to authenticated
 with check (
   bucket_id = 'salon-avatars'
   and public.is_current_user_active()
-  and (storage.foldername(name))[1] = 'businesses'
+  and (storage.foldername(objects.name))[1] = 'businesses'
   and exists (
     select 1 from public.businesses b
-    where b.id::text = (storage.foldername(name))[2]
+    where b.id::text = (storage.foldername(objects.name))[2]
       and b.owner_id = (select auth.uid())
       and b.status = 'active'
   )
@@ -59,10 +59,10 @@ to authenticated
 using (
   bucket_id = 'salon-avatars'
   and public.is_current_user_active()
-  and (storage.foldername(name))[1] = 'businesses'
+  and (storage.foldername(objects.name))[1] = 'businesses'
   and exists (
     select 1 from public.businesses b
-    where b.id::text = (storage.foldername(name))[2]
+    where b.id::text = (storage.foldername(objects.name))[2]
       and b.owner_id = (select auth.uid())
       and b.status = 'active'
   )
