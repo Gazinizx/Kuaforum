@@ -713,7 +713,7 @@ class _AdminPageState extends State<AdminPage>{
  @override Widget build(BuildContext c){
   final pages=[dashboard(),businesses(),users(),appointments()];
   return Scaffold(
-   appBar:AppBar(title:const Text('Yönetim merkezi'),actions:[IconButton(tooltip:'Yenile',onPressed:()=>setState((){}),icon:const Icon(Icons.refresh_rounded)),IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaforum(),icon:const Icon(Icons.logout_rounded))]),
+   appBar:AppBar(title:const Text('Kuaförüm · Ana yönetim'),actions:[IconButton(tooltip:'Yenile',onPressed:()=>setState((){}),icon:const Icon(Icons.refresh_rounded)),IconButton(tooltip:'Çıkış yap',onPressed:()=>signOutKuaforum(),icon:const Icon(Icons.logout_rounded))]),
    body:pages[tab],
    bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const [
     NavigationDestination(icon:Icon(Icons.dashboard_outlined),selectedIcon:Icon(Icons.dashboard_rounded),label:'Genel'),
@@ -905,6 +905,8 @@ class _BarberPageState extends State<BarberPage> {
     ScreenHeading(eyebrow: eyebrow, title: title, subtitle: subtitle, icon: icon);
 
   Widget _homePage() => ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 28), children: [
+    Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(borderRadius:BorderRadius.circular(28),gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF54283D),Color(0xFF8E3D5A),Color(0xFFC16B88)]),boxShadow:[BoxShadow(color:Color(0x3354233D),blurRadius:24,offset:Offset(0,10))]),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('KUAFÖRÜM İŞ ORTAĞI',style:TextStyle(color:Color(0xFFFFDCE7),fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.5)),const SizedBox(height:9),Text((widget.business['name']??'İşletmen').toString(),style:const TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w900,letterSpacing:-.6)),const SizedBox(height:6),const Text('Güzelliğe dokunan her detay burada.',style:TextStyle(color:Color(0xFFF5DCE5),fontSize:11))]),),const SizedBox(width:14),Container(width:58,height:58,decoration:BoxDecoration(color:Colors.white.withValues(alpha:.14),borderRadius:BorderRadius.circular(19),border:Border.all(color:Colors.white24)),child:const Icon(Icons.storefront_rounded,color:Colors.white,size:29))])),
+    const SizedBox(height:18),
     _heading('İŞLETME PANELİ', widget.business['name'] ?? 'İşletmen',
       'İşletme bilgilerine ve yönetim araçlarına hızlı eriş.', Icons.storefront_rounded),
     AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -1145,14 +1147,15 @@ class _BarberPageState extends State<BarberPage> {
       IconButton(tooltip: 'Çıkış yap', onPressed: () => signOutKuaforum(), icon: const Icon(Icons.logout_rounded)),
     ]),
     body: IndexedStack(index: tab, children: [
-      _homePage(), _appointmentsPage(), _settingsPage(),
+      _homePage(), _appointmentsPage(), BusinessOverviewPage(business: widget.business), _settingsPage(),
     ]),
     bottomNavigationBar: NavigationBar(
       selectedIndex: tab,
       onDestinationSelected: (v) => setState(() => tab = v),
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Ana sayfa'),
-        NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note_rounded), label: 'Randevularım'),
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'İşletme'),
+        NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note_rounded), label: 'Randevum'),
+        NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups_rounded), label: 'Çalışan randevuları'),
         NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune_rounded), label: 'Ayarlar'),
       ],
     ),
