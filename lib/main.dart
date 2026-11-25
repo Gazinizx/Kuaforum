@@ -5986,6 +5986,7 @@ class _AuthGateState extends State<AuthGate> {
       if (mounted) _notice(_friendlyError(error));
     } finally {
       _openingAccount = false;
+      if (mounted) setState(() {});
     }
   }
 
