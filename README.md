@@ -17,7 +17,8 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - İşletme sahibine özel katılım kodu gösterimi ve kopyalama
 - İşletme adı/adresi düzenleme; randevu aralığı ve çalışma saatleri yönetimi
 - Hizmet, fiyat, süre ve çalışan yönetimi
-- Çalışan daveti ve çalışanı aktif/pasif yapma
+- Çalışan daveti oluşturma, davet kodunu kullanma ekranı ve çalışanı aktif/pasif yapma
+- Çalışan, mevcut müşteri hesabıyla giriş yapıp tek kullanımlık davet kodunu doğrulayınca otomatik olarak çalışan rolüne geçer
 - Haftalık çalışma saatleri ve randevu aralığı ayarları
 - Gerçek uygun saat hesabı ve randevu oluşturma
 - Müşteri, çalışan ve işletme sahibi için ayrı randevu görünümleri
@@ -40,7 +41,7 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
 
 ## Henüz tamamlanması gerekenler
-- Normal müşteri/işletme kayıt ve giriş ekranı ile çalışan davet kodunu kullanma arayüzü. Çalışan daveti backend aktivasyon RPC'si hazır; hızlı rol/test ekranı yalnızca geliştirme testi içindir ve normal giriş akışı son aşamada eklenecektir.
+- Normal müşteri/işletme kayıt ve giriş ekranı. Hızlı rol/test ekranı yalnızca geliştirme testi içindir; normal giriş akışı son aşamada eklenecektir.
 - Firebase Cloud Messaging ile gerçek push bildirim teslimi. Uygulama içi bildirim merkezi vardır; push teslimi henüz bağlanmamıştır.
 - iOS yapılandırması, imzalama ve App Store hazırlığı.
 - Son cihaz testleri, Flutter analiz/test ve yayın derlemesi.
