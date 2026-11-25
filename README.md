@@ -41,7 +41,9 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
 
 ## Henüz tamamlanması gerekenler
-- Normal müşteri/işletme kayıt ve giriş ekranı. Hızlı rol/test ekranı yalnızca geliştirme testi içindir; normal giriş akışı son aşamada eklenecektir.
+- Normal e-posta/şifre giriş ve kayıt ekranı (müşteri + işletme sahibi); müşteri için ad/soyad/telefon, işletme sahibi için salon adı/adresi zorunlu.
+- Auth kaydı sonrasında profil otomatik oluşturulur; işletme sahibi kaydı güvenli RPC üzerinden `pending` durumunda açılır.
+- Hızlı rol/test ekranı yalnızca debug derlemelerinde görünür; yayın sürümünde normal giriş ekranı açılır.
 - Firebase Cloud Messaging ile gerçek push bildirim teslimi. Uygulama içi bildirim merkezi vardır; push teslimi henüz bağlanmamıştır.
 - iOS yapılandırması, imzalama ve App Store hazırlığı.
 - Son cihaz testleri, Flutter analiz/test ve yayın derlemesi.
@@ -57,5 +59,7 @@ flutter analyze
 flutter test
 flutter build apk --release
 ```
+
+Auth kayıt/işletme kayıt veritabanı akışı SQL transaction içinde test edildi; test verisi rollback ile geri alındı. Profil rol/yönetici/engelli alanlarının kullanıcı tarafından değiştirilmesi engellendi ve negatif test edildi.
 
 Bu dalda henüz Flutter analizi, test veya APK derlemesi çalıştırılmadı.
