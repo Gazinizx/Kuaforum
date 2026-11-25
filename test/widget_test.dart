@@ -14,8 +14,8 @@ void main() {
   });
 
   testWidgets('business owner has social feed and publishing tabs', (tester) async {
-    await tester.view.setPhysicalSize(const Size(1000, 1800));
-    await tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(const KuaforumApp());
     await tester.tap(find.text('İşletme Sahibi'));
     await tester.pumpAndSettle();
