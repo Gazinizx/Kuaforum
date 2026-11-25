@@ -11,7 +11,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: flutter create . --platforms=android
+      - run: flutter create . --platforms=android --org com.gazinizx
       - run: sed -i '/ndkVersion/d' android/app/build.gradle.kts
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
