@@ -2765,9 +2765,215 @@ class EmployeeManagementPage extends StatelessWidget {
   const EmployeeManagementPage({super.key});
   @override Widget build(BuildContext context)=>PageBody(children:[const Text('Çalışanlar',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Çalışan Davet Et'),...['Ayşe Demir','Mehmet Yıldız','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),subtitle:const Text('Aktif çalışan'),trailing:const Icon(Icons.more_vert,color:muted)))]);
 }
-class ServicesPage extends StatelessWidget {
+class _ServicesData {
+  final String businessId;
+  final List<Map<String, dynamic>> services;
+  const _ServicesData(this.businessId, this.services);
+}
+
+class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Hizmetler',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Yeni Hizmet Ekle'),...['Saç Kesimi  •  ₺800','Saç Boyama  •  ₺1.800','Ombre  •  ₺2.500','Keratin Bakım  •  ₺1.400'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.content_cut,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.edit_outlined,color:muted))))]);
+
+  @override
+  State<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends State<ServicesPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_ServicesData> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_ServicesData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final businessId = business['id'] as String;
+    final services = await repository.fetchBusinessServices(businessId);
+    return _ServicesData(businessId, services);
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> editService({Map<String, dynamic>? service}) async {
+    final nameController = TextEditingController(text: service?['name'] as String? ?? '');
+    final priceController = TextEditingController(
+      text: service == null ? '' : (service['price'] as num).toStringAsFixed(0),
+    );
+    int duration = service?['duration_minutes'] as int? ?? 30;
+    bool active = service?['is_active'] as bool? ?? true;
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(service == null ? 'Yeni hizmet ekle' : 'Hizmeti düzenle'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Hizmet adı'),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Hizmet adı gerekli' : null,
+              ),
+              TextFormField(
+                controller: priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Fiyat (₺)'),
+                validator: (value) {
+                  final price = double.tryParse((value ?? '').replaceAll(',', '.'));
+                  return price == null || price < 0 ? 'Geçerli fiyat gir' : null;
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: duration,
+                decoration: const InputDecoration(labelText: 'Süre'),
+                items: const [15, 30, 45, 60, 90, 120].map((minutes) => DropdownMenuItem(
+                  value: minutes,
+                  child: Text('$minutes dakika'),
+                )).toList(),
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => duration = value);
+                },
+              ),
+              if (service != null)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Hizmet aktif'),
+                  value: active,
+                  onChanged: (value) => setDialogState(() => active = value),
+                ),
+            ])),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() == true) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: wine),
+              child: const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true) {
+      nameController.dispose();
+      priceController.dispose();
+      return;
+    }
+    try {
+      final price = double.parse(priceController.text.replaceAll(',', '.'));
+      if (service == null) {
+        final value = await data;
+        await repository.createBusinessService(
+          businessId: value.businessId,
+          name: nameController.text,
+          price: price,
+          durationMinutes: duration,
+        );
+      } else {
+        await repository.updateBusinessService(
+          serviceId: service['id'] as String,
+          name: nameController.text,
+          price: price,
+          durationMinutes: duration,
+          isActive: active,
+        );
+      }
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hizmet kaydedilemedi: $error')),
+        );
+      }
+    } finally {
+      nameController.dispose();
+      priceController.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_ServicesData>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Hizmetler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('Salonunda sunduğun hizmetleri, fiyatları ve süreleri düzenle.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: snapshot.hasData ? () => editService() : null,
+            style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 13)),
+            icon: const Icon(Icons.add),
+            label: const Text('Yeni hizmet ekle'),
+          ),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.content_cut,
+              title: 'Hizmetler yüklenemedi',
+              detail: 'İşletme hesabının bağlantısını kontrol et.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else if (snapshot.data!.services.isEmpty)
+            const _FeedMessage(
+              icon: Icons.add_business_outlined,
+              title: 'Henüz hizmet eklenmemiş',
+              detail: 'Müşterilerin randevu alabilmesi için önce hizmetlerini ekle.',
+            )
+          else
+            ...snapshot.data!.services.map((service) {
+              final active = service['is_active'] == true;
+              final price = service['price'] as num? ?? 0;
+              final duration = service['duration_minutes'] as int? ?? 30;
+              return Card(
+                color: Colors.white,
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: blush),
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: blush,
+                    child: Icon(Icons.content_cut, color: active ? wine : muted),
+                  ),
+                  title: Text(
+                    service['name'] as String? ?? 'Hizmet',
+                    style: TextStyle(color: active ? ink : muted, fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text('$duration dk • ${price.toStringAsFixed(0)} ₺', style: const TextStyle(color: muted)),
+                  trailing: IconButton(
+                    onPressed: () => editService(service: service),
+                    icon: const Icon(Icons.edit_outlined, color: wine),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    ),
+  );
 }
 
 class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
