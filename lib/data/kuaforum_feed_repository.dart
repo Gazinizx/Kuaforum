@@ -895,6 +895,38 @@ class KuaforumFeedRepository {
     }, onConflict: 'business_id,weekday');
   }
 
+  Future<List<Map<String, dynamic>>> fetchOwnedEmployees(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('employees')
+        .select('id,display_name,user_id,is_active,employee_invites(invite_code,expires_at,claimed_at)')
+        .eq('business_id', businessId)
+        .order('display_name');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<String> createEmployeeInvite({
+    required String businessId,
+    required String displayName,
+  }) async {
+    final result = await _client.rpc('create_employee_invite', params: {
+      'p_business_id': businessId,
+      'p_display_name': displayName.trim(),
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Çalışan daveti oluşturulamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<void> setEmployeeActive(String employeeId, bool isActive) async {
+    await _client
+        .from('employees')
+        .update({'is_active': isActive})
+        .eq('id', employeeId);
+  }
+
   Future<List<Map<String, dynamic>>> fetchBusinessServices(
     String businessId,
   ) async {
