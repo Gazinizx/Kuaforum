@@ -686,6 +686,40 @@ class KuaforumFeedRepository {
     return Map<String, dynamic>.from(row);
   }
 
+  Future<String> joinBusinessByCode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'İşletme kodunu gir.');
+    }
+    final result = await _client.rpc(
+      'join_business_by_code',
+      params: {'p_code': trimmed},
+    );
+    if (result == null) {
+      throw const PostgrestException(message: 'İşletmeye katılma işlemi tamamlanamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<String?> fetchMyBusinessMembership() async {
+    final row = await _client
+        .from('business_memberships')
+        .select('business_id')
+        .eq('customer_id', _userId)
+        .maybeSingle();
+    return row?['business_id'] as String?;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessEmployees(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('public_employee_profiles')
+        .select('id,user_id,business_id,display_name,avatar_url')
+        .eq('business_id', businessId);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
   Future<List<Map<String, dynamic>>> fetchCustomerAppointments() async {
     final rows = await _client
         .from('appointments')
