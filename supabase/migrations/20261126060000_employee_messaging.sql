@@ -20,6 +20,7 @@ with check (
     where e.id = conversations.employee_id
       and e.business_id = conversations.business_id
       and e.is_active = true
+      and exists (select 1 from public.public_profiles target where target.id = e.user_id)
       and b.status = 'active'
       and p.id = conversations.source_post_id
       and (
@@ -52,6 +53,7 @@ as $$
     select 1
     from public.profiles me
     join public.employees e on e.user_id = p_employee_user_id
+    join public.profiles employee_profile on employee_profile.id = e.user_id and employee_profile.is_blocked = false
     join public.businesses b on b.id = e.business_id
     join public.feed_posts p
       on p.employee_id = e.id
@@ -107,6 +109,7 @@ begin
   into v_employee_id, v_business_id, v_source_post_id
   from public.profiles me
   join public.employees e on e.user_id = p_employee_user_id
+  join public.profiles employee_profile on employee_profile.id = e.user_id and employee_profile.is_blocked = false
   join public.businesses b on b.id = e.business_id
   join public.feed_posts p
     on p.employee_id = e.id
