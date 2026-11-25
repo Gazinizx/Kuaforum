@@ -248,7 +248,19 @@ class DiscoverPage extends StatefulWidget {
 
 class _DiscoverPageState extends State<DiscoverPage> {
   final repository = KuaforumFeedRepository();
+  final searchController = TextEditingController();
   late Future<List<KuaforumFeedPost>> feed;
+  String selectedCategory = 'Tümü';
+
+  static const categories = [
+    'Tümü',
+    'Saç Kesimi',
+    'Boyama',
+    'Ombre',
+    'Topuz',
+    'Bakım',
+    'Genel',
+  ];
 
   @override
   void initState() {
@@ -256,8 +268,26 @@ class _DiscoverPageState extends State<DiscoverPage> {
     feed = repository.fetchDiscoverFeed();
   }
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void applyFilters() {
+    setState(() {
+      feed = repository.fetchDiscoverFeed(
+        searchQuery: searchController.text,
+        category: selectedCategory,
+      );
+    });
+  }
+
   Future<void> refresh() async {
-    final next = repository.fetchDiscoverFeed();
+    final next = repository.fetchDiscoverFeed(
+      searchQuery: searchController.text,
+      category: selectedCategory,
+    );
     setState(() => feed = next);
     await next;
   }
@@ -275,9 +305,51 @@ class _DiscoverPageState extends State<DiscoverPage> {
           const SizedBox(height: 5),
           const Text('İşletmelerden ve çalışanlardan gerçek paylaşımlar.', style: TextStyle(color: muted)),
           const SizedBox(height: 16),
-          const SearchBarBox(hint: 'Saç modeli, salon veya çalışan ara...'),
+          TextField(
+            controller: searchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => applyFilters(),
+            decoration: InputDecoration(
+              hintText: 'Saç modeli, salon veya çalışan ara...',
+              prefixIcon: const Icon(Icons.search, color: wine),
+              suffixIcon: IconButton(
+                onPressed: applyFilters,
+                icon: const Icon(Icons.arrow_forward_rounded, color: wine),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: blush),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: blush),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
-          const Wrap(spacing: 8, children: [_Chip('Tümü', true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
+          Wrap(
+            spacing: 8,
+            runSpacing: 7,
+            children: categories.map((category) => ChoiceChip(
+              label: Text(category),
+              selected: selectedCategory == category,
+              onSelected: (_) {
+                setState(() => selectedCategory = category);
+                applyFilters();
+              },
+              selectedColor: blush,
+              backgroundColor: Colors.white,
+              labelStyle: TextStyle(
+                color: selectedCategory == category ? wine : muted,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+              side: const BorderSide(color: blush),
+            )).toList(),
+          ),
           const SectionTitle('Keşfet akışı'),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
@@ -292,8 +364,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
           else if ((snapshot.data ?? []).isEmpty)
             const _FeedMessage(
               icon: Icons.auto_awesome_outlined,
-              title: 'Henüz keşfedilecek paylaşım yok',
-              detail: 'İşletmeler ve çalışanlar paylaşım yaptıkça içerikler burada görünecek.',
+              title: 'Sonuç bulunamadı',
+              detail: 'Arama kelimeni veya seçtiğin kategoriyi değiştirebilirsin.',
             )
           else
             ...snapshot.data!.map((post) => LiveFeedPostCard(post: post, repository: repository)),
