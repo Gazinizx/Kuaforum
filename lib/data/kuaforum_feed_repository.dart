@@ -268,11 +268,11 @@ class KuaforumFeedRepository {
       throw const PostgrestException(message: 'Geçersiz paylaşım kategorisi.');
     }
 
-    final profile = await _client
-        .from('profiles')
-        .select('account_type,is_admin,is_blocked')
-        .eq('id', userId)
-        .single();
+    final statusRows = await _client.rpc('get_my_account_status') as List;
+    if (statusRows.isEmpty) {
+      throw const PostgrestException(message: 'Hesap profili bulunamadı.');
+    }
+    final profile = Map<String, dynamic>.from(statusRows.first as Map);
     if (profile['is_blocked'] == true || profile['is_admin'] == true) {
       throw const PostgrestException(
         message: 'Bu hesap paylaşım yapma yetkisine sahip değil.',
