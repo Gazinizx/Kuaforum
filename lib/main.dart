@@ -117,8 +117,7 @@ class RolePicker extends StatelessWidget {
           break;
         case AppRole.employee:
           final employee = await auth.from('employees').select('id')
-              .eq('user_id', user.id).eq('is_active', true).limit(1);
-          allowed = employee.isNotEmpty;
+              .eq('user_id', user.id).eq('is_active', true).limit(1);          allowed = employee.isNotEmpty;
           break;
         case AppRole.customer:
           allowed = profile['account_type'] == 'customer' && profile['is_admin'] != true;
@@ -178,15 +177,19 @@ class _RoleShellState extends State<RoleShell> {
       case AppRole.customer:
         labels = ['Ana Sayfa','Keşfet','Takip','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.chat_bubble_outline,Icons.person_outline];
         pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
+        break;
       case AppRole.employee:
         labels = ['Ana Sayfa','Randevular','Paylaşım','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
         pages = [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
+        break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
         pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        break;
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
         pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
+        break;
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
@@ -237,8 +240,7 @@ class QuickTiles extends StatelessWidget {
   @override Widget build(BuildContext context)=>Row(children:[_tile(Icons.calendar_month,'Randevu Al'),_tile(Icons.diamond,'Keşfet'),_tile(Icons.favorite,'Takip Edilen')]);
   Widget _tile(IconData i,String s)=>Expanded(child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])));
 }
-class DiscoverPage extends StatelessWidget {
-  const DiscoverPage({super.key});
+class DiscoverPage extends StatelessWidget {  const DiscoverPage({super.key});
   @override Widget build(BuildContext context)=>ValueListenableBuilder<List<DemoPost>>(
     valueListenable:demoPosts,
     builder:(context,posts,_)=>PageBody(children:[
@@ -357,8 +359,7 @@ class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@overrid
 class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
 class _DiscoverControlState extends State<DiscoverControl> {
   final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
-  @override Widget build(BuildContext context)=>PageBody(children:[
-    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
+  @override Widget build(BuildContext context)=>PageBody(children:[    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
     const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),
     const SectionTitle('Erişim yönetimi'),
     ...enabled.keys.map((n)=>SwitchListTile(value:enabled[n]!,onChanged:(v)=>setState(()=>enabled[n]=v),activeThumbColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü'))),
