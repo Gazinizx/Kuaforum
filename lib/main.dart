@@ -343,12 +343,15 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   bool followingBusiness = false;
   bool followingAuthor = false;
   bool followStateLoaded = false;
+  bool deleted = false;
+  late String caption;
 
   @override
   void initState() {
     super.initState();
     liked = widget.post.isLikedByMe;
     likes = widget.post.likeCount;
+    caption = widget.post.caption;
     loadFollowState();
   }
 
@@ -427,8 +430,125 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     }
   }
 
+  Future<void> editPost() async {
+    final controller = TextEditingController(text: caption);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Paylaşımı düzenle'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 500,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Paylaşım açıklaması',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    final updatedCaption = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || updatedCaption.isEmpty) return;
+    try {
+      await widget.repository.updatePostCaption(widget.post.id, updatedCaption);
+      if (mounted) setState(() => caption = updatedCaption);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Paylaşım güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> removePost() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Paylaşım silinsin mi?'),
+        content: const Text('Bu paylaşım ve bağlı yorumları kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.repository.deletePost(widget.post.id);
+      if (mounted) {
+        setState(() => deleted = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paylaşım silindi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Paylaşım silinemedi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> reportPost() async {
+    const reasons = [
+      'Spam',
+      'Uygunsuz içerik',
+      'Taciz veya hakaret',
+      'Sahte hesap / yanıltıcı',
+      'Diğer',
+    ];
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Paylaşımı şikâyet et'),
+        children: reasons.map((item) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(dialogContext, item),
+          child: Text(item),
+        )).toList(),
+      ),
+    );
+    if (reason == null) return;
+    try {
+      await widget.repository.reportPost(widget.post.id, reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Şikâyetin alındı. Teşekkür ederiz.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Şikâyet gönderilemedi: $error')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    if (deleted) return const SizedBox.shrink();
+    return Container(
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -465,18 +585,27 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
             child: Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
           ),
         ])),
-        if (!widget.post.isOwnPost && followStateLoaded)
+        if (widget.post.isOwnPost || followStateLoaded)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_horiz, color: muted),
             onSelected: (value) {
               if (value == 'business') toggleBusinessFollow();
               if (value == 'author') toggleAuthorFollow();
+              if (value == 'edit') editPost();
+              if (value == 'delete') removePost();
+              if (value == 'report') reportPost();
             },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
-              if (widget.post.isEmployeePost)
-                PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
-            ],
+            itemBuilder: (_) => widget.post.isOwnPost
+                ? [
+                    const PopupMenuItem(value: 'edit', child: Text('Açıklamayı düzenle')),
+                    const PopupMenuItem(value: 'delete', child: Text('Paylaşımı sil')),
+                  ]
+                : [
+                    PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
+                    if (widget.post.isEmployeePost)
+                      PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
+                    const PopupMenuItem(value: 'report', child: Text('Paylaşımı şikâyet et')),
+                  ],
           )
         else
           const Icon(Icons.more_horiz, color: muted),
@@ -499,7 +628,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
             ),
       ),
       const SizedBox(height: 12),
-      Text(widget.post.caption, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
+      Text(caption, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
       const SizedBox(height: 9),
       Row(children: [
         InkWell(
@@ -538,9 +667,9 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
         ),
       ]),
     ]),
-  );
+     );
+  }
 }
-
 class InlineFeedVideo extends StatefulWidget {
   final String url;
   const InlineFeedVideo({super.key, required this.url});
