@@ -645,6 +645,9 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   @override
   Widget build(BuildContext context) {
     if (deleted) return const SizedBox.shrink();
+    final avatarUrl = widget.post.isEmployeePost
+        ? widget.post.authorAvatarUrl
+        : widget.post.businessLogoUrl;
     return Container(
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(12),
@@ -663,7 +666,11 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
                 ? PublicUserProfilePage(userId: widget.post.authorUserId)
                 : BusinessProfilePage(businessId: widget.post.businessId),
           )),
-          child: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+          child: CircleAvatar(
+            backgroundColor: blush,
+            backgroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl),
+            child: avatarUrl == null ? const Icon(Icons.person, color: wine) : null,
+          ),
         ),
         const SizedBox(width: 9),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1522,7 +1529,12 @@ class _FollowListPageState extends State<FollowListPage> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               leading: CircleAvatar(
                 backgroundColor: blush,
-                child: Icon(isBusiness ? Icons.storefront : Icons.person, color: wine),
+                backgroundImage: (row['avatar_url'] as String?)?.isNotEmpty == true
+                    ? NetworkImage(row['avatar_url'] as String)
+                    : null,
+                child: (row['avatar_url'] as String?)?.isNotEmpty == true
+                    ? null
+                    : Icon(isBusiness ? Icons.storefront : Icons.person, color: wine),
               ),
               title: Text(name, style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
               subtitle: Text(isBusiness ? 'İşletme' : 'Kuaförüm üyesi', style: const TextStyle(color: muted)),
