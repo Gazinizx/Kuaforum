@@ -495,9 +495,26 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           ]),
         ),
         const SizedBox(width: 18),
-        const Icon(Icons.mode_comment_outlined, color: muted),
-        const SizedBox(width: 5),
-        const Text('Yorumlar', style: TextStyle(color: muted, fontSize: 12)),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => FeedCommentsSheet(
+              postId: widget.post.id,
+              repository: widget.repository,
+            ),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Icon(Icons.mode_comment_outlined, color: muted),
+              SizedBox(width: 5),
+              Text('Yorumlar', style: TextStyle(color: muted, fontSize: 12)),
+            ]),
+          ),
+        ),
         const Spacer(),
         Text(
           '${widget.post.createdAt.day}.${widget.post.createdAt.month}.${widget.post.createdAt.year}',
@@ -505,6 +522,194 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
         ),
       ]),
     ]),
+  );
+}
+
+class FeedCommentsSheet extends StatefulWidget {
+  final String postId;
+  final KuaforumFeedRepository repository;
+
+  const FeedCommentsSheet({
+    super.key,
+    required this.postId,
+    required this.repository,
+  });
+
+  @override
+  State<FeedCommentsSheet> createState() => _FeedCommentsSheetState();
+}
+
+class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
+  final controller = TextEditingController();
+  late Future<List<Map<String, dynamic>>> comments;
+  bool sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    comments = widget.repository.fetchComments(widget.postId);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> sendComment() async {
+    if (sending) return;
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() => sending = true);
+    try {
+      await widget.repository.addComment(widget.postId, text);
+      controller.clear();
+      if (!mounted) return;
+      setState(() => comments = widget.repository.fetchComments(widget.postId));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yorum gönderilemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    child: Container(
+      height: MediaQuery.of(context).size.height * .76,
+      decoration: const BoxDecoration(
+        color: cream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(children: [
+          const SizedBox(height: 11),
+          Container(width: 42, height: 4, decoration: BoxDecoration(
+            color: blush, borderRadius: BorderRadius.circular(8),
+          )),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+            child: Row(children: [
+              const Expanded(child: Text('Yorumlar', style: TextStyle(
+                color: ink, fontSize: 19, fontWeight: FontWeight.w800,
+              ))),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, color: muted),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: blush),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: comments,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: wine));
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text(
+                    'Yorumlar yüklenemedi. Tekrar deneyebilirsin.',
+                    style: TextStyle(color: muted),
+                  ));
+                }
+                final items = snapshot.data ?? [];
+                if (items.isEmpty) {
+                  return const Center(child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 38, color: rose),
+                      SizedBox(height: 9),
+                      Text('Henüz yorum yok', style: TextStyle(
+                        color: ink, fontWeight: FontWeight.bold,
+                      )),
+                      SizedBox(height: 4),
+                      Text('İlk yorumu sen yaz ♡', style: TextStyle(color: muted)),
+                    ],
+                  ));
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const Divider(color: blush, height: 18),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final date = DateTime.tryParse(item['created_at'] as String? ?? '')?.toLocal();
+                    final dateText = date == null
+                        ? ''
+                        : '${date.day}.${date.month}.${date.year}';
+                    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const CircleAvatar(
+                        radius: 18,
+                        backgroundColor: blush,
+                        child: Icon(Icons.person, size: 19, color: wine),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(child: Text(
+                              item['author_name'] as String? ?? 'Kuaförüm kullanıcısı',
+                              style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
+                            )),
+                            Text(dateText, style: const TextStyle(color: muted, fontSize: 10)),
+                          ]),
+                          const SizedBox(height: 4),
+                          Text(item['body'] as String? ?? '',
+                            style: const TextStyle(color: ink, height: 1.35)),
+                        ],
+                      )),
+                    ]);
+                  },
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 4,
+                maxLength: 1000,
+                decoration: InputDecoration(
+                  hintText: 'Güzel bir yorum yaz...',
+                  counterText: '',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: blush),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: blush),
+                  ),
+                ),
+              )),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: sending ? null : sendComment,
+                style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                icon: sending
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white,
+                      ))
+                    : const Icon(Icons.send_rounded),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ),
   );
 }
 
