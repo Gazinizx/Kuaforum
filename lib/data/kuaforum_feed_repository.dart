@@ -746,6 +746,46 @@ class KuaforumFeedRepository {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> fetchAvailableAppointmentSlots({
+    required String businessId,
+    required String employeeId,
+    required String serviceId,
+    required DateTime date,
+  }) async {
+    final dateText = '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    final rows = await _client.rpc('get_available_appointment_slots', params: {
+      'p_business_id': businessId,
+      'p_employee_id': employeeId,
+      'p_service_id': serviceId,
+      'p_date': dateText,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<String> bookAppointment({
+    required String businessId,
+    required String employeeId,
+    required String serviceId,
+    required String startsAt,
+    String? customerNote,
+  }) async {
+    final result = await _client.rpc('book_appointment', params: {
+      'p_business_id': businessId,
+      'p_employee_id': employeeId,
+      'p_service_id': serviceId,
+      'p_starts_at': startsAt,
+      'p_customer_note': customerNote?.trim().isEmpty == true ? null : customerNote?.trim(),
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Randevu oluşturulamadı.');
+    }
+    return result.toString();
+  }
+
   Future<void> cancelAppointment(String appointmentId) async {
     await _client.rpc('cancel_appointment', params: {
       'p_appointment_id': appointmentId,
