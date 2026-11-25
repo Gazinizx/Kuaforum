@@ -16,6 +16,23 @@ jobs:
       - name: Ensure release internet access
         run: |
           grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+      - name: Configure password reset deep link
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          content = path.read_text()
+          intent_filter = """            <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="com.gazinizx.kuaforum" android:host="reset-password" />
+                      </intent-filter>
+          """
+          if 'android:host="reset-password"' not in content:
+              content = content.replace("        </activity>", intent_filter + "        </activity>", 1)
+              path.write_text(content)
+          PY
       - run: sed -i '/ndkVersion/d' android/app/build.gradle.kts
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
