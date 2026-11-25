@@ -2334,7 +2334,9 @@ class _BusinessProfileData {
   final Map<String, dynamic> business;
   final Map<String, int> stats;
   final List<KuaforumFeedPost> posts;
-  const _BusinessProfileData(this.business, this.stats, this.posts);
+  final List<Map<String, dynamic>> services;
+  final bool isMember;
+  const _BusinessProfileData(this.business, this.stats, this.posts, this.services, this.isMember);
 }
 
 class BusinessProfilePage extends StatefulWidget {
@@ -2356,11 +2358,15 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       repository.fetchBusinessProfile(widget.businessId),
       repository.fetchSocialStats(businessId: widget.businessId),
       repository.fetchProfilePosts(businessId: widget.businessId),
+      repository.fetchBusinessServices(widget.businessId),
+      repository.fetchMyBusinessMembership(),
     ]);
     return _BusinessProfileData(
       values[0] as Map<String, dynamic>,
       values[1] as Map<String, int>,
       values[2] as List<KuaforumFeedPost>,
+      values[3] as List<Map<String, dynamic>>,
+      values[4] == widget.businessId,
     );
   }
 
@@ -2476,6 +2482,50 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                   icon: Icon(following ? Icons.check : Icons.add),
                   label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
                 ),
+              if (value.isMember) ...[
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => BookingPage(
+                      businessId: widget.businessId,
+                      businessName: name,
+                    ),
+                  )),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: wine,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: const Text('Randevu al'),
+                ),
+              ] else if (value.business['owner_id'] !=
+                  Supabase.instance.client.auth.currentUser?.id) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Randevu alabilmek için önce işletmenin katılım koduyla üye olmalısın.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: muted, fontSize: 11),
+                ),
+              ],
+              const SectionTitle('Hizmetler'),
+              if (value.services.isEmpty)
+                const Text('İşletmenin hizmet listesi henüz eklenmemiş.', style: TextStyle(color: muted, fontSize: 12))
+              else
+                ...value.services.where((service) => service['is_active'] == true).map((service) {
+                  final price = service['price'] as num? ?? 0;
+                  final duration = service['duration_minutes'] as int? ?? 30;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const CircleAvatar(
+                      radius: 18,
+                      backgroundColor: blush,
+                      child: Icon(Icons.content_cut, color: wine, size: 17),
+                    ),
+                    title: Text(service['name'] as String? ?? 'Hizmet', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                    subtitle: Text('$duration dakika', style: const TextStyle(color: muted, fontSize: 11)),
+                    trailing: Text('${price.toStringAsFixed(0)} ₺', style: const TextStyle(color: wine, fontWeight: FontWeight.w800)),
+                  );
+                }),
               const SectionTitle('Salon paylaşımları'),
               if (value.posts.isEmpty)
                 const _FeedMessage(icon: Icons.photo_library_outlined, title: 'Henüz paylaşım yok', detail: 'İşletmenin herkese açık paylaşımı bulunmuyor.')
