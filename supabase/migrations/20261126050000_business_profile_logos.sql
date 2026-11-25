@@ -12,6 +12,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  if not public.is_current_user_active() then
+    raise exception 'Hesabınız geçici olarak kısıtlandı';
+  end if;
+
   if p_logo_path is null
      or p_logo_path not like ('businesses/' || p_business_id::text || '/%') then
     raise exception 'Invalid business logo path';
@@ -20,7 +24,8 @@ begin
   update public.businesses
   set logo_url = p_logo_path
   where id = p_business_id
-    and owner_id = (select auth.uid());
+    and owner_id = (select auth.uid())
+    and status = 'active';
 
   if not found then
     raise exception 'Business not found or not owned by current user';
@@ -37,6 +42,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'salon-avatars'
+  and public.is_current_user_active()
   and (storage.foldername(name))[1] = 'businesses'
   and exists (
     select 1 from public.businesses b
