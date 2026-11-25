@@ -14,6 +14,8 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 
 ### Randevu ve işletme
 - Aktif işletme arama, işletme profilleri ve katılım koduyla üyelik
+- İşletme sahibine özel katılım kodu gösterimi ve kopyalama
+- İşletme adı/adresi düzenleme; randevu aralığı ve çalışma saatleri yönetimi
 - Hizmet, fiyat, süre ve çalışan yönetimi
 - Çalışan daveti ve çalışanı aktif/pasif yapma
 - Haftalık çalışma saatleri ve randevu aralığı ayarları
@@ -31,6 +33,7 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 
 ### Güvenlik
 - Profil tablosunda e-posta, telefon ve yetki alanları doğrudan istemci okumasına kapalıdır
+- İşletme katılım kodu ve Keşfet ödeme/yayın yetkileri doğrudan istemci erişimine kapalıdır; sahip/yönetici işlemleri doğrulamalı RPC ile yapılır
 - Yönetici kullanıcı listesi, yönetici yetkisini doğrulayan ayrı RPC üzerinden gelir
 - Herkese açık profil görünümleri güvenlik invoker ve RLS kurallarıyla çalışır
 - Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
