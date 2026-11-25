@@ -204,7 +204,7 @@ class SharePage extends StatefulWidget {
 }
 class _SharePageState extends State<SharePage> {
   final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false; String audience='Herkese Açık';
-  Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(()=>{selectedMedia=file,isVideo=video}); }
+  Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(() { selectedMedia=file; isVideo=video; }); }
   @override void dispose(){caption.dispose();super.dispose();}
   void publish(){
     final text=caption.text.trim();
