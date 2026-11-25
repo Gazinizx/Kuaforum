@@ -21,6 +21,7 @@ join public.businesses b on b.id = e.business_id
 left join public.profiles p on p.id = e.user_id
 where e.is_active = true
   and e.user_id is not null
+  and p.is_blocked = false
   and b.status = 'active';
 
 grant select on public.public_employee_profiles to authenticated;
