@@ -1178,7 +1178,396 @@ class _FollowingPageState extends State<FollowingPage> {
   );
 }
 
-class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
+String _appointmentStatusLabel(String status) => switch (status) {
+  'pending' => 'Bekliyor',
+  'confirmed' => 'Onaylandı',
+  'cancelled' => 'İptal edildi',
+  'completed' => 'Tamamlandı',
+  'no_show' => 'Gelmedi',
+  _ => status,
+};
+
+String _appointmentDateLabel(String value) {
+  final date = DateTime.tryParse(value)?.toLocal();
+  if (date == null) return '';
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '$day.$month.${date.year} • $hour:$minute';
+}
+
+class _BusinessAppointmentCard extends StatelessWidget {
+  final Map<String, dynamic> appointment;
+  final bool ownerMode;
+  final VoidCallback onComplete;
+  final VoidCallback onNoShow;
+  final VoidCallback onCancel;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _BusinessAppointmentCard({
+    required this.appointment,
+    required this.ownerMode,
+    required this.onComplete,
+    required this.onNoShow,
+    required this.onCancel,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final status = appointment['status'] as String? ?? 'pending';
+    final requiresApproval = appointment['requires_business_approval'] == true;
+    final isPendingApproval = status == 'pending' && requiresApproval;
+    final statusColor = status == 'confirmed'
+        ? const Color(0xFF32734B)
+        : status == 'pending'
+            ? const Color(0xFF94631A)
+            : muted;
+    final date = _appointmentDateLabel(appointment['starts_at'] as String? ?? '');
+    final customer = appointment['customer_name'] as String? ?? 'Müşteri';
+    final service = appointment['service_name'] as String? ?? 'Hizmet';
+    final employee = appointment['employee_name'] as String? ?? '';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 11),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: blush),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const CircleAvatar(
+            radius: 22,
+            backgroundColor: blush,
+            child: Icon(Icons.person_outline, color: wine),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(customer, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+              Text(service, style: const TextStyle(color: muted, fontSize: 12)),
+            ],
+          )),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Text(
+              _appointmentStatusLabel(status),
+              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Icon(Icons.calendar_month_outlined, color: wine, size: 16),
+          const SizedBox(width: 6),
+          Text(date, style: const TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w600)),
+          if (employee.isNotEmpty) ...[
+            const Spacer(),
+            const Icon(Icons.content_cut, color: muted, size: 14),
+            const SizedBox(width: 4),
+            Flexible(child: Text(employee, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 11))),
+          ],
+        ]),
+        if (isPendingApproval && ownerMode) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: OutlinedButton(
+              onPressed: onReject,
+              style: OutlinedButton.styleFrom(foregroundColor: wine, side: const BorderSide(color: blush)),
+              child: const Text('Reddet'),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: FilledButton(
+              onPressed: onApprove,
+              style: FilledButton.styleFrom(backgroundColor: wine),
+              child: const Text('Onayla'),
+            )),
+          ]),
+        ] else if (status == 'confirmed') ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 7, runSpacing: 4, children: [
+            TextButton.icon(
+              onPressed: onComplete,
+              icon: const Icon(Icons.check_circle_outline, size: 17),
+              label: const Text('Tamamlandı'),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF32734B)),
+            ),
+            TextButton.icon(
+              onPressed: onNoShow,
+              icon: const Icon(Icons.person_off_outlined, size: 17),
+              label: const Text('Gelmedi'),
+              style: TextButton.styleFrom(foregroundColor: muted),
+            ),
+            TextButton.icon(
+              onPressed: onCancel,
+              icon: const Icon(Icons.close, size: 17),
+              label: const Text('İptal et'),
+              style: TextButton.styleFrom(foregroundColor: wine),
+            ),
+          ]),
+        ] else if (isPendingApproval) ...[
+          const SizedBox(height: 8),
+          const Text('İşletme sahibinin özel onayı bekleniyor.', style: TextStyle(color: muted, fontSize: 11)),
+        ],
+      ]),
+    );
+  }
+}
+
+class AppointmentsPage extends StatefulWidget {
+  final String title;
+  const AppointmentsPage({super.key, required this.title});
+
+  @override
+  State<AppointmentsPage> createState() => _AppointmentsPageState();
+}
+
+class _AppointmentsPageState extends State<AppointmentsPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> appointments;
+  String selectedFilter = 'Tümü';
+
+  @override
+  void initState() {
+    super.initState();
+    appointments = load();
+  }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final employee = await repository.fetchMyEmployeeContext();
+    return repository.fetchBusinessAppointments(
+      employee['business_id'] as String,
+      mineOnly: true,
+    );
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => appointments = next);
+    await next;
+  }
+
+  Future<void> performAction(String id, String action) async {
+    try {
+      if (action == 'complete' || action == 'no_show') {
+        await repository.updateAppointmentStatus(id, status: action == 'complete' ? 'completed' : 'no_show');
+      } else if (action == 'cancel') {
+        await repository.cancelAppointment(id);
+      }
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  bool matchesFilter(Map<String, dynamic> row) {
+    final status = row['status'] as String? ?? '';
+    if (selectedFilter == 'Bekleyen') return status == 'pending';
+    if (selectedFilter == 'Onaylanan') return status == 'confirmed';
+    if (selectedFilter == 'Tamamlanan') return status == 'completed';
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: appointments,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          Text(widget.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 7, children: ['Tümü', 'Bekleyen', 'Onaylanan', 'Tamamlanan'].map((filter) => ChoiceChip(
+            label: Text(filter),
+            selected: selectedFilter == filter,
+            onSelected: (_) => setState(() => selectedFilter = filter),
+            selectedColor: blush,
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(color: selectedFilter == filter ? wine : muted, fontWeight: FontWeight.w700, fontSize: 11),
+            side: const BorderSide(color: blush),
+          )).toList()),
+          const SectionTitle('Randevularım'),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.calendar_month_outlined,
+              title: 'Randevular yüklenemedi',
+              detail: 'Çalışan hesabının aktif işletme bağlantısını kontrol et.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else
+            ...snapshot.data!.where(matchesFilter).map((row) => _BusinessAppointmentCard(
+              appointment: row,
+              ownerMode: false,
+              onComplete: () => performAction(row['appointment_id'] as String, 'complete'),
+              onNoShow: () => performAction(row['appointment_id'] as String, 'no_show'),
+              onCancel: () => performAction(row['appointment_id'] as String, 'cancel'),
+              onApprove: () {},
+              onReject: () {},
+            )),
+          if (snapshot.hasData && snapshot.data!.where(matchesFilter).isEmpty)
+            const _FeedMessage(icon: Icons.event_available_outlined, title: 'Bu filtrede randevu yok', detail: 'Yeni randevu geldiğinde burada göreceksin.'),
+        ],
+      ),
+    ),
+  );
+}
+
+class CustomerAppointmentsPage extends StatefulWidget {
+  const CustomerAppointmentsPage({super.key});
+
+  @override
+  State<CustomerAppointmentsPage> createState() => _CustomerAppointmentsPageState();
+}
+
+class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> appointments;
+  String selectedFilter = 'Aktif';
+
+  @override
+  void initState() {
+    super.initState();
+    appointments = repository.fetchCustomerAppointments();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchCustomerAppointments();
+    setState(() => appointments = next);
+    await next;
+  }
+
+  Future<void> cancel(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Randevuyu iptal et?'),
+        content: const Text('Onaylanmış randevun iptal edilecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: const Text('İptal et'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await repository.cancelAppointment(id);
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu iptal edilemedi: $error')),
+        );
+      }
+    }
+  }
+
+  bool matchesFilter(Map<String, dynamic> row) {
+    final status = row['status'] as String? ?? '';
+    final isActive = status == 'confirmed' || status == 'pending';
+    return selectedFilter == 'Tümü' ||
+        (selectedFilter == 'Aktif' && isActive) ||
+        (selectedFilter == 'Geçmiş' && !isActive);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(title: const Text('Randevularım', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: appointments,
+      builder: (context, snapshot) => RefreshIndicator(
+        color: wine,
+        onRefresh: refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          children: [
+            Wrap(spacing: 8, children: ['Aktif', 'Geçmiş', 'Tümü'].map((filter) => ChoiceChip(
+              label: Text(filter),
+              selected: selectedFilter == filter,
+              onSelected: (_) => setState(() => selectedFilter = filter),
+              selectedColor: blush,
+              backgroundColor: Colors.white,
+              labelStyle: TextStyle(color: selectedFilter == filter ? wine : muted, fontWeight: FontWeight.w700, fontSize: 11),
+              side: const BorderSide(color: blush),
+            )).toList()),
+            const SizedBox(height: 14),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: wine)))
+            else if (snapshot.hasError)
+              const _FeedMessage(icon: Icons.calendar_month_outlined, title: 'Randevular yüklenemedi', detail: 'Daha sonra tekrar deneyebilirsin.')
+            else if (snapshot.data!.where(matchesFilter).isEmpty)
+              const _FeedMessage(icon: Icons.event_available_outlined, title: 'Randevu bulunamadı', detail: 'Keşfet bölümünden bir salon seçerek randevu oluşturabilirsin.')
+            else
+              ...snapshot.data!.where(matchesFilter).map((row) {
+                final business = row['businesses'];
+                final service = row['services'];
+                final employee = row['employees'];
+                final businessName = business is Map<String, dynamic> ? business['name'] as String? ?? 'Kuaförüm' : 'Kuaförüm';
+                final serviceName = service is Map<String, dynamic> ? service['name'] as String? ?? 'Hizmet' : 'Hizmet';
+                final employeeName = employee is Map<String, dynamic> ? employee['display_name'] as String? ?? '' : '';
+                final status = row['status'] as String? ?? 'pending';
+                final date = _appointmentDateLabel(row['starts_at'] as String? ?? '');
+                final price = service is Map<String, dynamic> ? service['price'] : null;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: const BorderSide(color: blush)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(businessName, style: const TextStyle(color: wine, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 5),
+                      Text(serviceName, style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                      Text('${date}${employeeName.isEmpty ? '' : ' • $employeeName'}', style: const TextStyle(color: muted, fontSize: 11)),
+                      if (price != null) Text('₺${(price as num).toStringAsFixed(0)}', style: const TextStyle(color: ink, fontWeight: FontWeight.w700, fontSize: 12)),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(child: Text(
+                          row['requires_business_approval'] == true && status == 'pending'
+                              ? 'İşletme onayı bekleniyor'
+                              : _appointmentStatusLabel(status),
+                          style: const TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w700),
+                        )),
+                        if (status == 'confirmed')
+                          TextButton(
+                            onPressed: () => cancel(row['id'] as String),
+                            child: const Text('Randevuyu iptal et', style: TextStyle(color: wine)),
+                          ),
+                      ]),
+                    ]),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
