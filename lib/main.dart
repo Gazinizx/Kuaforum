@@ -5755,10 +5755,10 @@ class _AuthGateState extends State<AuthGate> {
       final requestedBusinessAddress = metadata['requested_business_address']?.toString().trim() ?? '';
       var rows = await client.rpc('get_my_account_status') as List;
       var profile = rows.isEmpty ? null : Map<String, dynamic>.from(rows.first as Map);
-      if (profile == null) throw const AuthException('Hesap profili oluşturulamadı. Destek ekibiyle iletişime geç.');
+      if (profile == null) throw AuthException('Hesap profili oluşturulamadı. Destek ekibiyle iletişime geç.');
       if (profile['is_blocked'] == true) {
         await client.auth.signOut();
-        throw const AuthException('Bu hesap uygulamaya erişim için engellenmiş.');
+        throw AuthException('Bu hesap uygulamaya erişim için engellenmiş.');
       }
 
       // Metadata only resumes the user's requested pending registration.
@@ -5773,7 +5773,7 @@ class _AuthGateState extends State<AuthGate> {
       }
       if (profile == null || profile['is_blocked'] == true) {
         await client.auth.signOut();
-        throw const AuthException('Hesap bilgileri doğrulanamadı.');
+        throw AuthException('Hesap bilgileri doğrulanamadı.');
       }
 
       final isAdmin = profile['is_admin'] == true;
@@ -5788,7 +5788,7 @@ class _AuthGateState extends State<AuthGate> {
             .eq('user_id', user.id).eq('is_active', true).limit(1);
         if (employee.isEmpty) {
           await client.auth.signOut();
-          throw const AuthException('Aktif çalışan kaydın bulunamadı. İşletme sahibinden davetini kontrol etmesini iste.');
+          throw AuthException('Aktif çalışan kaydın bulunamadı. İşletme sahibinden davetini kontrol etmesini iste.');
         }
         role = AppRole.employee;
       } else {
