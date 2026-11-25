@@ -10,6 +10,8 @@ class KuaforumFeedPost {
     required this.authorName,
     required this.businessName,
     required this.businessOwnerId,
+    required this.authorAvatarUrl,
+    required this.businessLogoUrl,
     required this.isEmployeePost,
     required this.isOwnPost,
     required this.caption,
@@ -27,6 +29,8 @@ class KuaforumFeedPost {
   final String authorName;
   final String businessName;
   final String businessOwnerId;
+  final String? authorAvatarUrl;
+  final String? businessLogoUrl;
   final bool isEmployeePost;
   final bool isOwnPost;
   final String caption;
@@ -43,6 +47,8 @@ class KuaforumFeedPost {
     Map<String, dynamic> json, {
     required String currentUserId,
     required String signedMediaUrl,
+    String? authorAvatarUrl,
+    String? businessLogoUrl,
   }) {
     final business = json['businesses'];
     final employee = json['employees'];
@@ -74,6 +80,8 @@ class KuaforumFeedPost {
           : (profileName.isNotEmpty ? profileName : businessName),
       businessName: businessName,
       businessOwnerId: businessOwnerId,
+      authorAvatarUrl: authorAvatarUrl,
+      businessLogoUrl: businessLogoUrl,
       isEmployeePost: employeeName.isNotEmpty,
       isOwnPost: authorUserId == currentUserId,
       caption: json['caption'] as String? ?? '',
@@ -95,8 +103,8 @@ class KuaforumFeedRepository {
 
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),category';
+      'businesses(name,owner_id,logo_url),employees(display_name),'
+      'profiles!feed_posts_author_user_id_fkey(full_name,avatar_url),feed_likes(user_id),category';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -741,10 +749,24 @@ class KuaforumFeedRepository {
       final signedUrl = await _client.storage
           .from('salon-feed')
           .createSignedUrl(path, 3600);
+      final profile = row['profiles'];
+      final business = row['businesses'];
+      final avatarPath = profile is Map<String, dynamic>
+          ? profile['avatar_url'] as String?
+          : null;
+      final logoPath = business is Map<String, dynamic>
+          ? business['logo_url'] as String?
+          : null;
       result.add(KuaforumFeedPost.fromJson(
         row,
         currentUserId: userId,
         signedMediaUrl: signedUrl,
+        authorAvatarUrl: avatarPath == null || avatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(avatarPath),
+        businessLogoUrl: logoPath == null || logoPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(logoPath),
       ));
     }
     return result;
