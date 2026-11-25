@@ -50,6 +50,22 @@ using (
   and (storage.foldername(name))[2] = (select auth.uid())::text
 );
 
+-- Public profile fields are readable, but contact details remain private.
+revoke select on public.profiles from authenticated;
+grant select (id, full_name, account_type, is_admin, is_blocked, avatar_url, created_at)
+  on public.profiles to authenticated;
+
+drop policy if exists profiles_read_own_row_or_admin on public.profiles;
+drop policy if exists "profiles read own row or admin" on public.profiles;
+create policy profiles_read_public_safe
+on public.profiles for select
+to authenticated
+using (
+  id = (select auth.uid())
+  or is_blocked = false
+  or (select private.is_admin())
+);
+
 -- Do not let users change privileged account fields through the client API.
 revoke update on public.profiles from authenticated;
 grant update (full_name, phone, avatar_url) on public.profiles to authenticated;
