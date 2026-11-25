@@ -101,10 +101,10 @@ class RolePicker extends StatelessWidget {
       );
       final user = response.user;
       if (user == null) throw AuthException('Oturum açılamadı.');
-      final profile = await auth.from('profiles')
-          .select('account_type,is_admin,is_blocked')
-          .eq('id', user.id)
-          .maybeSingle();
+      final statusRows = await auth.rpc('get_my_account_status') as List;
+      final profile = statusRows.isEmpty
+          ? null
+          : Map<String, dynamic>.from(statusRows.first as Map);
       if (profile == null || profile['is_blocked'] == true) {
         await auth.auth.signOut();
         throw AuthException('Bu hesap uygulamaya erişemiyor.');
