@@ -2539,6 +2539,25 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
                 onTap: () => openList('following'),
               ),
             ]),
+            if (isOwnProfile) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    backgroundColor: cream,
+                    appBar: AppBar(title: const Text('Bildirimler', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+                    body: const NotificationsPage(),
+                  ),
+                )),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: wine,
+                  side: const BorderSide(color: blush),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.notifications_outlined),
+                label: const Text('Bildirimler'),
+              ),
+            ],
             if (!isOwnProfile) ...[
               const SizedBox(height: 18),
               FilledButton.icon(
