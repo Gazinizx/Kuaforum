@@ -9,6 +9,9 @@ class KuaforumFeedPost {
     required this.authorUserId,
     required this.authorName,
     required this.businessName,
+    required this.businessOwnerId,
+    required this.isEmployeePost,
+    required this.isOwnPost,
     required this.caption,
     required this.mediaUrl,
     required this.mediaType,
@@ -22,6 +25,9 @@ class KuaforumFeedPost {
   final String authorUserId;
   final String authorName;
   final String businessName;
+  final String businessOwnerId;
+  final bool isEmployeePost;
+  final bool isOwnPost;
   final String caption;
   final String mediaUrl;
   final String mediaType;
@@ -52,15 +58,22 @@ class KuaforumFeedPost {
     final businessName = business is Map<String, dynamic>
         ? (business['name'] as String? ?? '')
         : '';
+    final businessOwnerId = business is Map<String, dynamic>
+        ? (business['owner_id'] as String? ?? '')
+        : '';
+    final authorUserId = json['author_user_id'] as String;
 
     return KuaforumFeedPost(
       id: json['id'] as String,
       businessId: json['business_id'] as String,
-      authorUserId: json['author_user_id'] as String,
+      authorUserId: authorUserId,
       authorName: employeeName.isNotEmpty
           ? employeeName
           : (profileName.isNotEmpty ? profileName : businessName),
       businessName: businessName,
+      businessOwnerId: businessOwnerId,
+      isEmployeePost: employeeName.isNotEmpty,
+      isOwnPost: authorUserId == currentUserId,
       caption: json['caption'] as String? ?? '',
       mediaUrl: signedMediaUrl,
       mediaType: json['media_type'] as String? ?? 'image',
@@ -155,6 +168,26 @@ class KuaforumFeedRepository {
         .delete()
         .eq('follower_user_id', _userId)
         .eq('followed_user_id', userId);
+  }
+
+  Future<bool> isFollowingUser(String userId) async {
+    final row = await _client
+        .from('feed_follows')
+        .select('id')
+        .eq('follower_user_id', _userId)
+        .eq('followed_user_id', userId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<bool> isFollowingBusiness(String businessId) async {
+    final row = await _client
+        .from('feed_follows')
+        .select('id')
+        .eq('follower_user_id', _userId)
+        .eq('followed_business_id', businessId)
+        .maybeSingle();
+    return row != null;
   }
 
   Future<void> unfollowBusiness(String businessId) async {
