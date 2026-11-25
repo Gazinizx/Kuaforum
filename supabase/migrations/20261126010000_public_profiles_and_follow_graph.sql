@@ -47,4 +47,5 @@ begin
 end;
 $$;
 
-revoke all on function public.get_social_profile_stats(uuid, uuid) from public, anon;\ngrant execute on function public.get_social_profile_stats(uuid, uuid) to authenticated;
+revoke all on function public.get_social_profile_stats(uuid, uuid) from public, anon;
+grant execute on function public.get_social_profile_stats(uuid, uuid) to authenticated;
