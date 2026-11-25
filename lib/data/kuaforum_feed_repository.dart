@@ -673,6 +673,112 @@ class KuaforumFeedRepository {
     return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
+  Future<bool> canMessageEmployee(String employeeUserId) async {
+    final result = await _client.rpc(
+      'can_message_employee',
+      params: {'p_employee_user_id': employeeUserId},
+    );
+    return result == true;
+  }
+
+  Future<String> startEmployeeConversation(String employeeUserId) async {
+    final result = await _client.rpc(
+      'start_employee_conversation',
+      params: {'p_employee_user_id': employeeUserId},
+    );
+    if (result == null) {
+      throw const PostgrestException(message: 'Sohbet başlatılamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchConversations() async {
+    final currentUserId = _userId;
+    final rows = await _client
+        .from('conversations')
+        .select(
+          'id,business_id,employee_id,customer_id,updated_at,'
+          'businesses(name),customer:profiles!conversations_customer_id_fkey(full_name,avatar_url)',
+        )
+        .order('updated_at', ascending: false);
+
+    final employeeIds = rows
+        .map((row) => row['employee_id'] as String)
+        .toSet()
+        .toList();
+    final employeeRows = employeeIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : (await _client
+            .from('public_employee_profiles')
+            .select('id,user_id,business_id,display_name,avatar_url')
+            .inFilter('id', employeeIds))
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList();
+    final employeesById = {
+      for (final employee in employeeRows) employee['id'] as String: employee,
+    };
+
+    final result = <Map<String, dynamic>>[];
+    for (final raw in rows) {
+      final row = Map<String, dynamic>.from(raw);
+      final employee = employeesById[row['employee_id']] ?? <String, dynamic>{};
+      final customer = row['customer'];
+      final business = row['businesses'];
+      final customerId = row['customer_id'] as String;
+      final employeeUserId = employee['user_id'] as String?;
+      // Business owners may see the conversation row for management, but this
+      // customer-to-employee inbox is visible only to its two participants.
+      if (customerId != currentUserId && employeeUserId != currentUserId) {
+        continue;
+      }
+      final customerAvatarPath = customer is Map<String, dynamic>
+          ? customer['avatar_url'] as String?
+          : null;
+      final employeeAvatarPath = employee['avatar_url'] as String?;
+      result.add({
+        'id': row['id'],
+        'business_id': row['business_id'],
+        'customer_id': customerId,
+        'employee_user_id': employeeUserId,
+        'business_name': business is Map<String, dynamic>
+            ? business['name'] as String? ?? 'Kuaförüm'
+            : 'Kuaförüm',
+        'customer_name': customer is Map<String, dynamic>
+            ? customer['full_name'] as String? ?? 'Müşteri'
+            : 'Müşteri',
+        'employee_name': employee['display_name'] as String? ?? 'Çalışan',
+        'customer_avatar_url': customerAvatarPath == null || customerAvatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(customerAvatarPath),
+        'employee_avatar_url': employeeAvatarPath == null || employeeAvatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(employeeAvatarPath),
+        'updated_at': row['updated_at'],
+      });
+    }
+    return result;
+  }
+
+  Stream<List<Map<String, dynamic>>> streamMessages(String conversationId) {
+    return _client
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_id', conversationId);
+  }
+
+  Future<void> sendMessage(String conversationId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+    if (trimmed.length > 4000) {
+      throw const PostgrestException(message: 'Mesaj en fazla 4000 karakter olabilir.');
+    }
+    await _client.from('messages').insert({
+      'conversation_id': conversationId,
+      'sender_id': _userId,
+      'body': trimmed,
+    });
+  }
+
   Future<void> updatePostCaption(String postId, String caption) async {
     final trimmed = caption.trim();
     if (trimmed.isEmpty) {
