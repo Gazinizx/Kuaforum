@@ -1486,26 +1486,156 @@ class _SharePageState extends State<SharePage> {
   ]);
 }
 
-class OwnerProfilePage extends StatelessWidget {
+class OwnerProfilePage extends StatefulWidget {
   const OwnerProfilePage({super.key});
-  void open(BuildContext context,String section){
-    final page=switch(section){
-      'Randevu Yönetimi'=>const OwnerAppointments(),
-      'Çalışan Randevuları'=>const OwnerAppointments(),
-      'Müşterilerim'=>const CustomersPage(),
-      'Çalışanlar'=>const EmployeeManagementPage(),
-      'Hizmetler'=>const ServicesPage(),
-      _=>const SettingsPage(),    };
-    Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(section,style:const TextStyle(color:wine,fontWeight:FontWeight.bold))),body:page)));
+
+  @override
+  State<OwnerProfilePage> createState() => _OwnerProfilePageState();
+}
+
+class _OwnerProfilePageState extends State<OwnerProfilePage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_BusinessProfileData> data;
+
+  Future<_BusinessProfileData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final id = business['id'] as String;
+    final values = await Future.wait([
+      repository.fetchSocialStats(businessId: id),
+      repository.fetchProfilePosts(businessId: id),
+    ]);
+    return _BusinessProfileData(
+      business,
+      values[0] as Map<String, int>,
+      values[1] as List<KuaforumFeedPost>,
+    );
   }
-  @override Widget build(BuildContext context)=>PageBody(children:[
-    const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.storefront,size:48,color:wine))),
-    const SizedBox(height:10),const Text('Luxe Beauty Salon',textAlign:TextAlign.center,style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),
-    const Text('İşletme hesabı • Kayseri',textAlign:TextAlign.center,style:TextStyle(color:muted)),
-    const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('2.4K','Takipçi'),_Metric('180','Takip'),_Metric('96','Paylaşım')]),
-    const SizedBox(height:18),const SectionTitle('İşletme Yönetimi'),
-    ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Çalışanlar','Hizmetler','Çalışma Saatleri','İşletme Ayarları','Bildirimler'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>open(context,s)))),
-  ]);
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  void open(BuildContext context, String section) {
+    final page = switch (section) {
+      'Randevu Yönetimi' => const OwnerAppointments(),
+      'Çalışan Randevuları' => const OwnerAppointments(),
+      'Müşterilerim' => const CustomersPage(),
+      'Çalışanlar' => const EmployeeManagementPage(),
+      'Hizmetler' => const ServicesPage(),
+      _ => const SettingsPage(),
+    };
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(section, style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+        body: page,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_BusinessProfileData>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || !snapshot.hasData) {
+        return const _FeedMessage(
+          icon: Icons.store_mall_directory_outlined,
+          title: 'İşletme profili yüklenemedi',
+          detail: 'İşletme bilgilerini şu anda görüntüleyemiyoruz.',
+        );
+      }
+      final value = snapshot.data!;
+      final businessId = value.business['id'] as String;
+      final name = value.business['name'] as String? ?? 'İşletmem';
+      final address = value.business['address'] as String? ?? '';
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: () async {
+          final next = load();
+          setState(() => data = next);
+          await next;
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+          children: [
+            Center(child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(28)),
+              child: const Icon(Icons.storefront, size: 48, color: wine),
+            )),
+            const SizedBox(height: 10),
+            Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)),
+            Text(
+              address.isEmpty ? 'İşletme hesabı' : address,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: muted),
+            ),
+            const SizedBox(height: 18),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              _ProfileMetric(value.stats['posts'] ?? 0, 'Gönderi'),
+              _ProfileMetric(
+                value.stats['followers'] ?? 0,
+                'Takipçi',
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => FollowListPage(
+                    profileId: businessId,
+                    mode: 'followers',
+                    businessProfile: true,
+                  ),
+                )),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => BusinessProfilePage(businessId: businessId),
+              )),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Müşterilerin gördüğü profili aç'),
+              style: OutlinedButton.styleFrom(foregroundColor: wine),
+            ),
+            const SectionTitle('İşletme Yönetimi'),
+            ...[
+              'Randevu Yönetimi',
+              'Çalışan Randevuları',
+              'Müşterilerim',
+              'Çalışanlar',
+              'Hizmetler',
+              'Çalışma Saatleri',
+              'İşletme Ayarları',
+              'Bildirimler',
+            ].map((section) => Card(
+              color: Colors.white,
+              elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.circle_outlined, color: wine),
+                title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.chevron_right, color: muted),
+                onTap: () => open(context, section),
+              ),
+            )),
+            const SectionTitle('Salon paylaşımları'),
+            if (value.posts.isEmpty)
+              const _FeedMessage(
+                icon: Icons.photo_library_outlined,
+                title: 'Henüz paylaşım yok',
+                detail: 'Salonunun paylaşımları burada görünecek.',
+              )
+            else
+              ...value.posts.map((post) => LiveFeedPostCard(
+                post: post,
+                repository: repository,
+              )),
+          ],
+        ),
+      );
+    },
+  );
 }
 class EmployeeManagementPage extends StatelessWidget {
   const EmployeeManagementPage({super.key});
