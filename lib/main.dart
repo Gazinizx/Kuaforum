@@ -991,6 +991,10 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
   bool following = false;
   bool followBusy = false;
 
+  bool get isOwnProfile =>
+      widget.isOwn ||
+      widget.userId == Supabase.instance.client.auth.currentUser?.id;
+
   Future<_UserProfileData> load() async {
     final values = await Future.wait([
       repository.fetchPublicProfile(widget.userId),
@@ -1008,7 +1012,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
   void initState() {
     super.initState();
     data = load();
-    if (!widget.isOwn) loadFollowState();
+    if (!isOwnProfile) loadFollowState();
   }
 
   Future<void> loadFollowState() async {
@@ -1084,7 +1088,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
               radius: 45,
               backgroundColor: blush,
               child: Text(
-                name.isEmpty ? 'K' : name.characters.first.toUpperCase(),
+                name.isEmpty ? 'K' : name.substring(0, 1).toUpperCase(),
                 style: const TextStyle(color: wine, fontSize: 30, fontWeight: FontWeight.w800),
               ),
             )),
@@ -1114,7 +1118,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
                 onTap: () => openList('following'),
               ),
             ]),
-            if (!widget.isOwn) ...[
+            if (!isOwnProfile) ...[
               const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: followBusy ? null : toggleFollow,
@@ -1139,7 +1143,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
                 post: post,
                 repository: repository,
               )),
-            if (widget.isOwn) ...[
+            if (isOwnProfile) ...[
               const SectionTitle('Hesap'),
               Card(
                 color: Colors.white,
@@ -1399,16 +1403,18 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                 ),
               ]),
               const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: followBusy ? null : toggleFollow,
-                style: FilledButton.styleFrom(
-                  backgroundColor: following ? blush : wine,
-                  foregroundColor: following ? wine : Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
+              if (value.business['owner_id'] !=
+                  Supabase.instance.client.auth.currentUser?.id)
+                FilledButton.icon(
+                  onPressed: followBusy ? null : toggleFollow,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: following ? blush : wine,
+                    foregroundColor: following ? wine : Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  icon: Icon(following ? Icons.check : Icons.add),
+                  label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
                 ),
-                icon: Icon(following ? Icons.check : Icons.add),
-                label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
-              ),
               const SectionTitle('Salon paylaşımları'),
               if (value.posts.isEmpty)
                 const _FeedMessage(icon: Icons.photo_library_outlined, title: 'Henüz paylaşım yok', detail: 'İşletmenin herkese açık paylaşımı bulunmuyor.')
