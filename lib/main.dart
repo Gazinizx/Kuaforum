@@ -2953,7 +2953,151 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
 
 
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
-class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
+class _EmployeeHomeData {
+  final Map<String, dynamic> employee;
+  final List<Map<String, dynamic>> appointments;
+  const _EmployeeHomeData(this.employee, this.appointments);
+}
+
+class EmployeeHome extends StatefulWidget {
+  const EmployeeHome({super.key});
+
+  @override
+  State<EmployeeHome> createState() => _EmployeeHomeState();
+}
+
+class _EmployeeHomeState extends State<EmployeeHome> {
+  final repository = KuaforumFeedRepository();
+  late Future<_EmployeeHomeData> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_EmployeeHomeData> load() async {
+    final employee = await repository.fetchMyEmployeeContext();
+    final appointments = await repository.fetchBusinessAppointments(
+      employee['business_id'] as String,
+      mineOnly: true,
+    );
+    return _EmployeeHomeData(employee, appointments);
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  String appointmentTime(Map<String, dynamic> row) {
+    final value = DateTime.tryParse(row['starts_at']?.toString() ?? '');
+    if (value == null) return 'Saat bilgisi yok';
+    final local = value.toLocal();
+    final now = DateTime.now();
+    final day = DateTime(local.year, local.month, local.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final prefix = day == today
+        ? 'Bugün'
+        : day == today.add(const Duration(days: 1))
+            ? 'Yarın'
+            : '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
+    return '$prefix • ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_EmployeeHomeData>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || !snapshot.hasData) {
+        return PageBody(children: [
+          const Text('Çalışan Paneli', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          _FeedMessage(
+            icon: Icons.work_outline,
+            title: 'Çalışan bilgileri yüklenemedi',
+            detail: 'Aktif çalışan kaydını ve internet bağlantını kontrol et.',
+            action: 'Yeniden dene',
+            onPressed: refresh,
+          ),
+        ]);
+      }
+
+      final value = snapshot.data!;
+      final now = DateTime.now();
+      final todayCount = value.appointments.where((row) {
+        final start = DateTime.tryParse(row['starts_at']?.toString() ?? '')?.toLocal();
+        return start != null &&
+            start.year == now.year &&
+            start.month == now.month &&
+            start.day == now.day &&
+            row['status'] != 'cancelled';
+      }).length;
+      final upcoming = value.appointments.where((row) {
+        final start = DateTime.tryParse(row['starts_at']?.toString() ?? '');
+        final status = row['status']?.toString();
+        return start != null &&
+            start.isAfter(DateTime.now()) &&
+            status != 'cancelled' &&
+            status != 'completed' &&
+            status != 'no_show';
+      }).toList()
+        ..sort((a, b) => DateTime.parse(a['starts_at'].toString())
+            .compareTo(DateTime.parse(b['starts_at'].toString())));
+      final name = value.employee['display_name']?.toString().trim();
+      final greeting = name == null || name.isEmpty ? 'Merhaba' : 'Merhaba, $name';
+
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+          children: [
+            Text(greeting, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+            const SizedBox(height: 4),
+            const Text('Bugünkü çalışmalarını ve randevularını buradan takip et.', style: TextStyle(color: muted)),
+            const SizedBox(height: 16),
+            Row(children: [
+              _StatCard(todayCount.toString(), 'Bugünkü Randevu'),
+              _StatCard(value.appointments.length.toString(), 'Toplam Randevu'),
+              _StatCard(upcoming.length.toString(), 'Yaklaşan'),
+            ]),
+            const SizedBox(height: 16),
+            const HeroPanel(
+              eyebrow: 'Portfolyonu büyüt',
+              title: 'Çalışmalarını paylaş',
+              subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve portfolyonu büyüt.',
+              icon: Icons.camera_alt,
+              button: 'Paylaşım yap →',
+            ),
+            const SectionTitle('Yaklaşan Randevular'),
+            if (upcoming.isEmpty)
+              const _FeedMessage(
+                icon: Icons.event_available_outlined,
+                title: 'Yaklaşan randevu yok',
+                detail: 'Yeni randevuların burada görünecek.',
+              )
+            else
+              ...upcoming.take(4).map((row) => AppointmentTile(
+                name: row['customer_name']?.toString() ?? 'Müşteri',
+                service: row['service_name']?.toString() ?? 'Hizmet',
+                time: appointmentTime(row),
+                status: row['status'] == 'pending'
+                    ? 'Onay bekliyor'
+                    : row['status'] == 'confirmed'
+                        ? 'Onaylandı'
+                        : row['status']?.toString() ?? 'Aktif',
+              )),
+          ],
+        ),
+      );
+    },
+  );
+}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
 class SharePage extends StatefulWidget {
   final String publisherName; final bool businessPost;
