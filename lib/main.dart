@@ -1080,7 +1080,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
       };
       return RefreshIndicator(
         color: wine,
-        onRefresh: () async => setState(() => data = load()),
+        onRefresh: () async {\n          final next = load();\n          setState(() => data = next);\n          await next;\n        },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
