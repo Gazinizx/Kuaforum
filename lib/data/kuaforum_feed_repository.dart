@@ -500,7 +500,7 @@ class KuaforumFeedRepository {
     if (userIds.isNotEmpty) {
       final profiles = await _client
           .from('public_profiles')
-          .select('id,full_name,account_type')
+          .select('id,full_name,account_type,avatar_url')
           .inFilter('id', userIds.toList());
       result.addAll(profiles.map((row) {
         final avatarPath = row['avatar_url'] as String?;
@@ -552,9 +552,16 @@ class KuaforumFeedRepository {
     if (ids.isEmpty) return const [];
     final profiles = await _client
         .from('public_profiles')
-        .select('id,full_name,account_type')
+        .select('id,full_name,account_type,avatar_url')
         .inFilter('id', ids);
-    return profiles.map((row) => Map<String, dynamic>.from(row)).toList();
+    return profiles.map((row) {
+      final profile = Map<String, dynamic>.from(row);
+      final avatarPath = profile['avatar_url'] as String?;
+      profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+      return profile;
+    }).toList();
   }
 
   Future<List<KuaforumFeedPost>> fetchProfilePosts({
