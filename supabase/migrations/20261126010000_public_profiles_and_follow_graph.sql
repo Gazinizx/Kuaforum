@@ -22,10 +22,7 @@ on public.feed_follows for insert
 to authenticated
 with check (
   follower_user_id = (select auth.uid())
-  and exists (
-    select 1 from public.profiles me
-    where me.id = (select auth.uid()) and me.is_blocked = false
-  )
+  and public.is_current_user_active()
   and (
     (
       followed_user_id is not null
