@@ -3129,6 +3129,180 @@ class _OwnerAppointmentsState extends State<OwnerAppointments> {
 }
 
 class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
+class _WorkHoursData {
+  final String businessId;
+  final List<Map<String, dynamic>> hours;
+  const _WorkHoursData(this.businessId, this.hours);
+}
+
+class WorkHoursPage extends StatefulWidget {
+  const WorkHoursPage({super.key});
+
+  @override
+  State<WorkHoursPage> createState() => _WorkHoursPageState();
+}
+
+class _WorkHoursPageState extends State<WorkHoursPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_WorkHoursData> data;
+  final Set<int> savingDays = {};
+
+  static const weekdays = [
+    'Pazar',
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+  ];
+
+  List<String> get timeOptions => List.generate(35, (index) {
+    final totalMinutes = 6 * 60 + index * 30;
+    final hour = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final minute = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$hour:$minute';
+  });
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_WorkHoursData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final businessId = business['id'] as String;
+    final hours = await repository.fetchBusinessHours(businessId);
+    return _WorkHoursData(businessId, hours);
+  }
+
+  Future<void> saveDay(
+    String businessId,
+    Map<String, dynamic> row, {
+    String? opensAt,
+    String? closesAt,
+    bool? isClosed,
+  }) async {
+    final weekday = row['weekday'] as int;
+    if (savingDays.contains(weekday)) return;
+    setState(() => savingDays.add(weekday));
+    try {
+      await repository.saveBusinessHours(
+        businessId: businessId,
+        weekday: weekday,
+        opensAt: opensAt ?? (row['opens_at'] as String).substring(0, 5) + ':00',
+        closesAt: closesAt ?? (row['closes_at'] as String).substring(0, 5) + ':00',
+        isClosed: isClosed ?? row['is_closed'] == true,
+      );
+      if (mounted) setState(() => data = load());
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Çalışma saati kaydedilemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => savingDays.remove(weekday));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_WorkHoursData>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || !snapshot.hasData) {
+        return const _FeedMessage(
+          icon: Icons.schedule,
+          title: 'Çalışma saatleri yüklenemedi',
+          detail: 'İşletme bağlantısını kontrol edip tekrar dene.',
+        );
+      }
+      final value = snapshot.data!;
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Çalışma Saatleri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('Salonunun haftalık açık olduğu saatleri belirle.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          ...value.hours.map((row) {
+            final weekday = row['weekday'] as int;
+            final closed = row['is_closed'] == true;
+            final opens = (row['opens_at'] as String).substring(0, 5);
+            final closes = (row['closes_at'] as String).substring(0, 5);
+            final busy = savingDays.contains(weekday);
+            return Card(
+              color: Colors.white,
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 9),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: blush),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(13, 8, 13, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(weekdays[weekday], style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                    subtitle: Text(closed ? 'Kapalı' : 'Açık', style: const TextStyle(color: muted, fontSize: 11)),
+                    value: !closed,
+                    activeThumbColor: wine,
+                    onChanged: busy ? null : (open) => saveDay(value.businessId, row, isClosed: !open),
+                  ),
+                  if (!closed) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Expanded(child: DropdownButtonFormField<String>(
+                        value: opens,
+                        decoration: const InputDecoration(
+                          labelText: 'Açılış',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        items: timeOptions.map((time) => DropdownMenuItem(value: time, child: Text(time))).toList(),
+                        onChanged: busy ? null : (time) {
+                          if (time != null) saveDay(value.businessId, row, opensAt: '$time:00');
+                        },
+                      )),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('–', style: TextStyle(color: muted, fontWeight: FontWeight.bold)),
+                      ),
+                      Expanded(child: DropdownButtonFormField<String>(
+                        value: closes,
+                        decoration: const InputDecoration(
+                          labelText: 'Kapanış',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        items: timeOptions.map((time) => DropdownMenuItem(value: time, child: Text(time))).toList(),
+                        onChanged: busy ? null : (time) {
+                          if (time != null) saveDay(value.businessId, row, closesAt: '$time:00');
+                        },
+                      )),
+                    ]),
+                  ],
+                  if (busy)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: LinearProgressIndicator(color: wine),
+                    ),
+                ]),
+              ),
+            );
+          }),
+        ],
+      );
+    },
+  );
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
