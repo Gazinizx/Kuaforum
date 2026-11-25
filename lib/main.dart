@@ -182,7 +182,7 @@ class PostCard extends StatelessWidget {
       Container(height:215,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(17),gradient:const LinearGradient(colors:[Color(0xFFE9C5CC),Color(0xFFB66A7D),Color(0xFF6E2038)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[if(post?.mediaPath!=null) ClipRRect(borderRadius:BorderRadius.circular(17),child:Image.file(File(post!.mediaPath!),width:double.infinity,height:215,fit:BoxFit.cover)) else ...[Positioned(right:16,top:14,child:Icon(Icons.auto_awesome,color:Colors.white.withOpacity(.8),size:28)),const Center(child:Icon(Icons.photo_camera_back_rounded,size:58,color:Colors.white70))],Positioned(left:14,bottom:14,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.22),borderRadius:BorderRadius.circular(20)),child:const Text('KUAFÖRÜM  •  İLHAM VER',style:TextStyle(color:Colors.white,fontSize:9,letterSpacing:1.2,fontWeight:FontWeight.bold))))])),
       const SizedBox(height:12),Text(caption,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),
       const SizedBox(height:9),Row(children:[
-        InkWell(onTap:post==null?null:(){post!.liked=!post!.liked;post!.likes+=post!.liked?1:-1;demoPosts.notifyListeners();},child:Row(children:[Icon(post?.liked==true?Icons.favorite:Icons.favorite_border,color:rose),const SizedBox(width:5),Text(post==null?likes:post!.likes.toString(),style:const TextStyle(color:muted))])),
+        InkWell(onTap:post==null?null:(){post!.liked=!post!.liked;post!.likes+=post!.liked?1:-1;demoPosts.value=[...demoPosts.value];},child:Row(children:[Icon(post?.liked==true?Icons.favorite:Icons.favorite_border,color:rose),const SizedBox(width:5),Text(post==null?likes:post!.likes.toString(),style:const TextStyle(color:muted))])),
         const SizedBox(width:18),const Icon(Icons.mode_comment_outlined,color:muted),const SizedBox(width:5),const Text('Yorum yap',style:TextStyle(color:muted,fontSize:12)),const Spacer(),const Icon(Icons.bookmark_border,color:muted)
       ])
     ]),
@@ -236,14 +236,33 @@ class _SharePageState extends State<SharePage> {
 
 class OwnerProfilePage extends StatelessWidget {
   const OwnerProfilePage({super.key});
+  void open(BuildContext context,String section){
+    final page=switch(section){
+      'Randevu Yönetimi'=>const OwnerAppointments(),
+      'Çalışan Randevuları'=>const OwnerAppointments(),
+      'Müşterilerim'=>const CustomersPage(),
+      'Çalışanlar'=>const EmployeeManagementPage(),
+      'Hizmetler'=>const ServicesPage(),
+      _=>const SettingsPage(),
+    };
+    Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(section,style:const TextStyle(color:wine,fontWeight:FontWeight.bold))),body:page)));
+  }
   @override Widget build(BuildContext context)=>PageBody(children:[
     const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.storefront,size:48,color:wine))),
     const SizedBox(height:10),const Text('Luxe Beauty Salon',textAlign:TextAlign.center,style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),
     const Text('İşletme hesabı • Kayseri',textAlign:TextAlign.center,style:TextStyle(color:muted)),
     const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('2.4K','Takipçi'),_Metric('180','Takip'),_Metric('96','Paylaşım')]),
     const SizedBox(height:18),const SectionTitle('İşletme Yönetimi'),
-    ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Çalışanlar','Hizmetler','Çalışma Saatleri','İşletme Ayarları','Bildirimler'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$s bölümü açılacak.')))))),
+    ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Çalışanlar','Hizmetler','Çalışma Saatleri','İşletme Ayarları','Bildirimler'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>open(context,s)))),
   ]);
+}
+class EmployeeManagementPage extends StatelessWidget {
+  const EmployeeManagementPage({super.key});
+  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Çalışanlar',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Çalışan Davet Et'),...['Ayşe Demir','Mehmet Yıldız','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),subtitle:const Text('Aktif çalışan'),trailing:const Icon(Icons.more_vert,color:muted)))]);
+}
+class ServicesPage extends StatelessWidget {
+  const ServicesPage({super.key});
+  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Hizmetler',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Yeni Hizmet Ekle'),...['Saç Kesimi  •  ₺800','Saç Boyama  •  ₺1.800','Ombre  •  ₺2.500','Keratin Bakım  •  ₺1.400'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.content_cut,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.edit_outlined,color:muted))))]);
 }
 
 class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
@@ -253,7 +272,16 @@ class SettingsPage extends StatelessWidget {const SettingsPage({super.key});@ove
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
 class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class DiscoverControl extends StatelessWidget {const DiscoverControl({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),const SectionTitle('Erişim yönetimi'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför'].map((n)=>SwitchListTile(value:true,onChanged:(_){},activeColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü')))]);}
+class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
+class _DiscoverControlState extends State<DiscoverControl> {
+  final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
+  @override Widget build(BuildContext context)=>PageBody(children:[
+    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
+    const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),
+    const SectionTitle('Erişim yönetimi'),
+    ...enabled.keys.map((n)=>SwitchListTile(value:enabled[n]!,onChanged:(v)=>setState(()=>enabled[n]=v),activeThumbColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü'))),
+  ]);
+}
 
 class _PrimaryButton extends StatelessWidget {
   final String label;
