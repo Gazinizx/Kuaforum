@@ -325,7 +325,11 @@ class _CustomerHomeState extends State<CustomerHome> {
       icon: Icons.auto_awesome,
       button: 'Şimdi keşfet',
       onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => const DiscoverPage(),
+        builder: (_) => Scaffold(
+          backgroundColor: cream,
+          appBar: AppBar(title: const Text('Keşfet', style: TextStyle(color: wine, fontWeight: FontWeight.w800))),
+          body: const DiscoverPage(),
+        ),
       )),
     ),
     const SizedBox(height: 15),
