@@ -63,6 +63,6 @@ flutter test
 flutter build apk --release
 ```
 
-Auth kayıt/işletme kayıt veritabanı akışı SQL transaction içinde test edildi; test verisi rollback ile geri alındı. Profil rol/yönetici/engelli alanlarının kullanıcı tarafından değiştirilmesi engellendi ve negatif test edildi.
+İşletme kayıt RPC'si ve profil rol/yönetici/engelli alanlarının kullanıcı tarafından değiştirilememesi SQL transaction içinde test edildi; test verisi rollback ile geri alındı. Auth kullanıcı oluşturma trigger'ı kuruldu ve veritabanında doğrulandı. Gerçek e-posta kayıt/doğrulama akışı cihaz testi aşamasında doğrulanacak.
 
 Bu dalda henüz Flutter analizi, test veya APK derlemesi çalıştırılmadı.
