@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'data/kuaforum_feed_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,8 +108,7 @@ class RolePicker extends StatelessWidget {
         await auth.auth.signOut();
         throw AuthException('Bu hesap uygulamaya erişemiyor.');
       }
-      var allowed = false;
-      switch (role) {
+      var allowed = false;      switch (role) {
         case AppRole.admin:
           allowed = profile['is_admin'] == true;
           break;
@@ -227,8 +227,7 @@ class SalonCard extends StatelessWidget {
 class CustomerHome extends StatelessWidget {
   const CustomerHome({super.key});
   @override Widget build(BuildContext context)=>PageBody(children:[
-    const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),
-    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
+    const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
     const SizedBox(height:15),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
     const SalonCard(name:'Luxe Beauty Salon',detail:'Melikgazi • Saç, bakım ve renklendirme'),
     const SalonCard(name:'Rose Hair Studio',detail:'Talas • Kesim ve profesyonel bakım'),
@@ -240,19 +239,206 @@ class QuickTiles extends StatelessWidget {
   @override Widget build(BuildContext context)=>Row(children:[_tile(Icons.calendar_month,'Randevu Al'),_tile(Icons.diamond,'Keşfet'),_tile(Icons.favorite,'Takip Edilen')]);
   Widget _tile(IconData i,String s)=>Expanded(child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])));
 }
-class DiscoverPage extends StatelessWidget {  const DiscoverPage({super.key});
-  @override Widget build(BuildContext context)=>ValueListenableBuilder<List<DemoPost>>(
-    valueListenable:demoPosts,
-    builder:(context,posts,_)=>PageBody(children:[
-      const Text('Keşfet',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),
-      const SizedBox(height:5),const Text('Yeni stiller, yetenekli çalışanlar ve ilham veren salonlar.',style:TextStyle(color:muted)),
-      const SizedBox(height:16),const SearchBarBox(hint:'Saç modeli, salon veya çalışan ara...'),
-      const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Tümü',true),_Chip('Saç Kesimi'),_Chip('Boyama'),_Chip('Ombre'),_Chip('Topuz')]),
-      const SectionTitle('Trend paylaşımlar'),
-      ...posts.reversed.map((p)=>PostCard(name:p.author,caption:p.caption,likes:p.likes.toString(),post:p)),
+class DiscoverPage extends StatefulWidget {
+  const DiscoverPage({super.key});
+  @override
+  State<DiscoverPage> createState() => _DiscoverPageState();
+}
+
+class _DiscoverPageState extends State<DiscoverPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<KuaforumFeedPost>> feed;
+
+  @override
+  void initState() {
+    super.initState();
+    feed = repository.fetchDiscoverFeed();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchDiscoverFeed();
+    setState(() => feed = next);
+    await next;
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<KuaforumFeedPost>>(
+    future: feed,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Keşfet', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('İşletmelerden ve çalışanlardan gerçek paylaşımlar.', style: TextStyle(color: muted)),
+          const SizedBox(height: 16),
+          const SearchBarBox(hint: 'Saç modeli, salon veya çalışan ara...'),
+          const SizedBox(height: 12),
+          const Wrap(spacing: 8, children: [_Chip('Tümü', true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
+          const SectionTitle('Keşfet akışı'),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.cloud_off_outlined,
+              title: 'Paylaşımlar yüklenemedi',
+              detail: 'Bağlantını kontrol edip tekrar dene.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(
+              icon: Icons.auto_awesome_outlined,
+              title: 'Henüz keşfedilecek paylaşım yok',
+              detail: 'İşletmeler ve çalışanlar paylaşım yaptıkça içerikler burada görünecek.',
+            )
+          else
+            ...snapshot.data!.map((post) => LiveFeedPostCard(post: post, repository: repository)),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FeedMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String detail;
+  final String? action;
+  final VoidCallback? onPressed;
+  const _FeedMessage({required this.icon, required this.title, required this.detail, this.action, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 12),
+    child: Column(children: [
+      Icon(icon, color: rose, size: 42),
+      const SizedBox(height: 12),
+      Text(title, textAlign: TextAlign.center, style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16)),
+      const SizedBox(height: 6),
+      Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.4)),
+      if (action != null) ...[
+        const SizedBox(height: 12),
+        OutlinedButton(onPressed: onPressed, child: Text(action!)),
+      ],
     ]),
   );
 }
+
+class LiveFeedPostCard extends StatefulWidget {
+  final KuaforumFeedPost post;
+  final KuaforumFeedRepository repository;
+  const LiveFeedPostCard({super.key, required this.post, required this.repository});
+  @override
+  State<LiveFeedPostCard> createState() => _LiveFeedPostCardState();
+}
+
+class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
+  late bool liked;
+  late int likes;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    liked = widget.post.isLikedByMe;
+    likes = widget.post.likeCount;
+  }
+
+  Future<void> toggleLike() async {
+    if (busy) return;
+    final previousLiked = liked;
+    final previousLikes = likes;
+    setState(() {
+      busy = true;
+      liked = !liked;
+      likes += liked ? 1 : -1;
+    });
+    try {
+      await widget.repository.toggleLike(widget.post.id, currentlyLiked: previousLiked);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          liked = previousLiked;
+          likes = previousLikes;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Beğeni kaydedilemedi.')));
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: blush),
+      boxShadow: [BoxShadow(color: wine.withOpacity(.05), blurRadius: 16, offset: const Offset(0, 5))],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+        const SizedBox(width: 9),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+          Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
+        ])),
+        const Icon(Icons.more_horiz, color: muted),
+      ]),
+      const SizedBox(height: 12),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: widget.post.isVideo
+          ? Container(
+              height: 215,
+              width: double.infinity,
+              color: ink,
+              child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 58)),
+            )
+          : Image.network(
+              widget.post.mediaUrl,
+              height: 215,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 215,
+                color: blush,
+                child: const Center(child: Icon(Icons.broken_image_outlined, color: wine, size: 42)),
+              ),
+            ),
+      ),
+      const SizedBox(height: 12),
+      Text(widget.post.caption, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
+      const SizedBox(height: 9),
+      Row(children: [
+        InkWell(
+          onTap: toggleLike,
+          child: Row(children: [
+            Icon(liked ? Icons.favorite : Icons.favorite_border, color: rose),
+            const SizedBox(width: 5),
+            Text('$likes', style: const TextStyle(color: muted)),
+          ]),
+        ),
+        const SizedBox(width: 18),
+        const Icon(Icons.mode_comment_outlined, color: muted),
+        const SizedBox(width: 5),
+        const Text('Yorumlar', style: TextStyle(color: muted, fontSize: 12)),
+        const Spacer(),
+        Text(
+          '${widget.post.createdAt.day}.${widget.post.createdAt.month}.${widget.post.createdAt.year}',
+          style: const TextStyle(color: muted, fontSize: 10),
+        ),
+      ]),
+    ]),
+  );
+}
+
 class _Chip extends StatelessWidget {final String text;final bool active;const _Chip(this.text,[this.active=false]);@override Widget build(BuildContext context)=>Chip(label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
 class PostCard extends StatelessWidget {
   final String name,caption,likes; final DemoPost? post;
@@ -273,7 +459,55 @@ class PostCard extends StatelessWidget {
   );
 }
 
-class FollowingPage extends StatelessWidget {const FollowingPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Takip Edilen',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),const Text('Takip ettiğin çalışanların ve kuaförlerin paylaşımları.',style:TextStyle(color:muted)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Çalışanlar',true),_Chip('Kuaförler')]),const SectionTitle('Akışın'),const PostCard(name:'Zeynep Kaya • Luxe Beauty',caption:'Bugünkü dönüşümden bir kare ♡',likes:'8.4K'),const PostCard(name:'Merve Demir • Rose Hair',caption:'Yeni balayage çalışmam',likes:'5.1K')]);}
+class FollowingPage extends StatefulWidget {
+  const FollowingPage({super.key});
+  @override
+  State<FollowingPage> createState() => _FollowingPageState();
+}
+
+class _FollowingPageState extends State<FollowingPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<KuaforumFeedPost>> feed;
+
+  @override
+  void initState() {
+    super.initState();
+    feed = repository.fetchFollowingFeed();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchFollowingFeed();
+    setState(() => feed = next);
+    await next;
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<KuaforumFeedPost>>(
+    future: feed,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Takip Edilen', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 8),
+          const Text('Takip ettiğin işletme ve çalışanların paylaşımları.', style: TextStyle(color: muted)),
+          const SectionTitle('Senin akışın'),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Akış yüklenemedi', detail: 'Bağlantını kontrol edip tekrar dene.', action: 'Yeniden dene', onPressed: refresh)
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(icon: Icons.people_outline, title: 'Henüz takip ettiğin hesap yok', detail: 'Keşfet bölümünden beğendiğin işletmeleri ve çalışanları takip edebilirsin.')
+          else
+            ...snapshot.data!.map((post) => LiveFeedPostCard(post: post, repository: repository)),
+        ],
+      ),
+    ),
+  );
+}
+
 class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
 class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
 class MessagesPage extends StatelessWidget {const MessagesPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Mesajlar',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kişi veya sohbet ara...'),const SizedBox(height:12),...['Zeynep Kaya','Luxe Beauty Salon','Merve Demir','Ayşe Yılmaz','Elif Demir'].map((n)=>ListTile(contentPadding:const EdgeInsets.symmetric(vertical:5),leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Merhaba, randevu için bilgi alabilir miyim?'),trailing:const Text('14:20',style:TextStyle(color:muted,fontSize:11))))]);}
@@ -290,11 +524,34 @@ class _SharePageState extends State<SharePage> {
   final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false; String audience='Herkese Açık';
   Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(() { selectedMedia=file; isVideo=video; }); }
   @override void dispose(){caption.dispose();super.dispose();}
-  void publish(){
-    final text=caption.text.trim();
-    if(text.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Paylaşımına kısa bir açıklama ekle.')));return;}
-    demoPosts.value=[...demoPosts.value,DemoPost(author:widget.publisherName,caption:text,audience:widget.businessPost?'İşletme hesabı':'Çalışan hesabı',businessPost:widget.businessPost,mediaPath:selectedMedia?.path)];
-    caption.clear();ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Paylaşım akışa eklendi.')));
+  Future<void> publish() async {
+    final text = caption.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşımına kısa bir açıklama ekle.')));
+      return;
+    }
+    if (selectedMedia == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yayınlamak için fotoğraf veya video seçmelisin.')));
+      return;
+    }
+    try {
+      await KuaforumFeedRepository().publishPost(
+        mediaFile: File(selectedMedia!.path),
+        caption: text,
+      );
+      if (!mounted) return;
+      setState(() {
+        caption.clear();
+        selectedMedia = null;
+        isVideo = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşımın Keşfet akışına yayınlandı.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Paylaşım yayınlanamadı: $error'), backgroundColor: wine),
+      );
+    }
   }
   @override Widget build(BuildContext context)=>PageBody(children:[
     Row(children:[const Expanded(child:Text('Yeni Paylaşım',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink))),Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:blush,borderRadius:BorderRadius.circular(20)),child:Text(widget.businessPost?'İŞLETME':'ÇALIŞAN',style:const TextStyle(color:wine,fontWeight:FontWeight.w800,fontSize:10,letterSpacing:1)))]),
@@ -327,8 +584,7 @@ class OwnerProfilePage extends StatelessWidget {
       'Müşterilerim'=>const CustomersPage(),
       'Çalışanlar'=>const EmployeeManagementPage(),
       'Hizmetler'=>const ServicesPage(),
-      _=>const SettingsPage(),
-    };
+      _=>const SettingsPage(),    };
     Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(section,style:const TextStyle(color:wine,fontWeight:FontWeight.bold))),body:page)));
   }
   @override Widget build(BuildContext context)=>PageBody(children:[
