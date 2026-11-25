@@ -33,4 +33,23 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   });
+
+  testWidgets('hero panel action responds to taps', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: HeroPanel(
+          eyebrow: 'Test',
+          title: 'Test action',
+          subtitle: 'Action should work',
+          icon: Icons.check_circle_outline,
+          button: 'Devam',
+          onTap: () => tapped = true,
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Devam'));
+    expect(tapped, isTrue);
+  });
 }
