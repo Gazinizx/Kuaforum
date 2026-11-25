@@ -13,31 +13,23 @@ void main() {
     expect(find.text('Ana Yönetici'), findsOneWidget);
   });
 
-  testWidgets('business owner has social feed and publishing tabs', (tester) async {
-    tester.view.physicalSize = const Size(1000, 1800);
-    tester.view.devicePixelRatio = 1;
+  testWidgets('role selection requires test account credentials', (tester) async {
     await tester.pumpWidget(const KuaforumApp());
     await tester.tap(find.text('İşletme Sahibi'));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Keşfet')), findsOneWidget);
-    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Takip')), findsOneWidget);
-    expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('Paylaş')), findsOneWidget);
-    expect(find.text('Mesajlar'), findsOneWidget);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
+    expect(find.text('E-posta'), findsOneWidget);
+    expect(find.text('Şifre'), findsOneWidget);
   });
 
-  testWidgets('admin navigation has no customer appointment tab', (tester) async {
+  testWidgets('admin role also requires authenticated test account', (tester) async {
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(const KuaforumApp());
     await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Ana Yönetici'));
     await tester.pumpAndSettle();
-    expect(find.text('İşletmeler'), findsOneWidget);
-    expect(find.text('Kullanıcılar'), findsOneWidget);
-    expect(find.text('Keşfet Yönetimi'), findsOneWidget);
-    expect(find.text('Randevular'), findsNothing);
+    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   });
