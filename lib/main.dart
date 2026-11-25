@@ -1273,7 +1273,7 @@ class _BusinessAppointmentCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: .12),
+              color: statusColor.withOpacity(.12),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Text(
