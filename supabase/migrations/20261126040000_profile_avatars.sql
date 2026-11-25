@@ -52,7 +52,7 @@ using (
 
 -- Public profile fields are readable, but contact details remain private.
 revoke select on public.profiles from authenticated;
-grant select (id, full_name, account_type, is_admin, is_blocked, avatar_url, created_at)
+grant select (id, full_name, avatar_url, created_at)
   on public.profiles to authenticated;
 
 drop policy if exists profiles_read_own_row_or_admin on public.profiles;
@@ -78,3 +78,18 @@ from public.profiles
 where is_blocked = false;
 
 grant select on public.public_profiles to authenticated;
+
+create or replace function public.get_my_account_status()
+returns table(account_type text, is_admin boolean, is_blocked boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.account_type, p.is_admin, p.is_blocked
+  from public.profiles p
+  where p.id = (select auth.uid());
+$$;
+
+revoke all on function public.get_my_account_status() from public, anon;
+grant execute on function public.get_my_account_status() to authenticated;
