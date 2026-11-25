@@ -35,6 +35,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  if not public.is_current_user_active() then
+    raise exception 'Hesabınız geçici olarak kısıtlandı';
+  end if;
+
   if not exists (
     select 1 from public.businesses b
     where b.id = p_business_id
@@ -80,6 +84,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  if not public.is_current_user_active() then
+    raise exception 'Hesabınız geçici olarak kısıtlandı';
+  end if;
+
   if not exists (
     select 1 from public.businesses b
     where b.id = p_business_id
