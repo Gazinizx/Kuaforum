@@ -751,6 +751,53 @@ class KuaforumFeedRepository {
     });
   }
 
+  Future<List<Map<String, dynamic>>> fetchBusinessHours(
+    String businessId,
+  ) async {
+    var rows = await _client
+        .from('business_hours')
+        .select('id,weekday,opens_at,closes_at,is_closed')
+        .eq('business_id', businessId)
+        .order('weekday');
+    if (rows.isEmpty) {
+      final defaults = List.generate(7, (weekday) => {
+        'business_id': businessId,
+        'weekday': weekday,
+        'opens_at': '09:00:00',
+        'closes_at': '20:00:00',
+        'is_closed': false,
+      });
+      await _client
+          .from('business_hours')
+          .upsert(defaults, onConflict: 'business_id,weekday');
+      rows = await _client
+          .from('business_hours')
+          .select('id,weekday,opens_at,closes_at,is_closed')
+          .eq('business_id', businessId)
+          .order('weekday');
+    }
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> saveBusinessHours({
+    required String businessId,
+    required int weekday,
+    required String opensAt,
+    required String closesAt,
+    required bool isClosed,
+  }) async {
+    if (!isClosed && opensAt.compareTo(closesAt) >= 0) {
+      throw const PostgrestException(message: 'Kapanış saati açılış saatinden sonra olmalı.');
+    }
+    await _client.from('business_hours').upsert({
+      'business_id': businessId,
+      'weekday': weekday,
+      'opens_at': opensAt,
+      'closes_at': closesAt,
+      'is_closed': isClosed,
+    }, onConflict: 'business_id,weekday');
+  }
+
   Future<List<Map<String, dynamic>>> fetchBusinessServices(
     String businessId,
   ) async {
