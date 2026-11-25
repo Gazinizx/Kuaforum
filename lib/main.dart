@@ -543,13 +543,15 @@ class _InlineFeedVideoState extends State<InlineFeedVideo> {
       controller = next;
       try {
         await next.initialize();
+        if (!mounted) return;
         await next.setLooping(false);
         await next.play();
         if (mounted) setState(() => loading = false);
       } catch (_) {
+        if (!mounted) return;
         await next.dispose();
         if (identical(controller, next)) controller = null;
-        if (mounted) setState(() {
+        setState(() {
           loading = false;
           failed = true;
         });
