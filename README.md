@@ -22,9 +22,10 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Haftalık çalışma saatleri ve randevu aralığı ayarları
 - Gerçek uygun saat hesabı ve randevu oluşturma
 - Müşteri, çalışan ve işletme sahibi için ayrı randevu görünümleri
-- Üç gelmeme kaydından sonra otomatik kara liste; işletme sahibinin yönetimi
+- Üç gelmeme kaydından sonra otomatik kara liste; işletme sahibi manuel ekleme/çıkarma yapabilir.
+- Kara listedeki müşterinin yeni randevu talepleri işletme onayına düşer.
 - Kara listedeki müşterinin yeni randevularında işletme onayı
-- İşletme müşteri listesi, randevu ve gelmeme kayıtları
+- İşletme müşteri listesi, ayrı Kara Liste filtresi, müşteri ekleme/çıkarma, not kaydı, randevu ve gelmeme kayıtları
 
 ### Ana yönetici
 - İşletmeleri listeleme, onaylama ve askıya alma
@@ -32,6 +33,10 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - Ücretli erişim hakkı olan işletmelerin Keşfet görünürlüğünü açıp kapatma
 - Yeni işletmeler varsayılan olarak onay bekler; işletme sahibi kendi durumunu veya ücretli Keşfet yetkisini değiştiremez
 - Yetki kontrolleri istemci arayüzüne bırakılmaz; veritabanı tarafında da doğrulanır
+
+### Hesap ve oturum
+- Supabase oturumu cihazda saklanır; kullanıcı Profilim / Hesap bölümünden Çıkış Yap demedikçe giriş açık kalır.
+- Giriş ekranında e-posta ile Şifremi Unuttum akışı ve uygulama içinde yeni şifre belirleme ekranı bulunur.
 
 ### Güvenlik
 - Profil tablosunda e-posta, telefon ve yetki alanları doğrudan istemci okumasına kapalıdır
@@ -45,9 +50,9 @@ Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 - `supabase/migrations/20261126150000_restrict_auth_trigger_function_execution.sql`
 
 ## Henüz tamamlanması gerekenler
-- Normal e-posta/şifre giriş ve kayıt ekranı (müşteri + işletme sahibi); müşteri için ad/soyad/telefon, işletme sahibi için salon adı/adresi zorunlu.
-- Auth kaydı sonrasında profil otomatik oluşturulur; işletme sahibi kaydı güvenli RPC üzerinden `pending` durumunda açılır.
-- Hızlı rol/test ekranı yalnızca debug derlemelerinde görünür; yayın sürümünde normal giriş ekranı açılır.
+- Supabase Auth panelinde `com.gazinizx.kuaforum://reset-password` adresinin Additional Redirect URLs listesine eklenmesi gerekiyor.
+- iOS uygulama projesi oluşturulduğunda aynı şifre sıfırlama bağlantısı için URL scheme kaydı yapılacak.
+- Şifre sıfırlama bağlantısının gerçek cihazda e-posta üzerinden uçtan uca testi.
 - Firebase Cloud Messaging ile gerçek push bildirim teslimi. Uygulama içi bildirim merkezi vardır; push teslimi henüz bağlanmamıştır.
 - iOS yapılandırması, imzalama ve App Store hazırlığı.
 - Son cihaz testleri, Flutter analiz/test ve yayın derlemesi.
