@@ -4558,7 +4558,7 @@ class _CustomersPageState extends State<CustomersPage> {
                 return query.isEmpty || name.contains(query) || phone.contains(query);
               }).toList();
               if (rows.isEmpty) {
-                return const _FeedMessage(
+                return _FeedMessage(
                   icon: Icons.person_search_outlined,
                   title: _showBlacklistedOnly ? 'Kara listede müşteri yok' : 'Müşteri bulunamadı',
                   detail: _showBlacklistedOnly ? 'Kara listeye eklediğin müşteriler burada görünecek.' : 'İşletmene katılan müşteriler burada listelenir.',
