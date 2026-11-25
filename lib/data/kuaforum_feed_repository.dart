@@ -399,13 +399,18 @@ class KuaforumFeedRepository {
   Future<Map<String, dynamic>> fetchOwnedBusinessProfile() async {
     final row = await _client
         .from('businesses')
-        .select('id,name,address,owner_id,status')
+        .select('id,name,address,owner_id,status,logo_url')
         .eq('owner_id', _userId)
         .maybeSingle();
     if (row == null) {
       throw const PostgrestException(message: 'Bu hesaba bağlı işletme bulunamadı.');
     }
-    return Map<String, dynamic>.from(row);
+    final business = Map<String, dynamic>.from(row);
+    final logoPath = business['logo_url'] as String?;
+    business['logo_url'] = logoPath == null || logoPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+    return business;
   }
 
   Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
@@ -418,7 +423,12 @@ class KuaforumFeedRepository {
         row['owner_id'] != _userId)) {
       throw const PostgrestException(message: 'Bu işletme profili şu anda görüntülenemiyor.');
     }
-    return Map<String, dynamic>.from(row);
+    final business = Map<String, dynamic>.from(row);
+    final logoPath = business['logo_url'] as String?;
+    business['logo_url'] = logoPath == null || logoPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+    return business;
   }
 
   Future<Map<String, int>> fetchSocialStats({
@@ -536,6 +546,53 @@ class KuaforumFeedRepository {
         .order('created_at', ascending: false)
         .limit(limit);
     return _mapRows(rows);
+  }
+
+  Future<String> uploadBusinessLogo(File imageFile) async {
+    if (await imageFile.length() > 5 * 1024 * 1024) {
+      throw const PostgrestException(message: 'İşletme logosu en fazla 5 MB olabilir.');
+    }
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => throw const PostgrestException(
+          message: 'İşletme logosu JPG, PNG veya WEBP olmalı.',
+        ),
+    };
+    final business = await _client
+        .from('businesses')
+        .select('id,logo_url')
+        .eq('owner_id', _userId)
+        .maybeSingle();
+    if (business == null) {
+      throw const PostgrestException(message: 'İşletme hesabı bulunamadı.');
+    }
+    final businessId = business['id'] as String;
+    final objectPath =
+        'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.$extension';
+    await _client.storage.from('salon-avatars').upload(
+      objectPath,
+      imageFile,
+      fileOptions: FileOptions(contentType: contentType, upsert: false),
+    );
+    try {
+      await _client.rpc('set_my_business_logo', params: {
+        'p_business_id': businessId,
+        'p_logo_path': objectPath,
+      });
+    } catch (_) {
+      await _client.storage.from('salon-avatars').remove([objectPath]);
+      rethrow;
+    }
+    final previousPath = business['logo_url'] as String?;
+    if (previousPath != null && previousPath.isNotEmpty) {
+      try {
+        await _client.storage.from('salon-avatars').remove([previousPath]);
+      } catch (_) {}
+    }
+    return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
   Future<String> uploadProfileAvatar(File imageFile) async {
