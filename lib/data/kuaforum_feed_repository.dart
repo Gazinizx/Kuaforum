@@ -416,7 +416,7 @@ class KuaforumFeedRepository {
   Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
     final row = await _client
         .from('businesses')
-        .select('id,name,address,owner_id,status')
+        .select('id,name,address,owner_id,status,logo_url')
         .eq('id', businessId)
         .maybeSingle();
     if (row == null || (row['status'] != 'active' &&
@@ -464,7 +464,14 @@ class KuaforumFeedRepository {
         .from('public_profiles')
         .select('id,full_name,account_type,avatar_url')
         .inFilter('id', ids);
-    return profiles.map((row) => Map<String, dynamic>.from(row)).toList();
+    return profiles.map((row) {
+      final profile = Map<String, dynamic>.from(row);
+      final avatarPath = profile['avatar_url'] as String?;
+      profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+      return profile;
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> fetchUserFollowing(String userId) async {
@@ -487,25 +494,37 @@ class KuaforumFeedRepository {
           .from('public_profiles')
           .select('id,full_name,account_type')
           .inFilter('id', userIds.toList());
-      result.addAll(profiles.map((row) => {
-        'id': row['id'],
-        'name': row['full_name'],
-        'account_type': row['account_type'],
-        'kind': 'user',
+      result.addAll(profiles.map((row) {
+        final avatarPath = row['avatar_url'] as String?;
+        return {
+          'id': row['id'],
+          'name': row['full_name'],
+          'account_type': row['account_type'],
+          'kind': 'user',
+          'avatar_url': avatarPath == null || avatarPath.isEmpty
+              ? null
+              : _client.storage.from('salon-avatars').getPublicUrl(avatarPath),
+        };
       }));
     }
     if (businessIds.isNotEmpty) {
       final businesses = await _client
           .from('businesses')
-          .select('id,name,address,status')
+          .select('id,name,address,status,logo_url')
           .inFilter('id', businessIds.toList())
           .eq('status', 'active');
-      result.addAll(businesses.map((row) => {
-        'id': row['id'],
-        'name': row['name'],
-        'account_type': 'business',
-        'kind': 'business',
-        'address': row['address'],
+      result.addAll(businesses.map((row) {
+        final logoPath = row['logo_url'] as String?;
+        return {
+          'id': row['id'],
+          'name': row['name'],
+          'account_type': 'business',
+          'kind': 'business',
+          'address': row['address'],
+          'avatar_url': logoPath == null || logoPath.isEmpty
+              ? null
+              : _client.storage.from('salon-avatars').getPublicUrl(logoPath),
+        };
       }));
     }
     return result;
