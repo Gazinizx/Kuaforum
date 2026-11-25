@@ -382,13 +382,18 @@ class KuaforumFeedRepository {
   Future<Map<String, dynamic>> fetchPublicProfile(String userId) async {
     final row = await _client
         .from('public_profiles')
-        .select('id,full_name,account_type')
+        .select('id,full_name,account_type,avatar_url')
         .eq('id', userId)
         .maybeSingle();
     if (row == null) {
       throw const PostgrestException(message: 'Bu profil bulunamadı veya erişime kapalı.');
     }
-    return Map<String, dynamic>.from(row);
+    final profile = Map<String, dynamic>.from(row);
+    final avatarPath = profile['avatar_url'] as String?;
+    profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+    return profile;
   }
 
   Future<Map<String, dynamic>> fetchOwnedBusinessProfile() async {
@@ -447,7 +452,7 @@ class KuaforumFeedRepository {
     if (ids.isEmpty) return const [];
     final profiles = await _client
         .from('public_profiles')
-        .select('id,full_name,account_type')
+        .select('id,full_name,account_type,avatar_url')
         .inFilter('id', ids);
     return profiles.map((row) => Map<String, dynamic>.from(row)).toList();
   }
@@ -531,6 +536,50 @@ class KuaforumFeedRepository {
         .order('created_at', ascending: false)
         .limit(limit);
     return _mapRows(rows);
+  }
+
+  Future<String> uploadProfileAvatar(File imageFile) async {
+    if (await imageFile.length() > 5 * 1024 * 1024) {
+      throw const PostgrestException(message: 'Profil fotoğrafı en fazla 5 MB olabilir.');
+    }
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => throw const PostgrestException(
+          message: 'Profil fotoğrafı JPG, PNG veya WEBP olmalı.',
+        ),
+    };
+    final userId = _userId;
+    final objectPath =
+        'profiles/$userId/avatar_${DateTime.now().microsecondsSinceEpoch}.$extension';
+    final previous = await _client
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+    await _client.storage.from('salon-avatars').upload(
+      objectPath,
+      imageFile,
+      fileOptions: FileOptions(contentType: contentType, upsert: false),
+    );
+    try {
+      await _client
+          .from('profiles')
+          .update({'avatar_url': objectPath})
+          .eq('id', userId);
+    } catch (_) {
+      await _client.storage.from('salon-avatars').remove([objectPath]);
+      rethrow;
+    }
+    final previousPath = previous?['avatar_url'] as String?;
+    if (previousPath != null && previousPath.isNotEmpty) {
+      try {
+        await _client.storage.from('salon-avatars').remove([previousPath]);
+      } catch (_) {}
+    }
+    return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
   Future<void> updatePostCaption(String postId, String caption) async {
