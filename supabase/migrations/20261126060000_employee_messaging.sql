@@ -7,6 +7,7 @@ on public.conversations for insert
 to authenticated
 with check (
   customer_id = (select auth.uid())
+  and employee_id is not null
   and exists (
     select 1 from public.profiles me
     where me.id = (select auth.uid()) and me.is_blocked = false
@@ -59,6 +60,7 @@ as $$
       on p.employee_id = e.id
      and p.business_id = b.id
     where me.id = (select auth.uid())
+      and p_employee_user_id <> (select auth.uid())
       and me.account_type = 'customer'
       and me.is_blocked = false
       and e.is_active = true
@@ -99,6 +101,9 @@ declare
 begin
   if v_customer_id is null then
     raise exception 'Authentication required';
+  end if;
+  if p_employee_user_id = v_customer_id then
+    raise exception 'You cannot start a conversation with yourself';
   end if;
 
   select e.id, e.business_id, p.id
