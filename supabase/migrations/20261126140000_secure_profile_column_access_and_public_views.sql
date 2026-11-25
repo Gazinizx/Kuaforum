@@ -6,8 +6,22 @@ GRANT UPDATE (full_name, phone, avatar_url)
   ON TABLE public.profiles TO authenticated;
 
 -- Public profile views must respect caller RLS.
-ALTER VIEW public.public_profiles SET (security_invoker = true);
-ALTER VIEW public.public_employee_profiles SET (security_invoker = true);
+CREATE OR REPLACE VIEW public.public_profiles
+WITH (security_invoker = true, security_barrier = true)
+AS
+SELECT p.id, p.full_name, p.account_type, p.avatar_url
+FROM public.profiles AS p;
+
+CREATE OR REPLACE VIEW public.public_employee_profiles
+WITH (security_invoker = true, security_barrier = true)
+AS
+SELECT e.user_id, e.business_id, e.display_name, e.id, p.avatar_url
+FROM public.employees AS e
+JOIN public.businesses AS b ON b.id = e.business_id
+JOIN public.profiles AS p ON p.id = e.user_id
+WHERE e.is_active = true
+  AND e.user_id IS NOT NULL
+  AND b.status = 'active'::text;
 REVOKE ALL PRIVILEGES ON TABLE public.public_profiles FROM anon, authenticated;
 REVOKE ALL PRIVILEGES ON TABLE public.public_employee_profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.public_profiles TO authenticated;
