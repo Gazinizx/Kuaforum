@@ -16,6 +16,38 @@ on public.feed_follows for select
 to authenticated
 using (true);
 
+drop policy if exists feed_follows_insert on public.feed_follows;
+create policy feed_follows_insert
+on public.feed_follows for insert
+to authenticated
+with check (
+  follower_user_id = (select auth.uid())
+  and exists (
+    select 1 from public.profiles me
+    where me.id = (select auth.uid()) and me.is_blocked = false
+  )
+  and (
+    (
+      followed_user_id is not null
+      and followed_user_id <> (select auth.uid())
+      and exists (
+        select 1 from public.profiles target
+        where target.id = followed_user_id and target.is_blocked = false
+      )
+    )
+    or
+    (
+      followed_business_id is not null
+      and exists (
+        select 1 from public.businesses target
+        where target.id = followed_business_id
+          and target.status = 'active'
+          and target.owner_id <> (select auth.uid())
+      )
+    )
+  )
+);
+
 create or replace function public.get_social_profile_stats(
   p_user_id uuid default null,
   p_business_id uuid default null
