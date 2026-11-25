@@ -2,18 +2,31 @@
 
 Kadın kuaförleri için premium salon keşif, randevu ve sosyal paylaşım uygulaması.
 
-## Test sürümü
-- Login/kayıt ekranı yoktur. Hızlı test için rol seçimi ekranı korunur.
-- Müşteri ve çalışan ekranları mevcut tasarım akışını kullanır.
-- İşletme sahibi; Ana Sayfa, Keşfet, Takip, Paylaş, Mesajlar ve Profil sekmelerini kullanır.
-- İşletme hesabı adına fotoğraf/video seçerek paylaşım oluşturabilir; paylaşım Keşfet ve Takip akışında görünür.
-- Ana Yönetici yalnızca platform yönetimi, işletmeler, kullanıcılar ve Keşfet erişimini yönetir. Randevu alma sekmesi yoktur.
-- Paylaşım ekranında galeri fotoğrafı/video seçimi, açıklama ve yayınlama akışı bulunur.
+## Mevcut uygulama durumu
 
-## Önemli test sınırı
-Bu APK hızlı rol ve arayüz test sürümüdür. Rol seçimi demo amaçlıdır; oluşturulan paylaşımlar ve beğeniler uygulama belleğinde tutulur. Supabase üzerinde kalıcı kayıt, gerçek kullanıcı kimliği/yetkisi, randevu işlemleri ve gerçek zamanlı mesajlaşma henüz bu Flutter istemcisine bağlanmamıştır. Login ekranı eklenmediği için bu aşamada gerçek hesaplar arasında güvenli veri işlemi yapılmaz.
+- Hızlı test rol ekranı korunur; her rol için gerçek Supabase hesabıyla giriş yapılır ve hesap rolü doğrulanır.
+- Müşteri, çalışan, işletme sahibi ve ana yönetici panellerinin tasarım akışı bulunur.
+- İşletme sahibi ve aktif çalışan hesapları fotoğraf/video paylaşabilir.
+- Keşfet ve Takip akışları, beğeniler, takip ilişkileri ve yorumlar Supabase üzerinden kalıcı olarak çalışır.
+- Paylaşılan medya özel `salon-feed` Storage alanında saklanır; görüntüleme izinleri işletme ve Keşfet görünürlüğü kurallarına bağlıdır.
+- Ana yönetici Keşfet erişim kurallarının sahibidir; test işletmesinin görünürlüğü kendiliğinden açılmaz.
 
-## Build
-`flutter pub get`
-`flutter test`
-`flutter build apk --release`
+## Henüz tamamlanmayan bölümler
+
+- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü şu anda tasarım/örnek veri aşamasındadır.
+- Mesajlaşma ekranı henüz gerçek sohbet altyapısına bağlı değildir.
+- Profil sayfaları, takipçi/takip edilen listeleri, içerik arama ve gelişmiş moderasyon tamamlanmamıştır.
+- Normal kullanıcı kayıt/giriş ekranı, hızlı test ekranının yerine son aşamada eklenecektir.
+
+## Android test derlemesi
+
+GitHub Actions, her `main` güncellemesinde Android platform dosyalarını oluşturur; bağımlılıkları indirir, analiz ve testleri çalıştırır ve başarılı olursa release APK çıktısını `kuaforum-release-apk` adlı artifact olarak yükler.
+
+Yerel derleme komutları:
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --release
+```
