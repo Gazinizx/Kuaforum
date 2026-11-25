@@ -38,6 +38,24 @@ jobs:
           path.write_bytes(plistlib.dumps(data))
           print("Kuaförüm iOS app name, media permissions and auth URL scheme configured.")
           PY
+      - name: Set minimum iOS deployment target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          podfile = Path("ios/Podfile")
+          text = podfile.read_text()
+          if re.search(r"^platform :ios,", text, re.M):
+              text = re.sub(r"^platform :ios,.*$", "platform :ios, '15.5'", text, flags=re.M)
+          else:
+              text = "platform :ios, '15.5'\\n" + text
+          podfile.write_text(text)
+          project = Path("ios/Runner.xcodeproj/project.pbxproj")
+          text = project.read_text()
+          text = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", "IPHONEOS_DEPLOYMENT_TARGET = 15.5;", text)
+          project.write_text(text)
+          print("iOS deployment target set to 15.5 for mobile_scanner.")
+          PY
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
