@@ -1650,14 +1650,6 @@ class _BookingPageState extends State<BookingPage> {
             detail: 'İşletmenin aktif hizmet ve çalışan tanımlaması gerekiyor.',
           );
         }
-        final selectedService = value.services.firstWhere(
-          (row) => row['id'] == selectedServiceId,
-          orElse: () => value.services.first,
-        );
-        final selectedEmployee = value.employees.firstWhere(
-          (row) => row['id'] == selectedEmployeeId,
-          orElse: () => value.employees.first,
-        );
         return ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 26),
           children: [
