@@ -1202,7 +1202,8 @@ class _UserProfileData {
   final Map<String, dynamic> profile;
   final Map<String, int> stats;
   final List<KuaforumFeedPost> posts;
-  const _UserProfileData(this.profile, this.stats, this.posts);
+  final bool canMessage;
+  const _UserProfileData(this.profile, this.stats, this.posts, this.canMessage);
 }
 
 class PublicUserProfilePage extends StatefulWidget {
@@ -1234,11 +1235,13 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
       repository.fetchPublicProfile(widget.userId),
       repository.fetchSocialStats(userId: widget.userId),
       repository.fetchProfilePosts(userId: widget.userId),
+      repository.canMessageEmployee(widget.userId),
     ]);
     return _UserProfileData(
       values[0] as Map<String, dynamic>,
       values[1] as Map<String, int>,
       values[2] as List<KuaforumFeedPost>,
+      values[3] as bool,
     );
   }
 
@@ -1278,6 +1281,26 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
       }
     } finally {
       if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  Future<void> openConversation(String employeeName) async {
+    try {
+      final conversationId =
+          await repository.startEmployeeConversation(widget.userId);
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatPage(
+          conversationId: conversationId,
+          title: employeeName,
+        ),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sohbet başlatılamadı: $error')),
+        );
+      }
     }
   }
 
@@ -1399,6 +1422,21 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
                 ),
                 icon: Icon(following ? Icons.check : Icons.person_add_alt_1),
                 label: Text(following ? 'Takip ediliyor' : 'Takip et'),
+              ),
+            ],
+            if (!isOwnProfile && value.canMessage) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => openConversation(
+                  name.isEmpty ? 'Çalışan' : name,
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: wine,
+                  side: const BorderSide(color: blush),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Mesaj gönder'),
               ),
             ],
             const SectionTitle('Paylaşımlar'),
