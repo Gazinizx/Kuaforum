@@ -4797,12 +4797,8 @@ class _AdminUsersState extends State<AdminUsers> {
   }
 
   Future<List<Map<String, dynamic>>> load() async {
-    final rows = await client
-        .from('profiles')
-        .select('id,full_name,email,phone,account_type,is_admin,is_blocked,created_at')
-        .order('created_at', ascending: false)
-        .limit(200);
-    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+    final rows = await client.rpc('admin_list_users') as List;
+    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
   Future<void> setBlocked(Map<String, dynamic> user) async {
