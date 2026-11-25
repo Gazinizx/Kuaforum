@@ -5880,7 +5880,47 @@ class _AuthGateState extends State<AuthGate> {
           ],
           TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, autocorrect: false,
             decoration: _decoration('E-posta', Icons.email_outlined),
-            validator: (v) => v == null || !RegExp(r'^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$').hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
+            validator: (v) => v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+).hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
+          const SizedBox(height: 12),
+          TextFormField(controller: _password, obscureText: _obscurePassword,
+            decoration: _decoration('Şifre', Icons.lock_outline).copyWith(suffixIcon: IconButton(
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: muted))),
+            validator: (v) => v == null || v.length < 8 ? 'Şifre en az 8 karakter olmalı.' : null),
+          const SizedBox(height: 20),
+          SizedBox(width: double.infinity, height: 54, child: FilledButton(
+            onPressed: _busy ? null : _submit,
+            style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            child: _busy
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(_registering ? 'Hesabımı Oluştur' : 'Giriş Yap',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          )),
+        ])),
+        const SizedBox(height: 16),
+        const Text('Çalışan hesabın varsa işletmenden aldığın davet kodunu kullanabilirsin.',
+          textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
+        if (kDebugMode) ...[
+          const SizedBox(height: 22),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RolePicker())),
+            icon: const Icon(Icons.developer_mode_rounded), label: const Text('Geliştirici test ekranı'),
+          ),
+        ],
+      ]),
+    ))),
+  );
+
+  Widget _modeButton(String label, bool selected, VoidCallback onTap) => Material(
+    color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(12),
+    child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap,
+      child: Padding(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text(label, textAlign: TextAlign.center,
+          style: TextStyle(color: selected ? wine : muted, fontWeight: FontWeight.w800, fontSize: 13)))),
+  );
+}
+).hasMatch(v.trim()) ? 'Geçerli bir e-posta gir.' : null),
           const SizedBox(height: 12),
           TextFormField(controller: _password, obscureText: _obscurePassword,
             decoration: _decoration('Şifre', Icons.lock_outline).copyWith(suffixIcon: IconButton(
