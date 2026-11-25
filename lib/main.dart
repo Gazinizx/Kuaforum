@@ -3844,7 +3844,241 @@ class _OwnerAppointmentsState extends State<OwnerAppointments> {
   );
 }
 
-class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
+class _CustomersData {
+  final String businessId;
+  final List<Map<String, dynamic>> customers;
+  const _CustomersData(this.businessId, this.customers);
+}
+
+class CustomersPage extends StatefulWidget {
+  const CustomersPage({super.key});
+
+  @override
+  State<CustomersPage> createState() => _CustomersPageState();
+}
+
+class _CustomersPageState extends State<CustomersPage> {
+  final repository = KuaforumFeedRepository();
+  final searchController = TextEditingController();
+  late Future<_CustomersData> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  Future<_CustomersData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final businessId = business['id'] as String;
+    final customers = await repository.fetchBusinessCustomers(businessId);
+    return _CustomersData(businessId, customers);
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> toggleBlacklist(
+    String businessId,
+    Map<String, dynamic> customer,
+  ) async {
+    final currentlyBlocked = customer['is_blacklisted'] == true;
+    final reasonController = TextEditingController(
+      text: customer['blacklist_reason'] as String? ?? '',
+    );
+    bool? accepted;
+    if (!currentlyBlocked) {
+      accepted = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Müşteriyi kara listeye al'),
+          content: TextField(
+            controller: reasonController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Not (isteğe bağlı)',
+              hintText: 'Örn. tekrarlanan randevuya gelmeme',
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(backgroundColor: wine),
+              child: const Text('Kara listeye al'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      accepted = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Kara listeden çıkar?'),
+          content: const Text('Bu müşteri yeni randevu taleplerinde tekrar normal şekilde işlem yapabilir.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(backgroundColor: wine),
+              child: const Text('Listeden çıkar'),
+            ),
+          ],
+        ),
+      );
+    }
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+    if (accepted != true) return;
+    try {
+      await repository.setCustomerBlacklist(
+        businessId: businessId,
+        customerId: customer['customer_id'] as String,
+        blocked: !currentlyBlocked,
+        reason: reason,
+      );
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kara liste güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_CustomersData>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Müşterilerim', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('İşletmene katılan müşterileri ve randevu geçmişlerini yönet.', style: TextStyle(color: muted)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Müşteri adı veya telefon ara...',
+              prefixIcon: const Icon(Icons.search, color: wine),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: blush)),
+            ),
+          ),
+          const SectionTitle('Müşteri Listesi'),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(28), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.people_outline,
+              title: 'Müşteriler yüklenemedi',
+              detail: 'İşletme hesabının bağlantısını kontrol et.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else ...[
+            Builder(builder: (context) {
+              final query = searchController.text.trim().toLowerCase();
+              final rows = snapshot.data!.customers.where((customer) {
+                final name = (customer['full_name'] as String? ?? '').toLowerCase();
+                final phone = (customer['phone'] as String? ?? '').toLowerCase();
+                return query.isEmpty || name.contains(query) || phone.contains(query);
+              }).toList();
+              if (rows.isEmpty) {
+                return const _FeedMessage(
+                  icon: Icons.person_search_outlined,
+                  title: 'Müşteri bulunamadı',
+                  detail: 'İşletmene katılan müşteriler burada listelenir.',
+                );
+              }
+              return Column(children: rows.map((customer) {
+                final name = customer['full_name'] as String? ?? 'Kuaförüm kullanıcısı';
+                final phone = customer['phone'] as String? ?? 'Telefon eklenmemiş';
+                final count = customer['appointment_count'] as int? ?? 0;
+                final noShows = customer['no_show_count'] as int? ?? 0;
+                final blocked = customer['is_blacklisted'] == true;
+                final lastAppointment = customer['last_appointment_at'] as String?;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: blocked ? wine.withOpacity(.45) : blush),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(children: [
+                      Row(children: [
+                        const CircleAvatar(
+                          backgroundColor: blush,
+                          child: Icon(Icons.person_outline, color: wine),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                            Text(phone, style: const TextStyle(color: muted, fontSize: 11)),
+                          ],
+                        )),
+                        if (blocked)
+                          const Badge(label: Text('Kara listede'), backgroundColor: wine),
+                      ]),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Expanded(child: Text('Randevu: $count', style: const TextStyle(color: muted, fontSize: 11))),
+                        Expanded(child: Text('Gelmedi: $noShows', style: TextStyle(
+                          color: noShows >= 3 ? wine : muted,
+                          fontWeight: noShows >= 3 ? FontWeight.w800 : FontWeight.normal,
+                          fontSize: 11,
+                        ))),
+                      ]),
+                      if (lastAppointment != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('Son randevu: ${_appointmentDateLabel(lastAppointment)}', style: const TextStyle(color: muted, fontSize: 10)),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => toggleBlacklist(snapshot.data!.businessId, customer),
+                          icon: Icon(blocked ? Icons.remove_circle_outline : Icons.block, size: 17),
+                          label: Text(blocked ? 'Kara listeden çıkar' : 'Kara listeye al'),
+                          style: TextButton.styleFrom(foregroundColor: wine),
+                        ),
+                      ),
+                    ]),
+                  ),
+                );
+              }).toList());
+            }),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
