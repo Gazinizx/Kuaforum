@@ -1,26 +1,27 @@
 # Kuaförüm
 
-Kadın kuaförleri için premium salon keşif, randevu ve sosyal paylaşım uygulaması.
+Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 
-## Mevcut uygulama durumu
+## Tamamlanan sosyal özellikler
 
-- Hızlı test rol ekranı korunur; her rol için gerçek Supabase hesabıyla giriş yapılır ve hesap rolü doğrulanır.
-- Müşteri, çalışan, işletme sahibi ve ana yönetici panellerinin tasarım akışı bulunur.
-- İşletme sahibi ve aktif çalışan hesapları fotoğraf/video paylaşabilir.
-- Keşfet ve Takip akışları, beğeniler, takip ilişkileri ve yorumlar Supabase üzerinden kalıcı olarak çalışır.
-- Paylaşılan medya özel `salon-feed` Storage alanında saklanır; görüntüleme izinleri işletme ve Keşfet görünürlüğü kurallarına bağlıdır.
-- Keşfet görünürlüğü veritabanında işletme bazında tutulur; ana yönetici ekranındaki erişim anahtarlarının veritabanına bağlanması henüz tamamlanmamıştır. Test işletmesinin görünürlüğü kapalıdır.
+- Müşteri, çalışan ve işletme profilleri; profil fotoğrafı ve salon logosu yükleme
+- Keşfet ve Takip akışları; fotoğraf/video paylaşımı, beğeni ve yorum
+- Çalışan ve işletme takip etme; takipçi/takip edilen listeleri
+- Gönderi açıklaması düzenleme, paylaşım silme ve şikâyet gönderme
+- Keşfet'te gönderi, aktif işletme ve aktif çalışan arama; kategori filtreleri
+- Paylaşım yapan uygun çalışanlarla müşteri arasında gerçek zamanlı mesajlaşma
+- Supabase RLS ve güvenli profil alanları; e-posta, telefon ve yönetici yetkileri herkese açık değildir
 
 ## Henüz tamamlanmayan bölümler
 
-- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü şu anda tasarım/örnek veri aşamasındadır.
-- Mesajlaşma ekranı henüz gerçek sohbet altyapısına bağlı değildir.
-- Profil sayfaları, takipçi/takip edilen listeleri, içerik arama ve gelişmiş moderasyon tamamlanmamıştır.
-- Normal kullanıcı kayıt/giriş ekranı, hızlı test ekranının yerine son aşamada eklenecektir.
+- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü hâlâ örnek veri/tasarım aşamasındadır.
+- Ana yönetici ekranındaki Keşfet görünürlük kontrollerinin veritabanına bağlanması tamamlanmamıştır.
+- Normal kullanıcı kayıt/giriş ekranı son aşamada eklenecektir.
+- iOS derlemesi ve App Store hazırlığı tamamlanmamıştır.
 
-## Android test derlemesi
+## Android derleme
 
-GitHub Actions, her `main` güncellemesinde Android platform dosyalarını oluşturur; bağımlılıkları indirir, analiz ve testleri çalıştırır ve başarılı olursa release APK çıktısını `kuaforum-release-apk` adlı artifact olarak yükler.
+Android APK iş akışı artık otomatik çalışmaz. Yalnızca kullanıcı açıkça istediğinde GitHub Actions içinden manuel olarak başlatılır.
 
 Yerel derleme komutları:
 
@@ -30,3 +31,5 @@ flutter analyze
 flutter test
 flutter build apk --release
 ```
+
+Bu dalda henüz Flutter analizi, test veya APK derlemesi çalıştırılmadı.
