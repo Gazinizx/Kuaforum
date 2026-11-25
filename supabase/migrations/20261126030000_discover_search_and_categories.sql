@@ -15,9 +15,10 @@ create index if not exists feed_posts_category_created_idx
 create or replace view public.public_employee_profiles
 with (security_barrier = true, security_invoker = false)
 as
-select e.user_id, e.business_id, e.display_name
+select e.id, e.user_id, e.business_id, e.display_name, p.avatar_url
 from public.employees e
 join public.businesses b on b.id = e.business_id
+left join public.profiles p on p.id = e.user_id
 where e.is_active = true
   and e.user_id is not null
   and b.status = 'active';
