@@ -3129,7 +3129,152 @@ class _OwnerAppointmentsState extends State<OwnerAppointments> {
 }
 
 class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class SettingsPage extends StatelessWidget {const SettingsPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ayarlar',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),...['İşletme Bilgileri','Çalışma Saatleri','Hizmetler','Çalışanlar','Çalışan Davet Et','Bildirim Ayarları','Güvenlik','Yardım ve Destek'].map((s)=>Card(color:Colors.white,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),child:ListTile(leading:const Icon(Icons.settings_outlined,color:wine),title:Text(s,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<Map<String, dynamic>> business;
+  int? savingInterval;
+
+  @override
+  void initState() {
+    super.initState();
+    business = repository.fetchOwnedBusinessProfile();
+  }
+
+  Future<void> updateInterval(String businessId, int minutes) async {
+    setState(() => savingInterval = minutes);
+    try {
+      await repository.updateAppointmentInterval(businessId, minutes);
+      if (mounted) {
+        setState(() => business = repository.fetchOwnedBusinessProfile());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu aralığı $minutes dakika olarak kaydedildi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu aralığı kaydedilemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => savingInterval = null);
+    }
+  }
+
+  void openPage(Widget page, String title) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: cream,
+        appBar: AppBar(title: Text(title, style: const TextStyle(color: wine, fontWeight: FontWeight.w800))),
+        body: page,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: business,
+    builder: (context, snapshot) {
+      final interval = snapshot.data?['appointment_interval_minutes'] as int? ?? 30;
+      final businessId = snapshot.data?['id'] as String?;
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('İşletme ve randevu tercihlerini yönet.', style: TextStyle(color: muted)),
+          const SectionTitle('Randevu ayarları'),
+          Card(
+            color: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: blush)),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Randevu aralığı', style: TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                const Text('Randevu başlangıç saatleri arasındaki süreyi belirle.', style: TextStyle(color: muted, fontSize: 11)),
+                const SizedBox(height: 10),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(color: wine)
+                else if (snapshot.hasError)
+                  const Text('İşletme ayarları yüklenemedi.', style: TextStyle(color: muted))
+                else
+                  Wrap(spacing: 7, runSpacing: 7, children: [10, 15, 20, 30, 45, 60].map((minutes) => ChoiceChip(
+                    label: Text('$minutes dk'),
+                    selected: interval == minutes,
+                    onSelected: businessId == null || savingInterval != null
+                        ? null
+                        : (_) => updateInterval(businessId, minutes),
+                    selectedColor: blush,
+                    backgroundColor: cream,
+                    labelStyle: TextStyle(color: interval == minutes ? wine : muted, fontWeight: FontWeight.w700),
+                    side: const BorderSide(color: blush),
+                  )).toList()),
+                if (savingInterval != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('Kaydediliyor...', style: TextStyle(color: muted, fontSize: 11)),
+                  ),
+              ]),
+            ),
+          ),
+          const SectionTitle('İşletme yönetimi'),
+          Card(
+            color: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Column(children: [
+              ListTile(
+                leading: const Icon(Icons.content_cut, color: wine),
+                title: const Text('Hizmetler', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: const Text('Hizmet adı, fiyat ve süreleri düzenle'),
+                trailing: const Icon(Icons.chevron_right, color: muted),
+                onTap: () => openPage(const ServicesPage(), 'Hizmetler'),
+              ),
+              const Divider(height: 1, color: blush),
+              ListTile(
+                leading: const Icon(Icons.groups_outlined, color: wine),
+                title: const Text('Çalışanlar', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: const Text('Çalışan hesaplarını ve davetleri yönet'),
+                trailing: const Icon(Icons.chevron_right, color: muted),
+                onTap: () => openPage(const EmployeeManagementPage(), 'Çalışanlar'),
+              ),
+              const Divider(height: 1, color: blush),
+              ListTile(
+                leading: const Icon(Icons.schedule, color: wine),
+                title: const Text('Çalışma saatleri', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: const Text('Haftalık çalışma saatlerini düzenle'),
+                trailing: const Icon(Icons.chevron_right, color: muted),
+                onTap: () => openPage(const WorkHoursPage(), 'Çalışma Saatleri'),
+              ),
+            ]),
+          ),
+          const SectionTitle('Diğer'),
+          Card(
+            color: Colors.white,
+            elevation: 0,
+            child: Column(children: const [
+              ListTile(leading: Icon(Icons.notifications_outlined, color: wine), title: Text('Bildirim Ayarları')),
+              Divider(height: 1, color: blush),
+              ListTile(leading: Icon(Icons.security_outlined, color: wine), title: Text('Güvenlik')),
+              Divider(height: 1, color: blush),
+              ListTile(leading: Icon(Icons.help_outline, color: wine), title: Text('Yardım ve Destek')),
+            ]),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
 class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
