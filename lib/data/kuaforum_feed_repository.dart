@@ -13,6 +13,7 @@ class KuaforumFeedPost {
     required this.isEmployeePost,
     required this.isOwnPost,
     required this.caption,
+    required this.category,
     required this.mediaUrl,
     required this.mediaType,
     required this.createdAt,
@@ -29,6 +30,7 @@ class KuaforumFeedPost {
   final bool isEmployeePost;
   final bool isOwnPost;
   final String caption;
+  final String category;
   final String mediaUrl;
   final String mediaType;
   final DateTime createdAt;
@@ -75,6 +77,7 @@ class KuaforumFeedPost {
       isEmployeePost: employeeName.isNotEmpty,
       isOwnPost: authorUserId == currentUserId,
       caption: json['caption'] as String? ?? '',
+      category: json['category'] as String? ?? 'Genel',
       mediaUrl: signedMediaUrl,
       mediaType: json['media_type'] as String? ?? 'image',
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
@@ -93,7 +96,7 @@ class KuaforumFeedRepository {
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
       'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id)';
+      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),category';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -101,10 +104,54 @@ class KuaforumFeedRepository {
     return id;
   }
 
-  Future<List<KuaforumFeedPost>> fetchDiscoverFeed({int limit = 40}) async {
-    final rows = await _client
-        .from('feed_posts')
-        .select(_postSelection)
+  Future<List<KuaforumFeedPost>> fetchDiscoverFeed({
+    int limit = 40,
+    String searchQuery = '',
+    String category = 'Tümü',
+  }) async {
+    final term = searchQuery.trim();
+    List<String>? matchedPostIds;
+    if (term.isNotEmpty) {
+      final results = await Future.wait([
+        _client.from('feed_posts').select('id').ilike('caption', '%$term%'),
+        _client.from('businesses').select('id').eq('status', 'active').ilike('name', '%$term%'),
+        _client.from('public_employee_profiles').select('user_id').ilike('display_name', '%$term%'),
+      ]);
+      final businessIds = (results[1] as List)
+          .map((row) => row['id'] as String)
+          .toList();
+      final employeeIds = (results[2] as List)
+          .map((row) => row['user_id'] as String)
+          .toList();
+      final idSet = <String>{
+        ...(results[0] as List).map((row) => row['id'] as String),
+      };
+      if (businessIds.isNotEmpty) {
+        final rows = await _client
+            .from('feed_posts')
+            .select('id')
+            .inFilter('business_id', businessIds);
+        idSet.addAll(rows.map((row) => row['id'] as String));
+      }
+      if (employeeIds.isNotEmpty) {
+        final rows = await _client
+            .from('feed_posts')
+            .select('id')
+            .inFilter('author_user_id', employeeIds);
+        idSet.addAll(rows.map((row) => row['id'] as String));
+      }
+      matchedPostIds = idSet.toList();
+      if (matchedPostIds.isEmpty) return const [];
+    }
+
+    var query = _client.from('feed_posts').select(_postSelection);
+    if (matchedPostIds != null) {
+      query = query.inFilter('id', matchedPostIds);
+    }
+    if (category != 'Tümü') {
+      query = query.eq('category', category);
+    }
+    final rows = await query
         .order('created_at', ascending: false)
         .limit(limit);
     return _mapRows(rows);
@@ -201,11 +248,16 @@ class KuaforumFeedRepository {
   Future<void> publishPost({
     required File mediaFile,
     required String caption,
+    String category = 'Genel',
   }) async {
     final userId = _userId;
     final trimmedCaption = caption.trim();
     if (trimmedCaption.length > 500) {
       throw const PostgrestException(message: 'Açıklama en fazla 500 karakter olabilir.');
+    }
+    const allowedCategories = {'Genel', 'Saç Kesimi', 'Boyama', 'Ombre', 'Topuz', 'Bakım'};
+    if (!allowedCategories.contains(category)) {
+      throw const PostgrestException(message: 'Geçersiz paylaşım kategorisi.');
     }
 
     final profile = await _client
@@ -285,6 +337,7 @@ class KuaforumFeedRepository {
         'employee_id': employeeId,
         'author_user_id': userId,
         'caption': trimmedCaption,
+        'category': category,
         'media_url': objectPath,
         'media_type': isVideo ? 'video' : 'image',
       });
