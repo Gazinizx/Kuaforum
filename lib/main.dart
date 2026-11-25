@@ -4558,14 +4558,140 @@ class _SettingsPageState extends State<SettingsPage> {
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
 class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
+class DiscoverControl extends StatefulWidget {
+  const DiscoverControl({super.key});
+
+  @override
+  State<DiscoverControl> createState() => _DiscoverControlState();
+}
+
 class _DiscoverControlState extends State<DiscoverControl> {
-  final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
-  @override Widget build(BuildContext context)=>PageBody(children:[    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
-    const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),
-    const SectionTitle('Erişim yönetimi'),
-    ...enabled.keys.map((n)=>SwitchListTile(value:enabled[n]!,onChanged:(v)=>setState(()=>enabled[n]=v),activeThumbColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü'))),
-  ]);
+  final _client = Supabase.instance.client;
+  List<Map<String, dynamic>> _businesses = [];
+  bool _loading = true;
+  String? _error;
+  final Set<String> _saving = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBusinesses();
+  }
+
+  Future<void> _loadBusinesses() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await _client
+          .from('businesses')
+          .select('id,name,status,discover_paid,discover_enabled')
+          .order('created_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        _businesses = rows.map((row) => Map<String, dynamic>.from(row)).toList();
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'İşletmeler yüklenemedi. Bağlantıyı ve yönetici yetkisini kontrol et.';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setVisibility(Map<String, dynamic> business, bool enabled) async {
+    final id = business['id'] as String;
+    if (business['discover_paid'] != true || _saving.contains(id)) return;
+    setState(() => _saving.add(id));
+    try {
+      final updated = await _client
+          .from('businesses')
+          .update({'discover_enabled': enabled})
+          .eq('id', id)
+          .eq('discover_paid', true)
+          .select('id,discover_enabled')
+          .maybeSingle();
+      if (updated == null) {
+        throw const PostgrestException(
+          message: 'Bu işletmenin Keşfet erişimi için aktif ödeme yetkisi bulunmuyor.',
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        business['discover_enabled'] = updated['discover_enabled'];
+        _saving.remove(id);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving.remove(id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keşfet ayarı kaydedilemedi. Tekrar dene.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PageBody(children: [
+        const Text('Keşfet Görünürlüğü',
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 8),
+        const Text(
+          'Yalnızca Keşfet erişim hakkı tanımlanmış işletmelerin herkese açık akış görünürlüğünü yönet.',
+          style: TextStyle(color: muted),
+        ),
+        const SectionTitle('Erişim yönetimi'),
+        if (_loading)
+          const Center(child: Padding(
+            padding: EdgeInsets.all(28),
+            child: CircularProgressIndicator(color: wine),
+          ))
+        else if (_error != null)
+          Column(children: [
+            Text(_error!, style: const TextStyle(color: muted)),
+            TextButton(onPressed: _loadBusinesses, child: const Text('Tekrar dene')),
+          ])
+        else if (_businesses.isEmpty)
+          const Text('Henüz işletme bulunmuyor.', style: TextStyle(color: muted))
+        else
+          ..._businesses.map((business) {
+            final paid = business['discover_paid'] == true;
+            final enabled = business['discover_enabled'] == true;
+            final id = business['id'] as String;
+            return Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: blush),
+              ),
+              child: SwitchListTile(
+                value: paid && enabled,
+                onChanged: paid && !_saving.contains(id)
+                    ? (value) => _setVisibility(business, value)
+                    : null,
+                activeThumbColor: wine,
+                secondary: const Icon(Icons.store, color: wine),
+                title: Text(
+                  business['name'] as String? ?? 'İsimsiz işletme',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: ink),
+                ),
+                subtitle: Text(
+                  !paid
+                      ? 'Keşfet erişim hakkı tanımlı değil'
+                      : _saving.contains(id)
+                          ? 'Kaydediliyor…'
+                          : enabled
+                              ? 'Keşfet görünürlüğü açık'
+                              : 'Keşfet görünürlüğü kapalı',
+                  style: const TextStyle(color: muted),
+                ),
+              ),
+            );
+          }),
+      ]);
 }
 
 class _PrimaryButton extends StatelessWidget {
