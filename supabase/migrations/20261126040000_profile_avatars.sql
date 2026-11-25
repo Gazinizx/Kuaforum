@@ -32,11 +32,13 @@ on storage.objects for update
 to authenticated
 using (
   bucket_id = 'salon-avatars'
+  and public.is_current_user_active()
   and (storage.foldername(name))[1] = 'profiles'
   and (storage.foldername(name))[2] = (select auth.uid())::text
 )
 with check (
   bucket_id = 'salon-avatars'
+  and public.is_current_user_active()
   and (storage.foldername(name))[1] = 'profiles'
   and (storage.foldername(name))[2] = (select auth.uid())::text
 );
@@ -47,6 +49,7 @@ on storage.objects for delete
 to authenticated
 using (
   bucket_id = 'salon-avatars'
+  and public.is_current_user_active()
   and (storage.foldername(name))[1] = 'profiles'
   and (storage.foldername(name))[2] = (select auth.uid())::text
 );
