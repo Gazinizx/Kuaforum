@@ -921,6 +921,31 @@ class KuaforumFeedRepository {
     }, onConflict: 'business_id,weekday');
   }
 
+  Future<List<Map<String, dynamic>>> fetchBusinessCustomers(
+    String businessId,
+  ) async {
+    final rows = await _client.rpc('get_business_customers', params: {
+      'p_business_id': businessId,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<void> setCustomerBlacklist({
+    required String businessId,
+    required String customerId,
+    required bool blocked,
+    String? reason,
+  }) async {
+    await _client.rpc('set_customer_blacklist', params: {
+      'p_business_id': businessId,
+      'p_customer_id': customerId,
+      'p_blocked': blocked,
+      'p_reason': reason?.trim().isEmpty == true ? null : reason?.trim(),
+    });
+  }
+
   Future<List<Map<String, dynamic>>> fetchOwnedEmployees(
     String businessId,
   ) async {
