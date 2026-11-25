@@ -427,6 +427,31 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     loadFollowState();
   }
 
+  Future<void> chooseAvatar() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 86,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => avatarBusy = true);
+    try {
+      await repository.uploadProfileAvatar(File(picked.path));
+      if (!mounted) return;
+      setState(() => data = load());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil fotoğrafın güncellendi.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Profil fotoğrafı yüklenemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => avatarBusy = false);
+    }
+  }
+
   Future<void> loadFollowState() async {
     try {
       final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
@@ -1191,6 +1216,7 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
   late Future<_UserProfileData> data;
   bool following = false;
   bool followBusy = false;
+  bool avatarBusy = false;
 
   bool get isOwnProfile =>
       widget.isOwn ||
@@ -1289,13 +1315,45 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            Center(child: CircleAvatar(
-              radius: 45,
-              backgroundColor: blush,
-              child: Text(
-                name.isEmpty ? 'K' : name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(color: wine, fontSize: 30, fontWeight: FontWeight.w800),
-              ),
+            Center(child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: blush,
+                  backgroundImage: (value.profile['avatar_url'] as String?)?.isNotEmpty == true
+                      ? NetworkImage(value.profile['avatar_url'] as String)
+                      : null,
+                  child: (value.profile['avatar_url'] as String?)?.isNotEmpty == true
+                      ? null
+                      : Text(
+                          name.isEmpty ? 'K' : name.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: wine, fontSize: 30, fontWeight: FontWeight.w800),
+                        ),
+                ),
+                if (isOwnProfile)
+                  Positioned(
+                    right: -5,
+                    bottom: -5,
+                    child: IconButton.filled(
+                      onPressed: avatarBusy ? null : chooseAvatar,
+                      style: IconButton.styleFrom(
+                        backgroundColor: wine,
+                        foregroundColor: Colors.white,
+                        fixedSize: const Size(34, 34),
+                        minimumSize: const Size(34, 34),
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: avatarBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.camera_alt_rounded, size: 17),
+                    ),
+                  ),
+              ],
             )),
             const SizedBox(height: 12),
             Text(
