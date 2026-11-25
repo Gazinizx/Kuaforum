@@ -673,6 +673,137 @@ class KuaforumFeedRepository {
     return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
+  Future<Map<String, dynamic>> fetchMyEmployeeContext() async {
+    final row = await _client
+        .from('employees')
+        .select('id,business_id,display_name')
+        .eq('user_id', _userId)
+        .eq('is_active', true)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Aktif çalışan kaydı bulunamadı.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCustomerAppointments() async {
+    final rows = await _client
+        .from('appointments')
+        .select(
+          'id,business_id,employee_id,service_id,starts_at,ends_at,status,'
+          'customer_note,requires_business_approval,'
+          'businesses(name),services(name,price,duration_minutes),employees(display_name)',
+        )
+        .eq('customer_id', _userId)
+        .order('starts_at', ascending: false);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessAppointments(
+    String businessId, {
+    required bool mineOnly,
+  }) async {
+    final rows = await _client.rpc('get_business_appointments', params: {
+      'p_business_id': businessId,
+      'p_mine_only': mineOnly,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<void> cancelAppointment(String appointmentId) async {
+    await _client.rpc('cancel_appointment', params: {
+      'p_appointment_id': appointmentId,
+    });
+  }
+
+  Future<void> reviewAppointmentRequest(
+    String appointmentId, {
+    required bool approve,
+  }) async {
+    await _client.rpc('review_appointment_request', params: {
+      'p_appointment_id': appointmentId,
+      'p_decision': approve ? 'approve' : 'reject',
+    });
+  }
+
+  Future<void> updateAppointmentStatus(
+    String appointmentId, {
+    required String status,
+  }) async {
+    if (!{'completed', 'no_show'}.contains(status)) {
+      throw const PostgrestException(message: 'Geçersiz randevu durumu.');
+    }
+    await _client.rpc('update_appointment_status', params: {
+      'p_appointment_id': appointmentId,
+      'p_status': status,
+    });
+  }
+
+  Future<void> updateAppointmentInterval(
+    String businessId,
+    int minutes,
+  ) async {
+    await _client.rpc('update_appointment_interval', params: {
+      'p_business_id': businessId,
+      'p_interval_minutes': minutes,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessServices(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('services')
+        .select('id,name,price,duration_minutes,is_active')
+        .eq('business_id', businessId)
+        .order('name');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> createBusinessService({
+    required String businessId,
+    required String name,
+    required double price,
+    required int durationMinutes,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || price < 0 || durationMinutes < 5) {
+      throw const PostgrestException(message: 'Hizmet bilgilerini kontrol et.');
+    }
+    await _client.from('services').insert({
+      'business_id': businessId,
+      'name': trimmed,
+      'price': price,
+      'duration_minutes': durationMinutes,
+      'is_active': true,
+    });
+  }
+
+  Future<void> updateBusinessService({
+    required String serviceId,
+    required String name,
+    required double price,
+    required int durationMinutes,
+    required bool isActive,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || price < 0 || durationMinutes < 5) {
+      throw const PostgrestException(message: 'Hizmet bilgilerini kontrol et.');
+    }
+    await _client.from('services').update({
+      'name': trimmed,
+      'price': price,
+      'duration_minutes': durationMinutes,
+      'is_active': isActive,
+    }).eq('id', serviceId);
+  }
+
+  Future<void> deleteBusinessService(String serviceId) async {
+    await _client.from('services').delete().eq('id', serviceId);
+  }
+
   Future<bool> canMessageEmployee(String employeeUserId) async {
     final result = await _client.rpc(
       'can_message_employee',
