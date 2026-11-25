@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
 
 Future<void> main() async {
@@ -464,12 +465,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
       ClipRRect(
         borderRadius: BorderRadius.circular(17),
         child: widget.post.isVideo
-          ? Container(
-              height: 215,
-              width: double.infinity,
-              color: ink,
-              child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 58)),
-            )
+          ? InlineFeedVideo(url: widget.post.mediaUrl)
           : Image.network(
               widget.post.mediaUrl,
               height: 215,
@@ -523,6 +519,130 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
       ]),
     ]),
   );
+}
+
+class InlineFeedVideo extends StatefulWidget {
+  final String url;
+  const InlineFeedVideo({super.key, required this.url});
+
+  @override
+  State<InlineFeedVideo> createState() => _InlineFeedVideoState();
+}
+
+class _InlineFeedVideoState extends State<InlineFeedVideo> {
+  late final VideoPlayerController controller;
+  bool failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    initializeVideo();
+  }
+
+  Future<void> initializeVideo() async {
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => failed = true);
+    }
+  }
+
+  Future<void> togglePlayback() async {
+    if (!controller.value.isInitialized) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (failed) {
+      return Container(
+        height: 215,
+        width: double.infinity,
+        color: ink,
+        child: const Center(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off_outlined, color: Colors.white70, size: 38),
+            SizedBox(height: 7),
+            Text('Video oynatılamadı', style: TextStyle(color: Colors.white70)),
+          ],
+        )),
+      );
+    }
+
+    if (!controller.value.isInitialized) {
+      return Container(
+        height: 215,
+        width: double.infinity,
+        color: ink,
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    return AspectRatio(
+      aspectRatio: controller.value.aspectRatio > 0
+          ? controller.value.aspectRatio
+          : 16 / 9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: Stack(fit: StackFit.expand, children: [
+          VideoPlayer(controller),
+          if (!controller.value.isPlaying)
+            Center(child: IconButton.filled(
+              onPressed: togglePlayback,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black54,
+                foregroundColor: Colors.white,
+                fixedSize: const Size(62, 62),
+              ),
+              icon: const Icon(Icons.play_arrow_rounded, size: 38),
+            )),
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: VideoProgressIndicator(
+              controller,
+              allowScrubbing: true,
+              colors: VideoProgressColors(
+                playedColor: rose,
+                bufferedColor: Colors.white54,
+                backgroundColor: Colors.white24,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 5,
+            top: 5,
+            child: IconButton(
+              onPressed: togglePlayback,
+              icon: Icon(
+                controller.value.isPlaying
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_fill,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class FeedCommentsSheet extends StatefulWidget {
