@@ -530,39 +530,45 @@ class InlineFeedVideo extends StatefulWidget {
 }
 
 class _InlineFeedVideoState extends State<InlineFeedVideo> {
-  late final VideoPlayerController controller;
+  VideoPlayerController? controller;
+  bool loading = false;
   bool failed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-    initializeVideo();
-  }
-
-  Future<void> initializeVideo() async {
-    try {
-      await controller.initialize();
-      await controller.setLooping(false);
-      if (mounted) setState(() {});
-    } catch (_) {
-      if (mounted) setState(() => failed = true);
-    }
-  }
-
   Future<void> togglePlayback() async {
-    if (!controller.value.isInitialized) return;
-    if (controller.value.isPlaying) {
-      await controller.pause();
+    if (loading || failed) return;
+    final current = controller;
+    if (current == null) {
+      setState(() => loading = true);
+      final next = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      controller = next;
+      try {
+        await next.initialize();
+        await next.setLooping(false);
+        await next.play();
+        if (mounted) setState(() => loading = false);
+      } catch (_) {
+        await next.dispose();
+        if (identical(controller, next)) controller = null;
+        if (mounted) setState(() {
+          loading = false;
+          failed = true;
+        });
+      }
+      return;
+    }
+
+    if (!current.value.isInitialized) return;
+    if (current.value.isPlaying) {
+      await current.pause();
     } else {
-      await controller.play();
+      await current.play();
     }
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    controller?.dispose();
     super.dispose();
   }
 
@@ -584,24 +590,39 @@ class _InlineFeedVideoState extends State<InlineFeedVideo> {
       );
     }
 
-    if (!controller.value.isInitialized) {
+    final current = controller;
+    if (current == null || !current.value.isInitialized) {
       return Container(
         height: 215,
         width: double.infinity,
         color: ink,
-        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+        child: Center(child: loading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Column(mainAxisSize: MainAxisSize.min, children: [
+                IconButton.filled(
+                  onPressed: togglePlayback,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: wine,
+                    fixedSize: const Size(62, 62),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 38),
+                ),
+                const SizedBox(height: 7),
+                const Text('Videoyu oynat', style: TextStyle(color: Colors.white70)),
+              ])),
       );
     }
 
     return AspectRatio(
-      aspectRatio: controller.value.aspectRatio > 0
-          ? controller.value.aspectRatio
+      aspectRatio: current.value.aspectRatio > 0
+          ? current.value.aspectRatio
           : 16 / 9,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(17),
         child: Stack(fit: StackFit.expand, children: [
-          VideoPlayer(controller),
-          if (!controller.value.isPlaying)
+          VideoPlayer(current),
+          if (!current.value.isPlaying)
             Center(child: IconButton.filled(
               onPressed: togglePlayback,
               style: IconButton.styleFrom(
@@ -616,7 +637,7 @@ class _InlineFeedVideoState extends State<InlineFeedVideo> {
             right: 8,
             bottom: 8,
             child: VideoProgressIndicator(
-              controller,
+              current,
               allowScrubbing: true,
               colors: VideoProgressColors(
                 playedColor: rose,
@@ -631,7 +652,7 @@ class _InlineFeedVideoState extends State<InlineFeedVideo> {
             child: IconButton(
               onPressed: togglePlayback,
               icon: Icon(
-                controller.value.isPlaying
+                current.value.isPlaying
                     ? Icons.pause_circle_filled
                     : Icons.play_circle_fill,
                 color: Colors.white,
