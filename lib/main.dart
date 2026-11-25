@@ -3250,11 +3250,13 @@ class OwnerProfilePage extends StatefulWidget {
 class _OwnerProfilePageState extends State<OwnerProfilePage> {
   final repository = KuaforumFeedRepository();
   late Future<_BusinessProfileData> data;
+  late Future<String> joinCode;
   bool logoBusy = false;
 
   Future<_BusinessProfileData> load() async {
     final business = await repository.fetchOwnedBusinessProfile();
     final id = business['id'] as String;
+    joinCode = repository.fetchMyBusinessJoinCode(id);
     final values = await Future.wait([
       repository.fetchSocialStats(businessId: id),
       repository.fetchProfilePosts(businessId: id),
@@ -3393,6 +3395,59 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
               address.isEmpty ? 'İşletme hesabı' : address,
               textAlign: TextAlign.center,
               style: const TextStyle(color: muted),
+            ),
+            const SectionTitle('Müşteri Katılım Kodu'),
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: blush),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: FutureBuilder<String>(
+                  future: joinCode,
+                  builder: (context, codeSnapshot) {
+                    if (codeSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Row(children: [
+                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: wine)),
+                        SizedBox(width: 10),
+                        Text('Katılım kodu yükleniyor...', style: TextStyle(color: muted)),
+                      ]);
+                    }
+                    if (codeSnapshot.hasError || !codeSnapshot.hasData) {
+                      return const Text(
+                        'İşletmen onaylandıktan sonra müşterilerin kullanacağı kod burada görünecek.',
+                        style: TextStyle(color: muted, fontSize: 12),
+                      );
+                    }
+                    final code = codeSnapshot.data!;
+                    return Row(children: [
+                      const Icon(Icons.qr_code_2_rounded, color: wine, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('İşletme kodun', style: TextStyle(color: muted, fontSize: 11)),
+                          Text(code, style: const TextStyle(color: ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                        ],
+                      )),
+                      IconButton(
+                        tooltip: 'Kodu kopyala',
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: code));
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Katılım kodu kopyalandı.')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded, color: wine),
+                      ),
+                    ]);
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 18),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
