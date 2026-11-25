@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
@@ -3247,10 +3248,226 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     },
   );
 }
-class EmployeeManagementPage extends StatelessWidget {
-  const EmployeeManagementPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Çalışanlar',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Çalışan Davet Et'),...['Ayşe Demir','Mehmet Yıldız','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),subtitle:const Text('Aktif çalışan'),trailing:const Icon(Icons.more_vert,color:muted)))]);
+class _EmployeeManagementData {
+  final String businessId;
+  final List<Map<String, dynamic>> employees;
+  const _EmployeeManagementData(this.businessId, this.employees);
 }
+
+class EmployeeManagementPage extends StatefulWidget {
+  const EmployeeManagementPage({super.key});
+
+  @override
+  State<EmployeeManagementPage> createState() => _EmployeeManagementPageState();
+}
+
+class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<_EmployeeManagementData> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_EmployeeManagementData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final businessId = business['id'] as String;
+    final employees = await repository.fetchOwnedEmployees(businessId);
+    return _EmployeeManagementData(businessId, employees);
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> addEmployee(String businessId) async {
+    final nameController = TextEditingController();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Çalışan davet et'),
+        content: TextField(
+          controller: nameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Ad soyad',
+            hintText: 'Örn. Elif Demir',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Davet oluştur')),
+        ],
+      ),
+    );
+    final name = nameController.text.trim();
+    nameController.dispose();
+    if (accepted != true || name.isEmpty) return;
+    try {
+      final code = await repository.createEmployeeInvite(
+        businessId: businessId,
+        displayName: name,
+      );
+      if (!mounted) return;
+      await refresh();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Çalışan daveti hazır'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Bu kodu çalışanına ilet. Çalışan kendi hesabında davet kodunu kullanarak işletmene bağlanabilir.'),
+            const SizedBox(height: 14),
+            SelectableText(
+              code,
+              style: const TextStyle(color: wine, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 2),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => Clipboard.setData(ClipboardData(text: code)),
+              icon: const Icon(Icons.copy),
+              label: const Text('Kodu kopyala'),
+            ),
+          ]),
+          actions: [
+            FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tamam')),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Davet oluşturulamadı: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> toggleEmployee(Map<String, dynamic> employee) async {
+    final active = employee['is_active'] == true;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(active ? 'Çalışanı pasifleştir?' : 'Çalışanı aktifleştir?'),
+        content: Text(active
+            ? 'Bu çalışan yeni randevu ve paylaşım işlemlerinde kullanılamaz.'
+            : 'Bu çalışan tekrar aktif olacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: const Text('Onayla'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) return;
+    try {
+      await repository.setEmployeeActive(employee['id'] as String, !active);
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Çalışan durumu değiştirilemedi: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_EmployeeManagementData>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Çalışanlar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('Çalışanlarını davet et ve hesap bağlantılarını yönet.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(26), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.groups_outlined,
+              title: 'Çalışanlar yüklenemedi',
+              detail: 'İşletme hesabının bağlantısını kontrol et.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else ...[
+            FilledButton.icon(
+              onPressed: () => addEmployee(snapshot.data!.businessId),
+              style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 13)),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Çalışan davet et'),
+            ),
+            const SizedBox(height: 12),
+            if (snapshot.data!.employees.isEmpty)
+              const _FeedMessage(
+                icon: Icons.group_add_outlined,
+                title: 'Henüz çalışan eklenmemiş',
+                detail: 'Davet oluşturarak çalışanını işletmene bağlayabilirsin.',
+              )
+            else
+              ...snapshot.data!.employees.map((employee) {
+                final inviteRows = employee['employee_invites'];
+                final invite = inviteRows is List && inviteRows.isNotEmpty
+                    ? Map<String, dynamic>.from(inviteRows.first as Map)
+                    : <String, dynamic>{};
+                final claimed = employee['user_id'] != null;
+                final active = employee['is_active'] == true;
+                final code = invite['invite_code'] as String?;
+                final expires = DateTime.tryParse(invite['expires_at'] as String? ?? '')?.toLocal();
+                final expired = expires != null && expires.isBefore(DateTime.now());
+                final subtitle = !active
+                    ? 'Pasif çalışan'
+                    : claimed
+                        ? 'Hesap bağlandı'
+                        : expired
+                            ? 'Davet kodunun süresi dolmuş'
+                            : 'Davet bekleniyor${code == null ? '' : ' • $code'}';
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: blush),
+                  ),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: blush,
+                      child: Icon(Icons.person_outline, color: wine),
+                    ),
+                    title: Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                    subtitle: Text(subtitle, style: const TextStyle(color: muted, fontSize: 11)),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (_) => toggleEmployee(employee),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'toggle',
+                          child: Text(active ? 'Pasifleştir' : 'Aktifleştir'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
 class _ServicesData {
   final String businessId;
   final List<Map<String, dynamic>> services;
