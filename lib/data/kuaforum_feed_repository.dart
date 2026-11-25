@@ -407,7 +407,7 @@ class KuaforumFeedRepository {
   Future<Map<String, dynamic>> fetchOwnedBusinessProfile() async {
     final row = await _client
         .from('businesses')
-        .select('id,name,address,owner_id,status,logo_url')
+        .select('id,name,address,owner_id,status,logo_url,appointment_interval_minutes')
         .eq('owner_id', _userId)
         .maybeSingle();
     if (row == null) {
