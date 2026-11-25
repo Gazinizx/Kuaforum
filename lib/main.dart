@@ -3697,7 +3697,58 @@ class _ServicesPageState extends State<ServicesPage> {
   );
 }
 
-class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
+class _OwnerHomeData {
+  final Map<String, dynamic> business;
+  final List<Map<String, dynamic>> appointments;
+  final int customerCount;
+  const _OwnerHomeData(this.business, this.appointments, this.customerCount);
+}
+
+class OwnerHome extends StatefulWidget {
+  const OwnerHome({super.key});
+  @override State<OwnerHome> createState() => _OwnerHomeState();
+}
+
+class _OwnerHomeState extends State<OwnerHome> {
+  final repository = KuaforumFeedRepository();
+  late Future<_OwnerHomeData> data;
+  @override void initState() { super.initState(); data = load(); }
+  Future<_OwnerHomeData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final id = business['id'] as String;
+    final results = await Future.wait([repository.fetchBusinessAppointments(id, mineOnly: false), repository.fetchBusinessCustomers(id)]);
+    return _OwnerHomeData(business, results[0] as List<Map<String, dynamic>>, (results[1] as List<Map<String, dynamic>>).length);
+  }
+  Future<void> refresh() async { final next = load(); setState(() => data = next); await next; }
+  String appointmentTime(Map<String, dynamic> row) {
+    final value = DateTime.tryParse(row['starts_at']?.toString() ?? '');
+    if (value == null) return 'Saat bilgisi yok';
+    final local = value.toLocal(); final now = DateTime.now();
+    final day = DateTime(local.year, local.month, local.day); final today = DateTime(now.year, now.month, now.day);
+    final prefix = day == today ? 'Bugün' : day == today.add(const Duration(days: 1)) ? 'Yarın' : local.day.toString().padLeft(2, '0') + '.' + local.month.toString().padLeft(2, '0');
+    return prefix + ' • ' + local.hour.toString().padLeft(2, '0') + ':' + local.minute.toString().padLeft(2, '0');
+  }
+  @override Widget build(BuildContext context) => FutureBuilder<_OwnerHomeData>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: wine));
+      if (snapshot.hasError) return PageBody(children: [const Text('İşletme Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)), const SizedBox(height: 12), _FeedMessage(icon: Icons.storefront_outlined, title: 'İşletme bilgileri yüklenemedi', detail: 'İşletme hesabını ve bağlantını kontrol et.', action: 'Yeniden dene', onPressed: refresh)]);
+      final value = snapshot.data!; final now = DateTime.now();
+      final todayCount = value.appointments.where((row) { final start = DateTime.tryParse(row['starts_at']?.toString() ?? '')?.toLocal(); return start != null && start.year == now.year && start.month == now.month && start.day == now.day; }).length;
+      final upcoming = value.appointments.where((row) { final start = DateTime.tryParse(row['starts_at']?.toString() ?? ''); return start != null && start.isAfter(DateTime.now()) && row['status'] != 'cancelled'; }).toList()..sort((a,b) => DateTime.parse(a['starts_at'].toString()).compareTo(DateTime.parse(b['starts_at'].toString())));
+      final businessName = value.business['name'] as String? ?? 'İşletmem'; final address = value.business['address'] as String? ?? 'İşletme bilgilerini yönet';
+      return RefreshIndicator(color: wine, onRefresh: refresh, child: ListView(padding: const EdgeInsets.fromLTRB(18,10,18,24), children: [
+        const Text('İşletme Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)), const SizedBox(height: 14),
+        HeroPanel(eyebrow: 'İşletme paneli', title: businessName, subtitle: address.isEmpty ? 'İşletmeni, ekibini ve müşteri deneyimini yönet.' : address, icon: Icons.storefront, button: 'İşletme paneli'),
+        const SizedBox(height: 14), Row(children: [_StatCard(todayCount.toString(), 'Bugünkü Randevu'), _StatCard(value.appointments.length.toString(), 'Toplam Randevu'), _StatCard(value.customerCount.toString(), 'Müşteri')]),
+        const SectionTitle('Yaklaşan Randevular', action: 'Tümünü Gör'),
+        if (upcoming.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Yaklaşan randevu bulunmuyor.', style: TextStyle(color: muted)))
+        else ...upcoming.take(3).map((row) => AppointmentTile(name: row['customer_name']?.toString() ?? 'Müşteri', service: row['service_name']?.toString() ?? 'Hizmet', time: appointmentTime(row), status: row['status'] == 'pending' ? 'Onay bekliyor' : row['status'] == 'confirmed' ? 'Onaylandı' : row['status']?.toString() ?? 'Aktif')),
+        const SectionTitle('Hızlı Yönetim'), const QuickTiles(),
+      ]));
+    },
+  );
+}
 class _OwnerAppointmentData {
   final String businessId;
   final String? ownerEmployeeId;
