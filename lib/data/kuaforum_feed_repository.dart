@@ -878,6 +878,22 @@ class KuaforumFeedRepository {
     });
   }
 
+  Future<void> updateOwnedBusinessProfile({
+    required String businessId,
+    required String name,
+    String? address,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      throw const PostgrestException(message: 'İşletme adı en az 2 karakter olmalı.');
+    }
+    await _client.rpc('update_my_business_profile', params: {
+      'p_business_id': businessId,
+      'p_name': trimmedName,
+      'p_address': address?.trim() ?? '',
+    });
+  }
+
   Future<void> updateAppointmentInterval(
     String businessId,
     int minutes,
