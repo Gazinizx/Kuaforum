@@ -3894,6 +3894,7 @@ class _WorkHoursPageState extends State<WorkHoursPage> {
       if (mounted) setState(() => data = load());
     } catch (error) {
       if (mounted) {
+        setState(() => data = load());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Çalışma saati kaydedilemedi: $error')),
         );
