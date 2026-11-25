@@ -521,7 +521,7 @@ class SharePage extends StatefulWidget {
   @override State<SharePage> createState()=>_SharePageState();
 }
 class _SharePageState extends State<SharePage> {
-  final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false; String audience='Herkese Açık';
+  final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false;
   Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(() { selectedMedia=file; isVideo=video; }); }
   @override void dispose(){caption.dispose();super.dispose();}
   Future<void> publish() async {
@@ -568,7 +568,7 @@ class _SharePageState extends State<SharePage> {
         const SizedBox(width:9),Expanded(child:OutlinedButton.icon(onPressed:()=>chooseMedia(true),icon:const Icon(Icons.videocam_outlined),label:const Text('Video'),style:OutlinedButton.styleFrom(foregroundColor:wine,side:const BorderSide(color:blush),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14)))))
       ]),
       const SizedBox(height:14),TextField(controller:caption,maxLines:4,maxLength:500,decoration:InputDecoration(hintText:'Bu güzel çalışmayı anlat... ♡',filled:true,fillColor:cream,border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none),prefixIcon:const Icon(Icons.edit_note,color:wine))),
-      const SizedBox(height:4),Row(children:[const Icon(Icons.public,color:wine),const SizedBox(width:9),const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Paylaşım kitlesi',style:TextStyle(color:ink,fontWeight:FontWeight.bold)),Text('Keşfet ve takip akışında görünür',style:TextStyle(color:muted,fontSize:11))])),DropdownButton<String>(value:audience,underline:const SizedBox(),items:const [DropdownMenuItem(value:'Herkese Açık',child:Text('Herkese Açık')),DropdownMenuItem(value:'Takipçilerim',child:Text('Takipçilerim'))],onChanged:(v)=>setState(()=>audience=v??audience))]),
+      const SizedBox(height:4),Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:cream,borderRadius:BorderRadius.circular(14)),child:const Row(children:[Icon(Icons.public,color:wine),SizedBox(width:9),Expanded(child:Text('Paylaşımın, işletmenin Keşfet görünürlüğü ve takip sistemi kurallarına göre ilgili akışlarda gösterilir.',style:TextStyle(color:muted,fontSize:11,height:1.35))) ])),
       const SizedBox(height:10),SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:publish,icon:const Icon(Icons.send_rounded),label:const Text('Paylaşımı Yayınla'),style:FilledButton.styleFrom(backgroundColor:wine,foregroundColor:Colors.white,padding:const EdgeInsets.symmetric(vertical:16),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)))))
     ])),
     const SizedBox(height:14),const Row(children:[Icon(Icons.lightbulb_outline,color:rose,size:18),SizedBox(width:7),Expanded(child:Text('İpucu: Öncesi/sonrası fotoğrafları ve kullandığın işlemi ekleyerek daha çok kişiye ulaş.',style:TextStyle(color:muted,fontSize:11)))])
