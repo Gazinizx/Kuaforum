@@ -1,11 +1,11 @@
--- Restrict profile table access to safe public fields.
+-- Restrict profile table access to non-sensitive public fields only.
 REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM anon, authenticated;
 GRANT SELECT (id, full_name, account_type, avatar_url)
   ON TABLE public.profiles TO authenticated;
 GRANT UPDATE (full_name, phone, avatar_url)
   ON TABLE public.profiles TO authenticated;
 
--- Public profile views must respect caller RLS.
+-- Public profile views expose only safe columns and respect caller RLS.
 CREATE OR REPLACE VIEW public.public_profiles
 WITH (security_invoker = true, security_barrier = true)
 AS
@@ -22,13 +22,14 @@ JOIN public.profiles AS p ON p.id = e.user_id
 WHERE e.is_active = true
   AND e.user_id IS NOT NULL
   AND b.status = 'active'::text;
+
 REVOKE ALL PRIVILEGES ON TABLE public.public_profiles FROM anon, authenticated;
 REVOKE ALL PRIVILEGES ON TABLE public.public_employee_profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.public_profiles TO authenticated;
 GRANT SELECT ON TABLE public.public_employee_profiles TO authenticated;
 
--- Expose contact and moderation fields only to a verified administrator.
-CREATE OR REPLACE FUNCTION public.admin_list_users()
+-- Keep private contact and moderation fields behind a non-exposed admin function.
+CREATE OR REPLACE FUNCTION private.admin_list_users()
 RETURNS TABLE (
   id uuid,
   full_name text,
@@ -56,6 +57,28 @@ BEGIN
   ORDER BY p.created_at DESC
   LIMIT 200;
 END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.admin_list_users() FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT EXECUTE ON FUNCTION private.admin_list_users() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_list_users()
+RETURNS TABLE (
+  id uuid,
+  full_name text,
+  email text,
+  phone text,
+  account_type text,
+  is_admin boolean,
+  is_blocked boolean,
+  created_at timestamptz
+)
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+  SELECT * FROM private.admin_list_users();
 $function$;
 
 REVOKE ALL ON FUNCTION public.admin_list_users() FROM PUBLIC, anon;
