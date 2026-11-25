@@ -480,6 +480,64 @@ class KuaforumFeedRepository {
     return _mapRows(rows);
   }
 
+  Future<void> updatePostCaption(String postId, String caption) async {
+    final trimmed = caption.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Paylaşım açıklaması boş olamaz.');
+    }
+    if (trimmed.length > 500) {
+      throw const PostgrestException(message: 'Açıklama en fazla 500 karakter olabilir.');
+    }
+    await _client
+        .from('feed_posts')
+        .update({
+          'caption': trimmed,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', postId)
+        .eq('author_user_id', _userId);
+  }
+
+  Future<void> deletePost(String postId) async {
+    final row = await _client
+        .from('feed_posts')
+        .select('media_url')
+        .eq('id', postId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Paylaşım bulunamadı.');
+    }
+    final mediaPath = row['media_url'] as String;
+    await _client.storage.from('salon-feed').remove([mediaPath]);
+    await _client
+        .from('feed_posts')
+        .delete()
+        .eq('id', postId)
+        .eq('author_user_id', _userId);
+  }
+
+  Future<void> reportPost(String postId, String reason) async {
+    const allowedReasons = {
+      'Spam',
+      'Uygunsuz içerik',
+      'Taciz veya hakaret',
+      'Sahte hesap / yanıltıcı',
+      'Diğer',
+    };
+    if (!allowedReasons.contains(reason)) {
+      throw const PostgrestException(message: 'Geçersiz şikâyet nedeni.');
+    }
+    await _client.from('feed_reports').upsert(
+      {
+        'post_id': postId,
+        'reporter_user_id': _userId,
+        'reason': reason,
+      },
+      onConflict: 'post_id,reporter_user_id',
+      ignoreDuplicates: true,
+    );
+  }
+
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
     if (currentlyLiked) {
       await _client
