@@ -3095,6 +3095,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     final page = switch (section) {
       'Randevu Yönetimi' => const OwnerAppointments(),
       'Müşterilerim' => const CustomersPage(),
+      'Bildirimler' => const NotificationsPage(),
       _ => const SettingsPage(),
     };
     Navigator.push(context, MaterialPageRoute(
@@ -3825,6 +3826,154 @@ class _OwnerAppointmentsState extends State<OwnerAppointments> {
 }
 
 class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
+class NotificationsPage extends StatefulWidget {
+  const NotificationsPage({super.key});
+
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    notifications = repository.fetchNotifications();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchNotifications();
+    setState(() => notifications = next);
+    await next;
+  }
+
+  Future<void> markRead(String id) async {
+    try {
+      await repository.markNotificationRead(id);
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bildirim güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> markAllRead() async {
+    try {
+      await repository.markAllNotificationsRead();
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bildirimler güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  String dateLabel(String value) {
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return '';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: notifications,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          Row(children: [
+            const Expanded(child: Text('Bildirimler', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink))),
+            if ((snapshot.data ?? []).any((row) => row['read_at'] == null))
+              TextButton(
+                onPressed: markAllRead,
+                child: const Text('Tümünü okundu işaretle', style: TextStyle(color: wine, fontSize: 11)),
+              ),
+          ]),
+          const SizedBox(height: 10),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(28), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.notifications_off_outlined,
+              title: 'Bildirimler yüklenemedi',
+              detail: 'Bağlantını kontrol edip tekrar dene.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(
+              icon: Icons.notifications_none,
+              title: 'Henüz bildirimin yok',
+              detail: 'Randevu ve hesap hareketlerin burada görünecek.',
+            )
+          else
+            ...snapshot.data!.map((row) {
+              final unread = row['read_at'] == null;
+              return Card(
+                color: unread ? const Color(0xFFFFF7F7) : Colors.white,
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: blush),
+                ),
+                child: ListTile(
+                  onTap: () async {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: Text(row['title'] as String? ?? 'Bildirim'),
+                        content: Text(row['body'] as String? ?? ''),
+                        actions: [
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: FilledButton.styleFrom(backgroundColor: wine),
+                            child: const Text('Tamam'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (unread && mounted) await markRead(row['id'] as String);
+                  },
+                  leading: CircleAvatar(
+                    backgroundColor: blush,
+                    child: Icon(
+                      unread ? Icons.notifications_active_outlined : Icons.notifications_none,
+                      color: wine,
+                    ),
+                  ),
+                  title: Text(
+                    row['title'] as String? ?? 'Bildirim',
+                    style: TextStyle(color: ink, fontWeight: unread ? FontWeight.w800 : FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    row['body'] as String? ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: muted, fontSize: 11),
+                  ),
+                  trailing: unread
+                      ? const CircleAvatar(radius: 4, backgroundColor: wine)
+                      : null,
+                  isThreeLine: true,
+                ),
+              );
+            }),
+        ],
+      ),
+    ),
+  );
+}
+
 class _WorkHoursData {
   final String businessId;
   final List<Map<String, dynamic>> hours;
