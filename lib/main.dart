@@ -2754,7 +2754,157 @@ class ServicesPage extends StatelessWidget {
 }
 
 class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
-class OwnerAppointments extends StatelessWidget {const OwnerAppointments({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Randevu Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Tümü',true),_Chip('Bekleyen'),_Chip('Onaylanan'),_Chip('Tamamlanan')]),const SectionTitle('Benim Randevularım'),const AppointmentTile(name:'Gizem Yılmaz',service:'Saç Kesimi',time:'Bugün • 14:00',status:'Onaylandı'),const SectionTitle('Çalışan Randevuları'),const AppointmentTile(name:'Zeynep Kaya • Elif Demir',service:'Saç Boyama',time:'Bugün • 15:30',status:'Beklemede'),const AppointmentTile(name:'Merve Aksoy • Ayşe Demir',service:'Keratin Bakım',time:'Yarın • 11:00',status:'Onaylandı')]);}
+class _OwnerAppointmentData {
+  final String businessId;
+  final String? ownerEmployeeId;
+  final List<Map<String, dynamic>> appointments;
+  const _OwnerAppointmentData(this.businessId, this.ownerEmployeeId, this.appointments);
+}
+
+class OwnerAppointments extends StatefulWidget {
+  const OwnerAppointments({super.key});
+
+  @override
+  State<OwnerAppointments> createState() => _OwnerAppointmentsState();
+}
+
+class _OwnerAppointmentsState extends State<OwnerAppointments> {
+  final repository = KuaforumFeedRepository();
+  late Future<_OwnerAppointmentData> data;
+  String selectedFilter = 'Tümü';
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<_OwnerAppointmentData> load() async {
+    final business = await repository.fetchOwnedBusinessProfile();
+    final businessId = business['id'] as String;
+    String? ownerEmployeeId;
+    try {
+      final employee = await repository.fetchMyEmployeeContext();
+      if (employee['business_id'] == businessId) {
+        ownerEmployeeId = employee['id'] as String;
+      }
+    } catch (_) {}
+    final appointments = await repository.fetchBusinessAppointments(
+      businessId,
+      mineOnly: false,
+    );
+    return _OwnerAppointmentData(businessId, ownerEmployeeId, appointments);
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  bool matchesFilter(Map<String, dynamic> row) {
+    final status = row['status'] as String? ?? '';
+    if (selectedFilter == 'Bekleyen') return status == 'pending';
+    if (selectedFilter == 'Onaylanan') return status == 'confirmed';
+    if (selectedFilter == 'Tamamlanan') return status == 'completed';
+    return true;
+  }
+
+  Future<void> performAction(String id, String action) async {
+    try {
+      if (action == 'approve' || action == 'reject') {
+        await repository.reviewAppointmentRequest(id, approve: action == 'approve');
+      } else if (action == 'complete' || action == 'no_show') {
+        await repository.updateAppointmentStatus(id, status: action == 'complete' ? 'completed' : 'no_show');
+      } else if (action == 'cancel') {
+        await repository.cancelAppointment(id);
+      }
+      await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Randevu işlemi tamamlanamadı: $error')),
+        );
+      }
+    }
+  }
+
+  Widget appointmentCard(Map<String, dynamic> row) => _BusinessAppointmentCard(
+    appointment: row,
+    ownerMode: true,
+    onComplete: () => performAction(row['appointment_id'] as String, 'complete'),
+    onNoShow: () => performAction(row['appointment_id'] as String, 'no_show'),
+    onCancel: () => performAction(row['appointment_id'] as String, 'cancel'),
+    onApprove: () => performAction(row['appointment_id'] as String, 'approve'),
+    onReject: () => performAction(row['appointment_id'] as String, 'reject'),
+  );
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_OwnerAppointmentData>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+        children: [
+          const Text('Randevu Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 7, children: ['Tümü', 'Bekleyen', 'Onaylanan', 'Tamamlanan'].map((filter) => ChoiceChip(
+            label: Text(filter),
+            selected: selectedFilter == filter,
+            onSelected: (_) => setState(() => selectedFilter = filter),
+            selectedColor: blush,
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(color: selectedFilter == filter ? wine : muted, fontWeight: FontWeight.w700, fontSize: 11),
+            side: const BorderSide(color: blush),
+          )).toList()),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.calendar_month_outlined,
+              title: 'Randevular yüklenemedi',
+              detail: 'İşletme hesabının bağlantısını kontrol et.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else ...[
+            Builder(builder: (context) {
+              final value = snapshot.data!;
+              final visible = value.appointments.where(matchesFilter).toList();
+              final mine = value.ownerEmployeeId == null
+                  ? <Map<String, dynamic>>[]
+                  : visible.where((row) => row['employee_id'] == value.ownerEmployeeId).toList();
+              final employeeAppointments = value.ownerEmployeeId == null
+                  ? visible
+                  : visible.where((row) => row['employee_id'] != value.ownerEmployeeId).toList();
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const SectionTitle('Benim Randevularım'),
+                if (mine.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text('Henüz sana atanmış randevu yok.', style: TextStyle(color: muted, fontSize: 12)),
+                  )
+                else
+                  ...mine.map(appointmentCard),
+                const SectionTitle('Çalışan Randevuları'),
+                if (employeeAppointments.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text('Bu filtrede çalışan randevusu bulunmuyor.', style: TextStyle(color: muted, fontSize: 12)),
+                  )
+                else
+                  ...employeeAppointments.map(appointmentCard),
+              ]);
+            }),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
 class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class SettingsPage extends StatelessWidget {const SettingsPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ayarlar',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),...['İşletme Bilgileri','Çalışma Saatleri','Hizmetler','Çalışanlar','Çalışan Davet Et','Bildirim Ayarları','Güvenlik','Yardım ve Destek'].map((s)=>Card(color:Colors.white,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),child:ListTile(leading:const Icon(Icons.settings_outlined,color:wine),title:Text(s,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
