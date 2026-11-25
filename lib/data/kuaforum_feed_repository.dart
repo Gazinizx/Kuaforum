@@ -338,6 +338,18 @@ class KuaforumFeedRepository {
     return Map<String, dynamic>.from(row);
   }
 
+  Future<Map<String, dynamic>> fetchOwnedBusinessProfile() async {
+    final row = await _client
+        .from('businesses')
+        .select('id,name,address,owner_id,status')
+        .eq('owner_id', _userId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Bu hesaba bağlı işletme bulunamadı.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
   Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
     final row = await _client
         .from('businesses')
