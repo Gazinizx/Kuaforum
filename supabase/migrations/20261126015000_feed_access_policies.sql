@@ -7,7 +7,8 @@ create policy feed_posts_read
 on public.feed_posts for select
 to authenticated
 using (
-  exists (
+  public.is_current_user_active()
+  and exists (
     select 1
     from public.businesses b
     where b.id = feed_posts.business_id
@@ -34,6 +35,7 @@ using (
               or f.followed_user_id = feed_posts.author_user_id
             )
         )
+        or (select private.is_admin())
       )
   )
 );
@@ -180,6 +182,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'salon-feed'
+  and public.is_current_user_active()
   and exists (
     select 1
     from public.feed_posts p
@@ -208,6 +211,7 @@ using (
               or f.followed_user_id = p.author_user_id
             )
         )
+        or (select private.is_admin())
       )
   )
 );
