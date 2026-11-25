@@ -2,43 +2,49 @@
 
 Kadın kuaförleri için salon keşif, randevu ve sosyal paylaşım uygulaması.
 
-## Tamamlanan sosyal özellikler
+## Uygulama özellikleri
 
-- Müşteri, çalışan ve işletme profilleri; profil fotoğrafı ve salon logosu yükleme
-- Keşfet ve Takip akışları; fotoğraf/video paylaşımı, beğeni ve yorum
-- Çalışan ve işletme takip etme; takipçi/takip edilen listeleri
-- Gönderi açıklaması düzenleme, paylaşım silme ve şikâyet gönderme
-- Keşfet'te gönderi, aktif işletme ve aktif çalışan arama; kategori filtreleri
-- Paylaşım yapan uygun çalışanlarla müşteri arasında gerçek zamanlı mesajlaşma
-- Supabase RLS ve güvenli profil alanları; e-posta, telefon ve yönetici yetkileri herkese açık değildir
+### Sosyal alan
+- Müşteri, çalışan ve işletme profilleri; profil fotoğrafı ve salon logosu
+- Instagram benzeri ortak Keşfet akışı ve ayrı Takip akışı
+- İşletme ve çalışan takip etme; takipçi/takip edilen listeleri
+- Fotoğraf/video paylaşımı, beğeni, yorum, açıklama düzenleme, silme ve şikâyet
+- Keşfet araması ve paylaşım kategorileri
+- Paylaşım yapan uygun çalışanlarla müşteri arasında mesajlaşma
 
-## Tamamlanan randevu ve işletme özellikleri
-
-- Müşterinin aktif salonları araması ve işletme profillerini görüntülemesi
-- İşletme katılım koduyla üyelik
-- İşletme sahibinin hizmet, fiyat ve süre yönetimi
-- Çalışan daveti oluşturma, davet kodu görüntüleme ve çalışanı aktif/pasif yapma
+### Randevu ve işletme
+- Aktif işletme arama, işletme profilleri ve katılım koduyla üyelik
+- Hizmet, fiyat, süre ve çalışan yönetimi
+- Çalışan daveti ve çalışanı aktif/pasif yapma
 - Haftalık çalışma saatleri ve randevu aralığı ayarları
-- Müşterinin uygun gün/saat seçerek randevu oluşturması
-- Uygun saat hesabında hizmet süresi, çalışma saatleri, molalar ve mevcut randevuların dikkate alınması
-- Müşteri randevu geçmişi; çalışan kendi randevuları; işletme sahibi tüm çalışan randevuları ve onay bekleyen talepler
-- Üç veya daha fazla gelmeme kaydında müşterinin otomatik kara listeye alınması; işletme sahibinin listeden çıkarabilmesi
-- Kara listedeki müşterinin yeni randevularının işletme onayına düşmesi
-- İşletmenin müşteri listesi, randevu/gelmeme sayıları ve kara liste yönetimi
-- Randevu bildirimlerinin uygulama içindeki Bildirimler ekranında görüntülenmesi ve okundu işaretlenmesi
+- Gerçek uygun saat hesabı ve randevu oluşturma
+- Müşteri, çalışan ve işletme sahibi için ayrı randevu görünümleri
+- Üç gelmeme kaydından sonra otomatik kara liste; işletme sahibinin yönetimi
+- Kara listedeki müşterinin yeni randevularında işletme onayı
+- İşletme müşteri listesi, randevu ve gelmeme kayıtları
 
-## Henüz tamamlanmayan bölümler
+### Ana yönetici
+- İşletmeleri listeleme, onaylama ve askıya alma
+- Kullanıcıları listeleme, kısıtlama ve kısıtlamayı kaldırma
+- Ücretli erişim hakkı olan işletmelerin Keşfet görünürlüğünü açıp kapatma
+- Yetki kontrolleri istemci arayüzüne bırakılmaz; veritabanı tarafında da doğrulanır
 
-- Normal kullanıcı kayıt/giriş ekranı ve çalışan davet kodunu giriş sırasında kullanma akışı son aşamada tamamlanacaktır.
-- Ana yönetici ekranındaki Keşfet görünürlük kontrollerinin veritabanına bağlanması tamamlanmamıştır.
-- Firebase Cloud Messaging ile gerçek push teslimi henüz Kuaförüm projesine bağlanmamıştır. Eski projeye giden hatalı push tetikleyicisi güvenlik için kaldırılmıştır.
-- iOS derlemesi ve App Store hazırlığı tamamlanmamıştır.
+### Güvenlik
+- Profil tablosunda e-posta, telefon ve yetki alanları doğrudan istemci okumasına kapalıdır
+- Yönetici kullanıcı listesi, yönetici yetkisini doğrulayan ayrı RPC üzerinden gelir
+- Herkese açık profil görünümleri güvenlik invoker ve RLS kurallarıyla çalışır
+- Fotoğraf/video depolama izinleri ve mesajlaşma erişimi RLS ile korunur
+
+## Henüz tamamlanması gerekenler
+- Normal müşteri/işletme kayıt ve giriş akışı ile çalışan davet kodu üzerinden hesap aktivasyonu. Hızlı rol/test ekranı yalnızca geliştirme testi içindir; normal giriş akışı son aşamada yapılacaktır.
+- Firebase Cloud Messaging ile gerçek push bildirim teslimi. Uygulama içi bildirim merkezi vardır; push teslimi henüz bağlanmamıştır.
+- iOS yapılandırması, imzalama ve App Store hazırlığı.
+- Son cihaz testleri, Flutter analiz/test ve yayın derlemesi.
 
 ## Android derleme
-
 Android APK iş akışı yalnızca kullanıcı açıkça istediğinde GitHub Actions içinden manuel başlatılır. Kod güncellemeleri otomatik derleme başlatmaz.
 
-Yerel derleme komutları:
+Yerel komutlar:
 
 ```bash
 flutter pub get
