@@ -31,8 +31,8 @@ with check (
       followed_user_id is not null
       and followed_user_id <> (select auth.uid())
       and exists (
-        select 1 from public.profiles target
-        where target.id = followed_user_id and target.is_blocked = false
+        select 1 from public.public_profiles target
+        where target.id = followed_user_id
       )
     )
     or
