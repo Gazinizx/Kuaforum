@@ -181,7 +181,7 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
   }
 
   Future<void> submit() async {
-
+    final mail = email.text.trim();
     if (isRegister && (firstName.text.trim().isEmpty || lastName.text.trim().isEmpty || phone.text.trim().isEmpty)) {
       setState(() => message = 'Ad, soyad ve telefon bilgilerini doldur.');
       return;
