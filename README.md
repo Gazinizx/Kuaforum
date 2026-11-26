@@ -22,12 +22,11 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
 - Ana yönetici mevcut kullanıcıları e-posta ile alt yönetici yapabilir; Genel Bakış, İşletmeler, Kullanıcılar, Keşfet ve Destek yetkilerini ayrı ayrı tanımlar, düzenler ve kaldırır. Alt yöneticiler yalnızca izinli yönetim alanlarını görür; ilgili sunucu işlemleri ve destek erişimi de yetkiyle korunur.
 - Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
-- Yeni cihaz girişlerinde e-posta OTP doğrulaması uygulanır; cihaz kimliği yerel olarak saklanır ve güvenilen cihaz kaydı Supabase'in private şemasında tutulur. Supabase Auth > Email Templates altında hem Magic Link hem Confirm signup şablonları 6 haneli kod gönderecek şekilde `{{ .Token }}` kullanmalıdır; aksi halde yeni cihaz ve kayıt kodu doğrulamaları çalışmaz.
 
 ## Tamamlanması gerekenler
 
 - Firebase/FCM anlık push teslimatı. Uygulama içi bildirim merkezi çalışır; gerçek push için Firebase Android/iOS yapılandırma dosyaları, FCM kayıt tokenları ve güvenli gönderim işlevi henüz eklenmelidir.
-- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
+- Yeni cihaz girişlerinde uygulama içi e-posta OTP doğrulaması kaldırıldı; yeni cihazlar e-posta kodu istemeden parola ile giriş yapar. Supabase projesinde yeni kullanıcı kayıtları için e-posta onayı açıksa kayıt sırasında standart onay bağlantısı gerekebilir.
 - Supabase sızdırılmış parola koruması yalnızca Pro ve üzeri planda sunulduğundan ücretsiz plan kapsamında açılmayacak; güvenlik danışmanındaki bu uyarı bilinen ücretsiz-plan kısıtıdır.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
