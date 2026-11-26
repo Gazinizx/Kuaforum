@@ -3622,44 +3622,69 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
   }
 
   Future<void> inviteEmployee(String businessId) async {
-    final name = TextEditingController();
+    final firstName = TextEditingController();
+    final lastName = TextEditingController();
+    final phone = TextEditingController();
+    final email = TextEditingController();
+    final password = TextEditingController();
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Çalışan davet et'),
-        content: TextField(
-          controller: name,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Ad soyad', hintText: 'Örn. Ayşe Demir'),
+        title: const Text('Çalışan hesabı oluştur'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: firstName, textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Ad')),
+            TextField(controller: lastName, textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Soyad')),
+            TextField(controller: phone, keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Telefon')),
+            TextField(controller: email, keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'E-posta')),
+            TextField(controller: password, obscureText: true,
+              decoration: const InputDecoration(labelText: 'İlk giriş şifresi (en az 8 karakter)')),
+            const SizedBox(height: 8),
+            const Text('Çalışana e-posta doğrulama bağlantısı gönderilir. Hesabı doğruladıktan sonra belirlediğin şifreyle giriş yapabilir.',
+              style: TextStyle(color: muted, fontSize: 12)),
+          ]),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Davet kodu oluştur')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Hesabı oluştur')),
         ],
       ),
     );
-    if (accepted != true) { name.dispose(); return; }
+    if (accepted != true) {
+      firstName.dispose(); lastName.dispose(); phone.dispose(); email.dispose(); password.dispose();
+      return;
+    }
     try {
-      final code = await client.rpc('create_employee_invite', params: {
-        'p_business_id': businessId,
-        'p_display_name': name.text.trim(),
+      if ([firstName.text, lastName.text, phone.text, email.text, password.text]
+          .any((value) => value.trim().isEmpty)) {
+        throw Exception('Ad, soyad, telefon, e-posta ve şifre zorunludur.');
+      }
+      if (!email.text.trim().contains('@') || password.text.length < 8) {
+        throw Exception('E-posta geçerli olmalı ve şifre en az 8 karakter olmalıdır.');
+      }
+      await client.functions.invoke('create-employee-account', body: {
+        'business_id': businessId,
+        'first_name': firstName.text.trim(),
+        'last_name': lastName.text.trim(),
+        'phone': phone.text.trim(),
+        'email': email.text.trim().toLowerCase(),
+        'password': password.text,
       });
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Davet kodu hazır'),
-          content: SelectableText('Çalışana bu kodu gönder: $code'),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tamam'))],
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Çalışan hesabı oluşturuldu. E-posta doğrulaması bekleniyor.')),
       );
       await refreshData();
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Davet oluşturulamadı: $error'), backgroundColor: wine),
+        SnackBar(content: Text('Çalışan hesabı oluşturulamadı: $error'), backgroundColor: wine),
       );
     } finally {
-      name.dispose();
+      firstName.dispose(); lastName.dispose(); phone.dispose(); email.dispose(); password.dispose();
     }
   }
 
