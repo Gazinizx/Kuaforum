@@ -2719,9 +2719,11 @@ class SettingsPage extends StatelessWidget {
 
   void open(BuildContext context, String section) {
     final page = switch (section) {
+      'İşletme Profili' => const BusinessDetailsPage(),
       'Çalışanlar' => const EmployeeManagementPage(),
       'Hizmetler' => const ServicesPage(),
       'Çalışma Saatleri' => const WorkingHoursPage(),
+      'Randevu Aralığı' => const AppointmentIntervalPage(),
       _ => null,
     };
     if (page == null) return;
@@ -2737,18 +2739,169 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => PageBody(children: [
     const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
     const SizedBox(height: 12),
-    ...['Çalışanlar','Hizmetler','Çalışma Saatleri'].map((section) => Card(
+    ...['İşletme Profili','Çalışanlar','Hizmetler','Çalışma Saatleri','Randevu Aralığı'].map((section) => Card(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
-        leading: Icon(section == 'Çalışanlar' ? Icons.people_outline : section == 'Hizmetler' ? Icons.content_cut : Icons.schedule, color: wine),
+        leading: Icon(switch (section) {
+          'İşletme Profili' => Icons.storefront_outlined,
+          'Çalışanlar' => Icons.people_outline,
+          'Hizmetler' => Icons.content_cut,
+          'Çalışma Saatleri' => Icons.schedule,
+          _ => Icons.timelapse,
+        }, color: wine),
         title: Text(section, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
         trailing: const Icon(Icons.chevron_right, color: muted),
         onTap: () => open(context, section),
       ),
     )),
   ]);
+}
+
+class BusinessDetailsPage extends StatefulWidget {
+  const BusinessDetailsPage({super.key});
+  @override
+  State<BusinessDetailsPage> createState() => _BusinessDetailsPageState();
+}
+
+class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
+  final client = Supabase.instance.client;
+  final name = TextEditingController();
+  final address = TextEditingController();
+  String? businessId;
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() { super.initState(); load(); }
+  @override
+  void dispose() { name.dispose(); address.dispose(); super.dispose(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('businesses')
+          .select('id,name,address').eq('owner_id', user.id).maybeSingle();
+      if (row == null) throw Exception('İşletme bulunamadı.');
+      businessId = row['id'] as String;
+      name.text = row['name'] as String? ?? '';
+      address.text = row['address'] as String? ?? '';
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletme bilgileri yüklenemedi: $error')));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> save() async {
+    if (businessId == null || name.text.trim().isEmpty) return;
+    setState(() => saving = true);
+    try {
+      await client.rpc('update_my_business_profile', params: {
+        'p_business_id': businessId,
+        'p_name': name.text.trim(),
+        'p_address': address.text.trim(),
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İşletme profili güncellendi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profil güncellenemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return PageBody(children: [
+      const Text('İşletme bilgileri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 16),
+      TextField(controller: name, textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'İşletme adı')),
+      const SizedBox(height: 12),
+      TextField(controller: address, maxLines: 2,
+        decoration: const InputDecoration(labelText: 'Adres')),
+      const SizedBox(height: 18),
+      ElevatedButton(onPressed: saving ? null : save,
+        child: saving ? const CircularProgressIndicator() : const Text('Değişiklikleri kaydet')),
+    ]);
+  }
+}
+
+class AppointmentIntervalPage extends StatefulWidget {
+  const AppointmentIntervalPage({super.key});
+  @override
+  State<AppointmentIntervalPage> createState() => _AppointmentIntervalPageState();
+}
+
+class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
+  final client = Supabase.instance.client;
+  String? businessId;
+  int selected = 30;
+  bool loading = true;
+  bool saving = false;
+  static const intervals = [10, 15, 20, 30, 45, 60];
+
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('businesses')
+          .select('id,appointment_interval_minutes')
+          .eq('owner_id', user.id).maybeSingle();
+      if (row == null) throw Exception('İşletme bulunamadı.');
+      businessId = row['id'] as String;
+      selected = (row['appointment_interval_minutes'] as num?)?.toInt() ?? 30;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu aralığı yüklenemedi: $error')));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> save() async {
+    if (businessId == null) return;
+    setState(() => saving = true);
+    try {
+      await client.rpc('update_appointment_interval', params: {
+        'p_business_id': businessId, 'p_interval_minutes': selected,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu aralığı kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu aralığı kaydedilemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return PageBody(children: [
+      const Text('Randevu Aralığı', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 8),
+      const Text('Yeni randevu saatlerinin kaç dakikada bir açılacağını belirle.', style: TextStyle(color: muted)),
+      const SizedBox(height: 18),
+      Wrap(spacing: 10, runSpacing: 10, children: intervals.map((minutes) =>
+        ChoiceChip(label: Text('$minutes dakika'), selected: selected == minutes,
+          onSelected: (_) => setState(() => selected = minutes),
+          selectedColor: blush)).toList()),
+      const SizedBox(height: 20),
+      ElevatedButton(onPressed: saving ? null : save,
+        child: saving ? const CircularProgressIndicator() : const Text('Kaydet')),
+    ]);
+  }
 }
 class WorkingHoursPage extends StatefulWidget {
   const WorkingHoursPage({super.key});
