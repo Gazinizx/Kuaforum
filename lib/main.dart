@@ -618,8 +618,14 @@ class PageBody extends StatelessWidget {
   @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(18,8,18,24),children:children);
 }
 class SectionTitle extends StatelessWidget {
-  final String title; final String? action; const SectionTitle(this.title,{super.key,this.action});
-  @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:22,bottom:12),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:ink))),if(action!=null) Text(action!,style:const TextStyle(color:rose,fontWeight:FontWeight.bold,fontSize:12))]));
+  final String title; final String? action; final VoidCallback? onTap;
+  const SectionTitle(this.title,{super.key,this.action,this.onTap});
+  @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:22,bottom:12),child:Row(children:[
+    Expanded(child:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:ink))),
+    if(action!=null) InkWell(onTap:onTap,borderRadius:BorderRadius.circular(10),child:Padding(
+      padding:const EdgeInsets.symmetric(vertical:6,horizontal:4),
+      child:Text(action!,style:const TextStyle(color:rose,fontWeight:FontWeight.bold,fontSize:12))))
+  ]));
 }
 class HeroPanel extends StatelessWidget {
   final String eyebrow,title,subtitle; final IconData icon; final String button;
@@ -908,7 +914,7 @@ class CustomerHome extends StatelessWidget {
   @override Widget build(BuildContext context)=>PageBody(children:[
     const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),const SizedBox(height:16),
     HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
-    const SizedBox(height:15),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
+    const SizedBox(height:15),const SearchBarBox(),SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
     const NearbyBusinessesSection(),const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
   ]);
 }
@@ -4274,7 +4280,7 @@ class _SharePageState extends State<SharePage> {
     const SizedBox(height:16),
     Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(24),border:Border.all(color:blush),boxShadow:[BoxShadow(color:wine.withOpacity(.07),blurRadius:18,offset:const Offset(0,7))]),child:Column(children:[
       Container(height:230,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(colors:[Color(0xFFF4DCE2),Color(0xFFD88DA2),Color(0xFF8E2947)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[
-        Positioned(right:14,top:14,child:Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Colors.white.withOpacity(.85),shape:BoxShape.circle),child:const Icon(Icons.auto_awesome,color:wine))),
+        Positioned(right:10,top:10,child:Container(decoration:const BoxDecoration(color:Colors.white,shape:BoxShape.circle),child:IconButton(tooltip:'Seçimi kaldır',onPressed:selectedMedia==null?null:()=>setState((){selectedMedia=null;isVideo=false;}),icon:Icon(selectedMedia==null?Icons.auto_awesome:Icons.close_rounded,color:wine)))),
         Center(child:selectedMedia!=null&&!isVideo?ClipRRect(borderRadius:BorderRadius.circular(18),child:Image.file(File(selectedMedia!.path),width:double.infinity,height:230,fit:BoxFit.cover)):Column(mainAxisSize:MainAxisSize.min,children:[Icon(isVideo?Icons.videocam_rounded:Icons.add_photo_alternate_rounded,size:54,color:Colors.white),const SizedBox(height:9),Text(selectedMedia==null?'Fotoğraf veya video seç':'Video hazır',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold)),const SizedBox(height:4),const Text('En güzel dönüşümünü burada göster ♡',style:TextStyle(color:Colors.white70,fontSize:11))])),
         Positioned(left:12,bottom:12,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),borderRadius:BorderRadius.circular(18)),child:const Text('ÖN İZLEME',style:TextStyle(color:Colors.white,fontSize:9,fontWeight:FontWeight.bold,letterSpacing:1))))
       ])),
