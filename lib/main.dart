@@ -1503,21 +1503,51 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
 
   Future<void> editComment(Map<String, dynamic> item) async {
     final editController = TextEditingController(text: item['body'] as String? ?? '');
-    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
-      AlertDialog(
-        title: const Text('Yorumu düzenle'),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          maxLength: 1000,
-          maxLines: 4,
-          decoration: const InputDecoration(hintText: 'Yorumunu yaz...'),
+    final accepted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+          decoration: const BoxDecoration(
+            color: cream,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Expanded(child: Text('Yorumu düzenle', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: ink))),
+                IconButton(onPressed: () => Navigator.pop(sheetContext, false), icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: editController,
+                autofocus: true,
+                maxLength: 1000,
+                minLines: 3,
+                maxLines: 6,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: 'Yorumunu yaz...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(width: double.infinity, child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext, true),
+                style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 15)),
+                child: const Text('Değişiklikleri kaydet'),
+              )),
+            ]),
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
-        ],
-      ));
+      ),
+    );
     if (accepted == true) {
       try {
         await widget.repository.updateComment(item['id'] as String, editController.text);
