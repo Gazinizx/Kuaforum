@@ -1952,6 +1952,241 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
+class SupportTicketsPage extends StatefulWidget {
+  final bool adminMode;
+  const SupportTicketsPage({super.key, this.adminMode = false});
+  @override
+  State<SupportTicketsPage> createState() => _SupportTicketsPageState();
+}
+
+class _SupportTicketsPageState extends State<SupportTicketsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> tickets;
+  @override
+  void initState() { super.initState(); tickets = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+      List<Map<String, dynamic>>.from(await client.from('support_tickets')
+        .select('id,subject,status,updated_at,created_by')
+        .order('updated_at', ascending: false));
+
+  Future<void> refresh() async { final next = load(); setState(() => tickets = next); await next; }
+
+  Future<void> createTicket() async {
+    final subject = TextEditingController();
+    final body = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Yeni destek talebi'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: subject, decoration: const InputDecoration(labelText: 'Konu')),
+          TextField(controller: body, minLines: 2, maxLines: 5,
+            decoration: const InputDecoration(labelText: 'Sorununu açıkla')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Gönder')),
+        ],
+      ));
+    if (accepted != true) { subject.dispose(); body.dispose(); return; }
+    try {
+      final userId = client.auth.currentUser!.id;
+      final row = await client.from('support_tickets').insert({
+        'created_by': userId, 'subject': subject.text.trim(),
+      }).select('id').single();
+      await client.from('support_ticket_messages').insert({
+        'ticket_id': row['id'], 'sender_id': userId, 'body': body.text.trim(),
+      });
+      await refresh();
+      if (mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+        SupportTicketChatPage(ticketId: row['id'] as String, subject: subject.text.trim(), adminMode: false)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Destek talebi oluşturulamadı: $error'), backgroundColor: wine));
+    } finally {
+      subject.dispose();
+      body.dispose();
+    }
+  }
+
+  String statusLabel(String status) => switch (status) {
+    'in_review' => 'İnceleniyor',
+    'resolved' => 'Çözüldü',
+    'closed' => 'Kapatıldı',
+    _ => 'Bekliyor',
+  };
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: tickets,
+    builder: (context, snapshot) => RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        Text(widget.adminMode ? 'Destek Talepleri' : 'Yardım ve Destek',
+          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 12),
+        if (!widget.adminMode)
+          ElevatedButton.icon(onPressed: createTicket,
+            icon: const Icon(Icons.add), label: const Text('Yeni destek talebi')),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Talepler yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.support_agent, title: 'Henüz destek talebi yok', detail: 'Yardıma ihtiyaç duyduğunda yeni talep oluşturabilirsin.')
+        else
+          ...(snapshot.data ?? []).map((ticket) => Card(
+            color: Colors.white, elevation: 0,
+            child: ListTile(
+              leading: const Icon(Icons.support_agent, color: wine),
+              title: Text(ticket['subject'] as String? ?? 'Destek talebi',
+                style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+              subtitle: Text(statusLabel(ticket['status'] as String? ?? 'pending'),
+                style: const TextStyle(color: muted)),
+              trailing: const Icon(Icons.chevron_right, color: muted),
+              onTap: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+                  SupportTicketChatPage(
+                    ticketId: ticket['id'] as String,
+                    subject: ticket['subject'] as String? ?? 'Destek',
+                    adminMode: widget.adminMode,
+                  )));
+                if (mounted) refresh();
+              },
+            ),
+          )),
+      ]),
+    ),
+  );
+}
+
+class SupportTicketChatPage extends StatefulWidget {
+  final String ticketId;
+  final String subject;
+  final bool adminMode;
+  const SupportTicketChatPage({super.key, required this.ticketId, required this.subject, required this.adminMode});
+  @override
+  State<SupportTicketChatPage> createState() => _SupportTicketChatPageState();
+}
+
+class _SupportTicketChatPageState extends State<SupportTicketChatPage> {
+  final client = Supabase.instance.client;
+  final controller = TextEditingController();
+  late final Stream<List<Map<String, dynamic>>> messages;
+  String status = 'pending';
+  bool sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStatus();
+    messages = client.from('support_ticket_messages').stream(primaryKey: ['id'])
+      .eq('ticket_id', widget.ticketId).order('created_at')
+      .map((rows) => rows.map((row) => Map<String, dynamic>.from(row)).toList());
+  }
+
+  Future<void> loadStatus() async {
+    try {
+      final row = await client.from('support_tickets').select('status')
+        .eq('id', widget.ticketId).single();
+      if (mounted) setState(() => status = row['status'] as String? ?? 'pending');
+    } catch (_) {}
+  }
+
+  Future<void> send() async {
+    final body = controller.text.trim();
+    if (sending || body.isEmpty || status == 'closed') return;
+    setState(() => sending = true);
+    try {
+      await client.from('support_ticket_messages').insert({
+        'ticket_id': widget.ticketId,
+        'sender_id': client.auth.currentUser!.id,
+        'body': body,
+      });
+      await client.from('support_tickets').update({'updated_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', widget.ticketId);
+      controller.clear();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesaj gönderilemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Future<void> changeStatus(String value) async {
+    try {
+      await client.from('support_tickets').update({
+        'status': value,
+        'closed_at': value == 'closed' ? DateTime.now().toUtc().toIso8601String() : null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.ticketId);
+      if (mounted) setState(() => status = value);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Talep durumu değiştirilemedi: $error'), backgroundColor: wine));
+    }
+  }
+
+  @override
+  void dispose() { controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      title: Text(widget.subject, style: const TextStyle(color: wine, fontWeight: FontWeight.bold)),
+      actions: [
+        if (widget.adminMode)
+          PopupMenuButton<String>(
+            onSelected: changeStatus,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'pending', child: Text('Bekliyor')),
+              PopupMenuItem(value: 'in_review', child: Text('İnceleniyor')),
+              PopupMenuItem(value: 'resolved', child: Text('Çözüldü')),
+              PopupMenuItem(value: 'closed', child: Text('Kapat')),
+            ],
+          )
+        else if (status != 'closed')
+          TextButton(onPressed: () => changeStatus('closed'), child: const Text('Talebi kapat')),
+      ],
+    ),
+    body: Column(children: [
+      Expanded(child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: messages,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: wine));
+          final userId = client.auth.currentUser?.id;
+          return ListView(padding: const EdgeInsets.all(16), children: snapshot.data!.map((message) {
+            final mine = message['sender_id'] == userId;
+            return Align(
+              alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),
+                decoration: BoxDecoration(color: mine ? wine : Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Text(message['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink)),
+              ),
+            );
+          }).toList());
+        },
+      )),
+      if (status != 'closed')
+        SafeArea(child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            Expanded(child: TextField(controller: controller, minLines: 1, maxLines: 4,
+              decoration: const InputDecoration(hintText: 'Mesajını yaz...'))),
+            IconButton(onPressed: sending ? null : send, icon: const Icon(Icons.send, color: wine)),
+          ]),
+        ))
+      else
+        const Padding(padding: EdgeInsets.all(16), child: Text('Bu destek talebi kapatıldı.', style: TextStyle(color: muted))),
+    ]),
+  );
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override State<ProfilePage> createState() => _ProfilePageState();
