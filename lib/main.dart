@@ -2677,10 +2677,12 @@ class _ActiveSessionsPageState extends State<ActiveSessionsPage> {
                 title: Text(agent == null || agent.isEmpty ? 'Bilinmeyen cihaz' : agent,
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
-                subtitle: Text('Son etkinlik: ${formatDate(session['last_active_at'])}
-Başlangıç: ${formatDate(session['created_at'])}${ip == null || ip.isEmpty ? '' : '
-IP: $ip'}',
-                  style: const TextStyle(color: muted, fontSize: 11)),
+                subtitle: Text(
+                  "Son etkinlik: ${formatDate(session['last_active_at'])}\\n"
+                  "Başlangıç: ${formatDate(session['created_at'])}"
+                  "${ip == null || ip.isEmpty ? '' : '\\nIP: $ip'}",
+                  style: const TextStyle(color: muted, fontSize: 11),
+                ),
                 trailing: current
                   ? const Text('Bu cihaz', style: TextStyle(color: wine, fontWeight: FontWeight.bold, fontSize: 11))
                   : IconButton(
@@ -5648,7 +5650,7 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
           title: Text(admin['full_name']?.toString() ?? 'Kullanıcı'),
           subtitle: Text('${admin['email'] ?? ''} • '
             '${(admin['permissions'] as List? ?? []).length} yetki'),
-          trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+          trailing: Wrap(children: [
             IconButton(icon: const Icon(Icons.edit_outlined, color: wine),
               onPressed: () => edit(admin)),
             IconButton(icon: const Icon(Icons.delete_outline, color: wine),
