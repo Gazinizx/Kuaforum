@@ -10,9 +10,12 @@ class KuaforumFeedPost {
     required this.authorName,
     required this.businessName,
     required this.businessOwnerId,
+    required this.authorAvatarUrl,
+    required this.businessLogoUrl,
     required this.isEmployeePost,
     required this.isOwnPost,
     required this.caption,
+    required this.category,
     required this.mediaUrl,
     required this.mediaType,
     required this.createdAt,
@@ -26,9 +29,12 @@ class KuaforumFeedPost {
   final String authorName;
   final String businessName;
   final String businessOwnerId;
+  final String? authorAvatarUrl;
+  final String? businessLogoUrl;
   final bool isEmployeePost;
   final bool isOwnPost;
   final String caption;
+  final String category;
   final String mediaUrl;
   final String mediaType;
   final DateTime createdAt;
@@ -41,6 +47,8 @@ class KuaforumFeedPost {
     Map<String, dynamic> json, {
     required String currentUserId,
     required String signedMediaUrl,
+    String? authorAvatarUrl,
+    String? businessLogoUrl,
   }) {
     final business = json['businesses'];
     final employee = json['employees'];
@@ -72,9 +80,12 @@ class KuaforumFeedPost {
           : (profileName.isNotEmpty ? profileName : businessName),
       businessName: businessName,
       businessOwnerId: businessOwnerId,
+      authorAvatarUrl: authorAvatarUrl,
+      businessLogoUrl: businessLogoUrl,
       isEmployeePost: employeeName.isNotEmpty,
       isOwnPost: authorUserId == currentUserId,
       caption: json['caption'] as String? ?? '',
+      category: json['category'] as String? ?? 'Genel',
       mediaUrl: signedMediaUrl,
       mediaType: json['media_type'] as String? ?? 'image',
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
@@ -90,10 +101,12 @@ class KuaforumFeedRepository {
 
   final SupabaseClient _client;
 
+  String? get currentUserId => _client.auth.currentUser?.id;
+
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id)';
+      'businesses(name,owner_id,logo_url),employees(display_name),'
+      'profiles!feed_posts_author_user_id_fkey(full_name,avatar_url),feed_likes(user_id),category';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -101,10 +114,54 @@ class KuaforumFeedRepository {
     return id;
   }
 
-  Future<List<KuaforumFeedPost>> fetchDiscoverFeed({int limit = 40}) async {
-    final rows = await _client
-        .from('feed_posts')
-        .select(_postSelection)
+  Future<List<KuaforumFeedPost>> fetchDiscoverFeed({
+    int limit = 40,
+    String searchQuery = '',
+    String category = 'Tümü',
+  }) async {
+    final term = searchQuery.trim();
+    List<String>? matchedPostIds;
+    if (term.isNotEmpty) {
+      final results = await Future.wait([
+        _client.from('feed_posts').select('id').ilike('caption', '%$term%'),
+        _client.from('businesses').select('id').eq('status', 'active').ilike('name', '%$term%'),
+        _client.from('public_employee_profiles').select('user_id').ilike('display_name', '%$term%'),
+      ]);
+      final businessIds = (results[1] as List)
+          .map((row) => row['id'] as String)
+          .toList();
+      final employeeIds = (results[2] as List)
+          .map((row) => row['user_id'] as String)
+          .toList();
+      final idSet = <String>{
+        ...(results[0] as List).map((row) => row['id'] as String),
+      };
+      if (businessIds.isNotEmpty) {
+        final rows = await _client
+            .from('feed_posts')
+            .select('id')
+            .inFilter('business_id', businessIds);
+        idSet.addAll(rows.map((row) => row['id'] as String));
+      }
+      if (employeeIds.isNotEmpty) {
+        final rows = await _client
+            .from('feed_posts')
+            .select('id')
+            .inFilter('author_user_id', employeeIds);
+        idSet.addAll(rows.map((row) => row['id'] as String));
+      }
+      matchedPostIds = idSet.toList();
+      if (matchedPostIds.isEmpty) return const [];
+    }
+
+    var query = _client.from('feed_posts').select(_postSelection);
+    if (matchedPostIds != null) {
+      query = query.inFilter('id', matchedPostIds);
+    }
+    if (category != 'Tümü') {
+      query = query.eq('category', category);
+    }
+    final rows = await query
         .order('created_at', ascending: false)
         .limit(limit);
     return _mapRows(rows);
@@ -201,18 +258,23 @@ class KuaforumFeedRepository {
   Future<void> publishPost({
     required File mediaFile,
     required String caption,
+    String category = 'Genel',
   }) async {
     final userId = _userId;
     final trimmedCaption = caption.trim();
     if (trimmedCaption.length > 500) {
       throw const PostgrestException(message: 'Açıklama en fazla 500 karakter olabilir.');
     }
+    const allowedCategories = {'Genel', 'Saç Kesimi', 'Boyama', 'Ombre', 'Topuz', 'Bakım'};
+    if (!allowedCategories.contains(category)) {
+      throw const PostgrestException(message: 'Geçersiz paylaşım kategorisi.');
+    }
 
-    final profile = await _client
-        .from('profiles')
-        .select('account_type,is_admin,is_blocked')
-        .eq('id', userId)
-        .single();
+    final statusRows = await _client.rpc('get_my_account_status') as List;
+    if (statusRows.isEmpty) {
+      throw const PostgrestException(message: 'Hesap profili bulunamadı.');
+    }
+    final profile = Map<String, dynamic>.from(statusRows.first as Map);
     if (profile['is_blocked'] == true || profile['is_admin'] == true) {
       throw const PostgrestException(
         message: 'Bu hesap paylaşım yapma yetkisine sahip değil.',
@@ -237,7 +299,7 @@ class KuaforumFeedRepository {
         );
       }
       businessId = business['id'] as String;
-    } else {
+    } else if (accountType == 'employee') {
       final employee = await _client
           .from('employees')
           .select('id,business_id')
@@ -252,6 +314,10 @@ class KuaforumFeedRepository {
       }
       employeeId = employee['id'] as String;
       businessId = employee['business_id'] as String;
+    } else {
+      throw const PostgrestException(
+        message: 'Yalnızca işletme sahibi ve aktif çalışan hesapları paylaşım yapabilir.',
+      );
     }
 
     final extension = mediaFile.path.split('.').last.toLowerCase();
@@ -285,6 +351,7 @@ class KuaforumFeedRepository {
         'employee_id': employeeId,
         'author_user_id': userId,
         'caption': trimmedCaption,
+        'category': category,
         'media_url': objectPath,
         'media_type': isVideo ? 'video' : 'image',
       });
@@ -326,6 +393,924 @@ class KuaforumFeedRepository {
         .eq('user_id', _userId);
   }
 
+  Future<Map<String, dynamic>> fetchPublicProfile(String userId) async {
+    final row = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type,avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Bu profil bulunamadı veya erişime kapalı.');
+    }
+    final profile = Map<String, dynamic>.from(row);
+    final avatarPath = profile['avatar_url'] as String?;
+    profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+    return profile;
+  }
+
+  Future<Map<String, dynamic>> fetchOwnedBusinessProfile() async {
+    final row = await _client
+        .from('businesses')
+        .select('id,name,address,owner_id,status,logo_url,appointment_interval_minutes')
+        .eq('owner_id', _userId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Bu hesaba bağlı işletme bulunamadı.');
+    }
+    final business = Map<String, dynamic>.from(row);
+    final logoPath = business['logo_url'] as String?;
+    business['logo_url'] = logoPath == null || logoPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+    return business;
+  }
+
+  Future<String> fetchMyBusinessJoinCode(String businessId) async {
+    final result = await _client.rpc('get_my_business_join_code', params: {
+      'p_business_id': businessId,
+    });
+    if (result == null || result.toString().isEmpty) {
+      throw const PostgrestException(message: 'İşletme katılım kodu alınamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchActiveBusinesses({
+    String searchQuery = '',
+    int limit = 50,
+  }) async {
+    var query = _client
+        .from('businesses')
+        .select('id,name,address,logo_url')
+        .eq('status', 'active');
+    final term = searchQuery.trim();
+    if (term.isNotEmpty) {
+      query = query.ilike('name', '%$term%');
+    }
+    final rows = await query.order('name').limit(limit);
+    return rows.map((row) {
+      final business = Map<String, dynamic>.from(row);
+      final logoPath = business['logo_url'] as String?;
+      business['logo_url'] = logoPath == null || logoPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+      return business;
+    }).toList();
+  }
+
+  Future<Map<String, dynamic>> fetchBusinessProfile(String businessId) async {
+    final row = await _client
+        .from('businesses')
+        .select('id,name,address,owner_id,status,logo_url')
+        .eq('id', businessId)
+        .maybeSingle();
+    if (row == null || (row['status'] != 'active' &&
+        row['owner_id'] != _userId)) {
+      throw const PostgrestException(message: 'Bu işletme profili şu anda görüntülenemiyor.');
+    }
+    final business = Map<String, dynamic>.from(row);
+    final logoPath = business['logo_url'] as String?;
+    business['logo_url'] = logoPath == null || logoPath.isEmpty
+        ? null
+        : _client.storage.from('salon-avatars').getPublicUrl(logoPath);
+    return business;
+  }
+
+  Future<Map<String, int>> fetchSocialStats({
+    String? userId,
+    String? businessId,
+  }) async {
+    if ((userId == null) == (businessId == null)) {
+      throw ArgumentError('Bir kullanıcı veya işletme kimliği verilmelidir.');
+    }
+    final rows = await _client.rpc('get_social_profile_stats', params: {
+      'p_user_id': userId,
+      'p_business_id': businessId,
+    });
+    final row = (rows as List).first as Map<String, dynamic>;
+    return {
+      'followers': (row['follower_count'] as num).toInt(),
+      'following': (row['following_count'] as num).toInt(),
+      'posts': (row['post_count'] as num).toInt(),
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserFollowers(String userId) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('follower_user_id')
+        .eq('followed_user_id', userId);
+    final ids = rows
+        .map((row) => row['follower_user_id'] as String)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return const [];
+    final profiles = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type,avatar_url')
+        .inFilter('id', ids);
+    return profiles.map((row) {
+      final profile = Map<String, dynamic>.from(row);
+      final avatarPath = profile['avatar_url'] as String?;
+      profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+      return profile;
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserFollowing(String userId) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('followed_user_id,followed_business_id')
+        .eq('follower_user_id', userId);
+    final userIds = <String>{};
+    final businessIds = <String>{};
+    for (final row in rows) {
+      final followedUser = row['followed_user_id'] as String?;
+      final followedBusiness = row['followed_business_id'] as String?;
+      if (followedUser != null) userIds.add(followedUser);
+      if (followedBusiness != null) businessIds.add(followedBusiness);
+    }
+
+    final result = <Map<String, dynamic>>[];
+    if (userIds.isNotEmpty) {
+      final profiles = await _client
+          .from('public_profiles')
+          .select('id,full_name,account_type,avatar_url')
+          .inFilter('id', userIds.toList());
+      result.addAll(profiles.map((row) {
+        final avatarPath = row['avatar_url'] as String?;
+        return {
+          'id': row['id'],
+          'name': row['full_name'],
+          'account_type': row['account_type'],
+          'kind': 'user',
+          'avatar_url': avatarPath == null || avatarPath.isEmpty
+              ? null
+              : _client.storage.from('salon-avatars').getPublicUrl(avatarPath),
+        };
+      }));
+    }
+    if (businessIds.isNotEmpty) {
+      final businesses = await _client
+          .from('businesses')
+          .select('id,name,address,status,logo_url')
+          .inFilter('id', businessIds.toList())
+          .eq('status', 'active');
+      result.addAll(businesses.map((row) {
+        final logoPath = row['logo_url'] as String?;
+        return {
+          'id': row['id'],
+          'name': row['name'],
+          'account_type': 'business',
+          'kind': 'business',
+          'address': row['address'],
+          'avatar_url': logoPath == null || logoPath.isEmpty
+              ? null
+              : _client.storage.from('salon-avatars').getPublicUrl(logoPath),
+        };
+      }));
+    }
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessFollowers(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('feed_follows')
+        .select('follower_user_id')
+        .eq('followed_business_id', businessId);
+    final ids = rows
+        .map((row) => row['follower_user_id'] as String)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return const [];
+    final profiles = await _client
+        .from('public_profiles')
+        .select('id,full_name,account_type,avatar_url')
+        .inFilter('id', ids);
+    return profiles.map((row) {
+      final profile = Map<String, dynamic>.from(row);
+      final avatarPath = profile['avatar_url'] as String?;
+      profile['avatar_url'] = avatarPath == null || avatarPath.isEmpty
+          ? null
+          : _client.storage.from('salon-avatars').getPublicUrl(avatarPath);
+      return profile;
+    }).toList();
+  }
+
+  Future<List<KuaforumFeedPost>> fetchProfilePosts({
+    String? userId,
+    String? businessId,
+    int limit = 30,
+  }) async {
+    if ((userId == null) == (businessId == null)) {
+      throw ArgumentError('Bir kullanıcı veya işletme kimliği verilmelidir.');
+    }
+    var query = _client.from('feed_posts').select(_postSelection);
+    query = userId != null
+        ? query.eq('author_user_id', userId)
+        : query.eq('business_id', businessId!);
+    final rows = await query
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return _mapRows(rows);
+  }
+
+  Future<String> uploadBusinessLogo(File imageFile) async {
+    if (await imageFile.length() > 5 * 1024 * 1024) {
+      throw const PostgrestException(message: 'İşletme logosu en fazla 5 MB olabilir.');
+    }
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => throw const PostgrestException(
+          message: 'İşletme logosu JPG, PNG veya WEBP olmalı.',
+        ),
+    };
+    final business = await _client
+        .from('businesses')
+        .select('id,logo_url')
+        .eq('owner_id', _userId)
+        .maybeSingle();
+    if (business == null) {
+      throw const PostgrestException(message: 'İşletme hesabı bulunamadı.');
+    }
+    final businessId = business['id'] as String;
+    final objectPath =
+        'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.$extension';
+    await _client.storage.from('salon-avatars').upload(
+      objectPath,
+      imageFile,
+      fileOptions: FileOptions(contentType: contentType, upsert: false),
+    );
+    try {
+      await _client.rpc('set_my_business_logo', params: {
+        'p_business_id': businessId,
+        'p_logo_path': objectPath,
+      });
+    } catch (_) {
+      await _client.storage.from('salon-avatars').remove([objectPath]);
+      rethrow;
+    }
+    final previousPath = business['logo_url'] as String?;
+    if (previousPath != null && previousPath.isNotEmpty) {
+      try {
+        await _client.storage.from('salon-avatars').remove([previousPath]);
+      } catch (_) {}
+    }
+    return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
+  }
+
+  Future<String> uploadProfileAvatar(File imageFile) async {
+    if (await imageFile.length() > 5 * 1024 * 1024) {
+      throw const PostgrestException(message: 'Profil fotoğrafı en fazla 5 MB olabilir.');
+    }
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => throw const PostgrestException(
+          message: 'Profil fotoğrafı JPG, PNG veya WEBP olmalı.',
+        ),
+    };
+    final userId = _userId;
+    final objectPath =
+        'profiles/$userId/avatar_${DateTime.now().microsecondsSinceEpoch}.$extension';
+    final previous = await _client
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+    await _client.storage.from('salon-avatars').upload(
+      objectPath,
+      imageFile,
+      fileOptions: FileOptions(contentType: contentType, upsert: false),
+    );
+    try {
+      await _client
+          .from('profiles')
+          .update({'avatar_url': objectPath})
+          .eq('id', userId);
+    } catch (_) {
+      await _client.storage.from('salon-avatars').remove([objectPath]);
+      rethrow;
+    }
+    final previousPath = previous?['avatar_url'] as String?;
+    if (previousPath != null && previousPath.isNotEmpty) {
+      try {
+        await _client.storage.from('salon-avatars').remove([previousPath]);
+      } catch (_) {}
+    }
+    return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
+  }
+
+  Future<Map<String, dynamic>> fetchMyProfileContact() async {
+    final rows = await _client.rpc('get_my_profile_contact') as List;
+    if (rows.isEmpty) {
+      throw const PostgrestException(message: 'Profil bilgileri bulunamadı.');
+    }
+    return Map<String, dynamic>.from(rows.first as Map);
+  }
+
+  Future<void> updateMyProfile({
+    required String fullName,
+    required String phone,
+  }) async {
+    final name = fullName.trim();
+    final number = phone.trim();
+    if (name.length < 2 || name.length > 80) {
+      throw const PostgrestException(message: 'Ad soyad 2-80 karakter arasında olmalı.');
+    }
+    if (number.length > 30) {
+      throw const PostgrestException(message: 'Telefon numarası çok uzun.');
+    }
+    await _client.from('profiles').update({
+      'full_name': name,
+      'phone': number.isEmpty ? null : number,
+    }).eq('id', _userId);
+  }
+
+  Future<void> leaveBusiness(String businessId) async {
+    await _client.rpc('leave_business', params: {
+      'p_business_id': businessId,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final rows = await _client
+        .from('notifications')
+        .select('id,appointment_id,title,body,created_at,read_at')
+        .eq('user_id', _userId)
+        .order('created_at', ascending: false)
+        .limit(100);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _client
+        .from('notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', notificationId)
+        .eq('user_id', _userId);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _client
+        .from('notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('user_id', _userId)
+        .isFilter('read_at', null);
+  }
+
+  Future<Map<String, dynamic>> fetchMyEmployeeContext() async {
+    final row = await _client
+        .from('employees')
+        .select('id,business_id,display_name')
+        .eq('user_id', _userId)
+        .eq('is_active', true)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Aktif çalışan kaydı bulunamadı.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<String> joinBusinessByCode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'İşletme kodunu gir.');
+    }
+    final result = await _client.rpc(
+      'join_business_by_code',
+      params: {'p_code': trimmed},
+    );
+    if (result == null) {
+      throw const PostgrestException(message: 'İşletmeye katılma işlemi tamamlanamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<String?> fetchMyBusinessMembership() async {
+    final row = await _client
+        .from('business_memberships')
+        .select('business_id')
+        .eq('customer_id', _userId)
+        .maybeSingle();
+    return row?['business_id'] as String?;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessEmployees(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('public_employee_profiles')
+        .select('id,user_id,business_id,display_name,avatar_url')
+        .eq('business_id', businessId);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCustomerAppointments() async {
+    final rows = await _client
+        .from('appointments')
+        .select(
+          'id,business_id,employee_id,service_id,starts_at,ends_at,status,'
+          'customer_note,requires_business_approval,'
+          'businesses(name),services(name,price,duration_minutes),employees(display_name)',
+        )
+        .eq('customer_id', _userId)
+        .order('starts_at', ascending: false);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessAppointments(
+    String businessId, {
+    required bool mineOnly,
+  }) async {
+    final rows = await _client.rpc('get_business_appointments', params: {
+      'p_business_id': businessId,
+      'p_mine_only': mineOnly,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAvailableAppointmentSlots({
+    required String businessId,
+    required String employeeId,
+    required String serviceId,
+    required DateTime date,
+  }) async {
+    final dateText = '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    final rows = await _client.rpc('get_available_appointment_slots', params: {
+      'p_business_id': businessId,
+      'p_employee_id': employeeId,
+      'p_service_id': serviceId,
+      'p_date': dateText,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<String> bookAppointment({
+    required String businessId,
+    required String employeeId,
+    required String serviceId,
+    required String startsAt,
+    String? customerNote,
+  }) async {
+    final result = await _client.rpc('book_appointment', params: {
+      'p_business_id': businessId,
+      'p_employee_id': employeeId,
+      'p_service_id': serviceId,
+      'p_starts_at': startsAt,
+      'p_customer_note': customerNote?.trim().isEmpty == true ? null : customerNote?.trim(),
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Randevu oluşturulamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<void> cancelAppointment(String appointmentId) async {
+    await _client.rpc('cancel_appointment', params: {
+      'p_appointment_id': appointmentId,
+    });
+  }
+
+  Future<void> reviewAppointmentRequest(
+    String appointmentId, {
+    required bool approve,
+  }) async {
+    await _client.rpc('review_appointment_request', params: {
+      'p_appointment_id': appointmentId,
+      'p_decision': approve ? 'approve' : 'reject',
+    });
+  }
+
+  Future<void> updateAppointmentStatus(
+    String appointmentId, {
+    required String status,
+  }) async {
+    if (!{'completed', 'no_show'}.contains(status)) {
+      throw const PostgrestException(message: 'Geçersiz randevu durumu.');
+    }
+    await _client.rpc('update_appointment_status', params: {
+      'p_appointment_id': appointmentId,
+      'p_status': status,
+    });
+  }
+
+  Future<void> updateOwnedBusinessProfile({
+    required String businessId,
+    required String name,
+    String? address,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      throw const PostgrestException(message: 'İşletme adı en az 2 karakter olmalı.');
+    }
+    await _client.rpc('update_my_business_profile', params: {
+      'p_business_id': businessId,
+      'p_name': trimmedName,
+      'p_address': address?.trim() ?? '',
+    });
+  }
+
+  Future<void> updateAppointmentInterval(
+    String businessId,
+    int minutes,
+  ) async {
+    await _client.rpc('update_appointment_interval', params: {
+      'p_business_id': businessId,
+      'p_interval_minutes': minutes,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessBreaks(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('business_breaks')
+        .select('id,weekday,starts_at,ends_at')
+        .eq('business_id', businessId)
+        .order('weekday')
+        .order('starts_at');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> addBusinessBreak({
+    required String businessId,
+    required int weekday,
+    required String startsAt,
+    required String endsAt,
+  }) async {
+    if (startsAt.compareTo(endsAt) >= 0) {
+      throw const PostgrestException(message: 'Mola bitişi başlangıçtan sonra olmalı.');
+    }
+    await _client.from('business_breaks').insert({
+      'business_id': businessId,
+      'weekday': weekday,
+      'starts_at': startsAt,
+      'ends_at': endsAt,
+    });
+  }
+
+  Future<void> deleteBusinessBreak(String id) async {
+    await _client.from('business_breaks').delete().eq('id', id);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessHours(
+    String businessId,
+  ) async {
+    var rows = await _client
+        .from('business_hours')
+        .select('id,weekday,opens_at,closes_at,is_closed')
+        .eq('business_id', businessId)
+        .order('weekday');
+    if (rows.isEmpty) {
+      final defaults = List.generate(7, (weekday) => {
+        'business_id': businessId,
+        'weekday': weekday,
+        'opens_at': '09:00:00',
+        'closes_at': '20:00:00',
+        'is_closed': false,
+      });
+      await _client
+          .from('business_hours')
+          .upsert(defaults, onConflict: 'business_id,weekday');
+      rows = await _client
+          .from('business_hours')
+          .select('id,weekday,opens_at,closes_at,is_closed')
+          .eq('business_id', businessId)
+          .order('weekday');
+    }
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> saveBusinessHours({
+    required String businessId,
+    required int weekday,
+    required String opensAt,
+    required String closesAt,
+    required bool isClosed,
+  }) async {
+    if (!isClosed && opensAt.compareTo(closesAt) >= 0) {
+      throw const PostgrestException(message: 'Kapanış saati açılış saatinden sonra olmalı.');
+    }
+    await _client.from('business_hours').upsert({
+      'business_id': businessId,
+      'weekday': weekday,
+      'opens_at': opensAt,
+      'closes_at': closesAt,
+      'is_closed': isClosed,
+    }, onConflict: 'business_id,weekday');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessCustomers(
+    String businessId,
+  ) async {
+    final rows = await _client.rpc('get_business_customers', params: {
+      'p_business_id': businessId,
+    });
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<void> setCustomerBlacklist({
+    required String businessId,
+    required String customerId,
+    required bool blocked,
+    String? reason,
+  }) async {
+    await _client.rpc('set_customer_blacklist', params: {
+      'p_business_id': businessId,
+      'p_customer_id': customerId,
+      'p_blocked': blocked,
+      'p_reason': reason?.trim().isEmpty == true ? null : reason?.trim(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchOwnedEmployees(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('employees')
+        .select('id,display_name,user_id,is_active,employee_invites(invite_code,expires_at,claimed_at)')
+        .eq('business_id', businessId)
+        .order('display_name');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<String> createEmployeeInvite({
+    required String businessId,
+    required String displayName,
+  }) async {
+    final result = await _client.rpc('create_employee_invite', params: {
+      'p_business_id': businessId,
+      'p_display_name': displayName.trim(),
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Çalışan daveti oluşturulamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<String> claimEmployeeInvite(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Çalışan davet kodunu gir.');
+    }
+    final result = await _client.rpc('claim_employee_invite', params: {
+      'p_code': trimmed,
+    });
+    if (result == null) {
+      throw const PostgrestException(message: 'Çalışan daveti kullanılamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<void> setEmployeeActive(String employeeId, bool isActive) async {
+    await _client.rpc('set_employee_active', params: {
+      'p_employee_id': employeeId,
+      'p_is_active': isActive,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessServices(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('services')
+        .select('id,name,price,duration_minutes,is_active')
+        .eq('business_id', businessId)
+        .order('name');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> createBusinessService({
+    required String businessId,
+    required String name,
+    required double price,
+    required int durationMinutes,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || price < 0 || durationMinutes < 5) {
+      throw const PostgrestException(message: 'Hizmet bilgilerini kontrol et.');
+    }
+    await _client.from('services').insert({
+      'business_id': businessId,
+      'name': trimmed,
+      'price': price,
+      'duration_minutes': durationMinutes,
+      'is_active': true,
+    });
+  }
+
+  Future<void> updateBusinessService({
+    required String serviceId,
+    required String name,
+    required double price,
+    required int durationMinutes,
+    required bool isActive,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || price < 0 || durationMinutes < 5) {
+      throw const PostgrestException(message: 'Hizmet bilgilerini kontrol et.');
+    }
+    await _client.from('services').update({
+      'name': trimmed,
+      'price': price,
+      'duration_minutes': durationMinutes,
+      'is_active': isActive,
+    }).eq('id', serviceId);
+  }
+
+  Future<void> deleteBusinessService(String serviceId) async {
+    await _client.from('services').delete().eq('id', serviceId);
+  }
+
+  Future<bool> canMessageEmployee(String employeeUserId) async {
+    final result = await _client.rpc(
+      'can_message_employee',
+      params: {'p_employee_user_id': employeeUserId},
+    );
+    return result == true;
+  }
+
+  Future<String> startEmployeeConversation(String employeeUserId) async {
+    final result = await _client.rpc(
+      'start_employee_conversation',
+      params: {'p_employee_user_id': employeeUserId},
+    );
+    if (result == null) {
+      throw const PostgrestException(message: 'Sohbet başlatılamadı.');
+    }
+    return result.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchConversations() async {
+    final currentUserId = _userId;
+    final rows = await _client
+        .from('conversations')
+        .select(
+          'id,business_id,employee_id,customer_id,updated_at,'
+          'businesses(name,owner_id),customer:profiles!conversations_customer_id_fkey(full_name,avatar_url)',
+        )
+        .order('updated_at', ascending: false);
+
+    final employeeIds = rows
+        .map((row) => row['employee_id'] as String)
+        .toSet()
+        .toList();
+    final employeeRows = employeeIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : (await _client
+            .from('public_employee_profiles')
+            .select('id,user_id,business_id,display_name,avatar_url')
+            .inFilter('id', employeeIds))
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList();
+    final employeesById = {
+      for (final employee in employeeRows) employee['id'] as String: employee,
+    };
+
+    final result = <Map<String, dynamic>>[];
+    for (final raw in rows) {
+      final row = Map<String, dynamic>.from(raw);
+      final employee = employeesById[row['employee_id']] ?? <String, dynamic>{};
+      final customer = row['customer'];
+      final business = row['businesses'];
+      final customerId = row['customer_id'] as String;
+      final employeeUserId = employee['user_id'] as String?;
+      final businessOwnerId = business is Map<String, dynamic>
+          ? business['owner_id'] as String?
+          : null;
+      final isBusinessOwner = businessOwnerId == currentUserId;
+      if (customerId != currentUserId &&
+          employeeUserId != currentUserId &&
+          !isBusinessOwner) {
+        continue;
+      }
+      final customerAvatarPath = customer is Map<String, dynamic>
+          ? customer['avatar_url'] as String?
+          : null;
+      final employeeAvatarPath = employee['avatar_url'] as String?;
+      result.add({
+        'id': row['id'],
+        'business_id': row['business_id'],
+        'customer_id': customerId,
+        'employee_user_id': employeeUserId,
+        'business_name': business is Map<String, dynamic>
+            ? business['name'] as String? ?? 'Kuaförüm'
+            : 'Kuaförüm',
+        'is_business_owner': isBusinessOwner,
+        'customer_name': customer is Map<String, dynamic>
+            ? customer['full_name'] as String? ?? 'Müşteri'
+            : 'Müşteri',
+        'employee_name': employee['display_name'] as String? ?? 'Çalışan',
+        'customer_avatar_url': customerAvatarPath == null || customerAvatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(customerAvatarPath),
+        'employee_avatar_url': employeeAvatarPath == null || employeeAvatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(employeeAvatarPath),
+        'updated_at': row['updated_at'],
+      });
+    }
+    return result;
+  }
+
+  Stream<List<Map<String, dynamic>>> streamMessages(String conversationId) {
+    return _client
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_id', conversationId);
+  }
+
+  Future<void> sendMessage(String conversationId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+    if (trimmed.length > 4000) {
+      throw const PostgrestException(message: 'Mesaj en fazla 4000 karakter olabilir.');
+    }
+    await _client.from('messages').insert({
+      'conversation_id': conversationId,
+      'sender_id': _userId,
+      'body': trimmed,
+    });
+  }
+
+  Future<void> updatePostCaption(String postId, String caption) async {
+    final trimmed = caption.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Paylaşım açıklaması boş olamaz.');
+    }
+    if (trimmed.length > 500) {
+      throw const PostgrestException(message: 'Açıklama en fazla 500 karakter olabilir.');
+    }
+    await _client
+        .from('feed_posts')
+        .update({
+          'caption': trimmed,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', postId)
+        .eq('author_user_id', _userId);
+  }
+
+  Future<void> deletePost(String postId) async {
+    final row = await _client
+        .from('feed_posts')
+        .select('media_url')
+        .eq('id', postId)
+        .maybeSingle();
+    if (row == null) {
+      throw const PostgrestException(message: 'Paylaşım bulunamadı.');
+    }
+    final mediaPath = row['media_url'] as String;
+    await _client.storage.from('salon-feed').remove([mediaPath]);
+    await _client
+        .from('feed_posts')
+        .delete()
+        .eq('id', postId)
+        .eq('author_user_id', _userId);
+  }
+
+  Future<void> reportPost(String postId, String reason) async {
+    const allowedReasons = {
+      'Spam',
+      'Uygunsuz içerik',
+      'Taciz veya hakaret',
+      'Sahte hesap / yanıltıcı',
+      'Diğer',
+    };
+    if (!allowedReasons.contains(reason)) {
+      throw const PostgrestException(message: 'Geçersiz şikâyet nedeni.');
+    }
+    await _client.from('feed_reports').upsert(
+      {
+        'post_id': postId,
+        'reporter_user_id': _userId,
+        'reason': reason,
+      },
+      onConflict: 'post_id,reporter_user_id',
+      ignoreDuplicates: true,
+    );
+  }
+
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
     if (currentlyLiked) {
       await _client
@@ -351,10 +1336,24 @@ class KuaforumFeedRepository {
       final signedUrl = await _client.storage
           .from('salon-feed')
           .createSignedUrl(path, 3600);
+      final profile = row['profiles'];
+      final business = row['businesses'];
+      final avatarPath = profile is Map<String, dynamic>
+          ? profile['avatar_url'] as String?
+          : null;
+      final logoPath = business is Map<String, dynamic>
+          ? business['logo_url'] as String?
+          : null;
       result.add(KuaforumFeedPost.fromJson(
         row,
         currentUserId: userId,
         signedMediaUrl: signedUrl,
+        authorAvatarUrl: avatarPath == null || avatarPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(avatarPath),
+        businessLogoUrl: logoPath == null || logoPath.isEmpty
+            ? null
+            : _client.storage.from('salon-avatars').getPublicUrl(logoPath),
       ));
     }
     return result;

@@ -1,11 +1,14 @@
 name: Android APK
 on:
   push:
-    branches: [main]
+    branches:
+      - feature/profile-follow-lists
   workflow_dispatch:
 concurrency:
   group: android-apk-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,15 +18,82 @@ jobs:
         with:
           channel: stable
       - run: flutter create . --platforms=android --org com.gazinizx
-      - name: Ensure release internet access
+      - name: Configure Android network and camera permissions
         run: |
-          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA"/>' android/app/src/main/AndroidManifest.xml
+      - name: Configure password reset deep link
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          content = path.read_text()
+          intent_filter = """            <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="com.gazinizx.kuaforum" android:host="reset-password" />
+                      </intent-filter>
+          """
+          if 'android:host="reset-password"' not in content:
+              content = content.replace("        </activity>", intent_filter + "        </activity>", 1)
+              path.write_text(content)
+          PY
       - run: sed -i '/ndkVersion/d' android/app/build.gradle.kts
       - run: flutter pub get
+      - name: Commit generated dependency lockfile
+        run: |
+          test -f pubspec.lock
+          git add pubspec.lock
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Lock Flutter dependencies"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+      - run: flutter pub get --enforce-lockfile
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release
+      - name: Build APK (real authentication flow)
+        run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: kuaforum-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Publish direct APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-apk
+          name: Kuaförüm Test APK
+          make_latest: false
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  ios-compile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate iOS runner project
+        run: flutter create . --platforms=ios --org com.gazinizx
+      - name: Configure iOS camera and photo permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("ios/Runner/Info.plist")
+          content = path.read_text()
+          entries = """\t<key>NSCameraUsageDescription</key>
+          \t<string>Kuaförüm, işletme katılım QR kodlarını taramak için kamerayı kullanır.</string>
+          \t<key>NSPhotoLibraryUsageDescription</key>
+          \t<string>Kuaförüm, profil fotoğrafı ve paylaşım seçmek için fotoğraf arşivine erişir.</string>
+          """
+          if "NSCameraUsageDescription" not in content:
+              content = content.replace("</dict>", entries + "</dict>")
+              path.write_text(content)
+          PY
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter build ios --release --no-codesign
