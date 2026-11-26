@@ -23,7 +23,8 @@ const ink = Color(0xFF39252C);
 const muted = Color(0xFF927B82);
 
 class KuaforumApp extends StatelessWidget {
-  const KuaforumApp({super.key});
+  final bool autoResume;
+  const KuaforumApp({super.key, this.autoResume = true});
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -35,13 +36,14 @@ class KuaforumApp extends StatelessWidget {
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
     ),
-    home: const LoginEntryPage(),
+    home: LoginEntryPage(autoResume: autoResume),
   );
 }
 
 
 class LoginEntryPage extends StatefulWidget {
-  const LoginEntryPage({super.key});
+  final bool autoResume;
+  const LoginEntryPage({super.key, this.autoResume = true});
   @override
   State<LoginEntryPage> createState() => _LoginEntryPageState();
 }
@@ -58,6 +60,7 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
   @override
   void initState() {
     super.initState();
+    if (!widget.autoResume) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) _openAccount(user.id);
