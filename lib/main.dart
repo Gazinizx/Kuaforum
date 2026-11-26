@@ -3208,6 +3208,244 @@ class _ProfilePageState extends State<ProfilePage> {
     ]),
   );
 }
+class BusinessProfilePage extends StatefulWidget {
+  final String businessId;
+  const BusinessProfilePage({super.key, required this.businessId});
+  @override State<BusinessProfilePage> createState() => _BusinessProfilePageState();
+}
+
+class _BusinessProfilePageState extends State<BusinessProfilePage> {
+  final client = Supabase.instance.client;
+  final feedRepository = KuaforumFeedRepository();
+  late Future<Map<String, dynamic>> data;
+  bool following = false;
+  bool followBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final business = Map<String, dynamic>.from(await client.from('businesses')
+      .select('id,name,address,logo_url,is_temporarily_closed')
+      .eq('id', widget.businessId).eq('status', 'active').single());
+    final results = await Future.wait([
+      client.from('services').select('id,name,price,duration_minutes')
+        .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
+      client.from('employees').select('id,display_name,user_id')
+        .eq('business_id', widget.businessId).eq('is_active', true).not('user_id', 'is', null).order('display_name'),
+      client.from('business_reviews').select('id,customer_id,rating,body,created_at')
+        .eq('business_id', widget.businessId).order('created_at', ascending: false).limit(30),
+      client.from('feed_follows').select('id').eq('followed_business_id', widget.businessId),
+    ]);
+    final services = List<Map<String, dynamic>>.from(results[0]);
+    final employees = List<Map<String, dynamic>>.from(results[1]);
+    final reviews = List<Map<String, dynamic>>.from(results[2]);
+    final followers = results[3] as List;
+    final customerIds = reviews.map((r) => r['customer_id'] as String).toSet().toList();
+    final profiles = customerIds.isEmpty ? [] : await client.from('public_profiles')
+      .select('id,full_name,avatar_url').inFilter('id', customerIds);
+    final profileMap = {for (final p in profiles) p['id'] as String: p};
+    for (final review in reviews) {
+      review['customer_profile'] = profileMap[review['customer_id']] ?? {};
+    }
+    final posts = await feedRepository.fetchBusinessFeed(widget.businessId);
+    final userId = client.auth.currentUser?.id;
+    if (userId != null) {
+      following = await feedRepository.isFollowingBusiness(widget.businessId);
+    }
+    return {
+      'business': business,
+      'services': services,
+      'employees': employees,
+      'reviews': reviews,
+      'followers': followers.length,
+      'posts': posts,
+    };
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> toggleFollow() async {
+    if (followBusy) return;
+    setState(() { followBusy = true; following = !following; });
+    try {
+      if (following) {
+        await feedRepository.followBusiness(widget.businessId);
+      } else {
+        await feedRepository.unfollowBusiness(widget.businessId);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => following = !following);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Takip durumu güncellenemedi: $error'), backgroundColor: wine),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  Future<void> bookAppointment(String businessName) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return;
+    final membership = await client.from('business_memberships')
+      .select('id').eq('business_id', widget.businessId).eq('customer_id', userId).maybeSingle();
+    if (membership == null) {
+      final code = TextEditingController();
+      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+        AlertDialog(
+          title: Text('$businessName işletmesine katıl'),
+          content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'İşletmenin verdiği katılım kodu')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl ve devam et')),
+          ],
+        ));
+      if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
+      try {
+        final joinedId = await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        if (joinedId != widget.businessId) throw Exception('Bu kod seçtiğin işletmeye ait değil.');
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine),
+        );
+        code.dispose();
+        return;
+      }
+      code.dispose();
+    }
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(businessName)),
+      body: BusinessBookingPage(businessId: widget.businessId, businessName: businessName),
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator(color: wine)));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Scaffold(appBar: AppBar(), body: Center(
+          child: Text('İşletme profili yüklenemedi: ${snapshot.error ?? ''}', style: const TextStyle(color: wine)),
+        ));
+      }
+      final business = snapshot.data!['business'] as Map<String, dynamic>;
+      final services = snapshot.data!['services'] as List<Map<String, dynamic>>;
+      final employees = snapshot.data!['employees'] as List<Map<String, dynamic>>;
+      final reviews = snapshot.data!['reviews'] as List<Map<String, dynamic>>;
+      final posts = snapshot.data!['posts'] as List<KuaforumFeedPost>;
+      final rawLogo = business['logo_url'] as String?;
+      final logo = rawLogo == null || rawLogo.isEmpty ? null :
+        (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      final average = reviews.isEmpty ? 'Yeni' :
+        (reviews.fold<double>(0, (sum, r) => sum + ((r['rating'] as num?)?.toDouble() ?? 0)) / reviews.length).toStringAsFixed(1);
+      final closed = business['is_temporarily_closed'] == true;
+      return Scaffold(
+        backgroundColor: cream,
+        appBar: AppBar(title: const Text('İşletme Profili')),
+        body: RefreshIndicator(
+          color: wine,
+          onRefresh: refresh,
+          child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+            Center(child: CircleAvatar(
+              radius: 48, backgroundColor: blush,
+              backgroundImage: logo == null ? null : NetworkImage(logo),
+              child: logo == null ? const Icon(Icons.storefront, size: 48, color: wine) : null,
+            )),
+            const SizedBox(height: 10),
+            Text(business['name'] as String? ?? 'Kuaför', textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: ink)),
+            Text(business['address'] as String? ?? 'Adres belirtilmemiş',
+              textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+            const SizedBox(height: 10),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.star_rounded, color: Color(0xFFE5A93D), size: 20),
+              const SizedBox(width: 4),
+              Text('$average  •  ${reviews.length} değerlendirme  •  ${snapshot.data!['followers']} takipçi',
+                style: const TextStyle(color: ink, fontWeight: FontWeight.w700, fontSize: 12)),
+            ]),
+            if (closed) const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: Text('İşletme şu anda geçici olarak kapalı.', textAlign: TextAlign.center,
+                style: TextStyle(color: wine, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: followBusy ? null : toggleFollow,
+              icon: Icon(following ? Icons.favorite : Icons.favorite_border),
+              label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
+            ),
+            const SectionTitle('Hizmetler'),
+            if (services.isEmpty) const Text('Henüz hizmet eklenmemiş.', style: TextStyle(color: muted))
+            else ...services.map((service) => Card(
+              color: Colors.white, elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.content_cut, color: wine),
+                title: Text(service['name'] as String? ?? 'Hizmet', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: Text('${service['duration_minutes']} dakika', style: const TextStyle(color: muted)),
+                trailing: Text('${service['price']} ₺', style: const TextStyle(color: wine, fontWeight: FontWeight.w800)),
+              ),
+            )),
+            const SectionTitle('Çalışanlarımız'),
+            if (employees.isEmpty) const Text('Henüz aktif çalışan bulunmuyor.', style: TextStyle(color: muted))
+            else ...employees.map((employee) => Card(
+              color: Colors.white, elevation: 0,
+              child: ListTile(
+                leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                title: Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+              ),
+            )),
+            const SectionTitle('Paylaşımlar'),
+            if (posts.isEmpty) const Text('Bu işletme henüz paylaşım yapmamış.', style: TextStyle(color: muted))
+            else ...posts.map((post) => LiveFeedPostCard(post: post, repository: feedRepository)),
+            const SectionTitle('Müşteri Değerlendirmeleri'),
+            if (reviews.isEmpty) const Text('Henüz değerlendirme yok.', style: TextStyle(color: muted))
+            else ...reviews.map((review) {
+              final profile = review['customer_profile'] is Map ? review['customer_profile'] as Map : {};
+              return Card(color: Colors.white, elevation: 0, child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(profile['full_name'] as String? ?? 'Müşteri',
+                      style: const TextStyle(color: ink, fontWeight: FontWeight.w700))),
+                    const Icon(Icons.star_rounded, color: Color(0xFFE5A93D), size: 18),
+                    Text(' ${review['rating']}/5', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                  ]),
+                  if ((review['body'] as String? ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(review['body'] as String, style: const TextStyle(color: muted, height: 1.4)),
+                  ],
+                ]),
+              ));
+            }),
+          ]),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.all(14),
+          child: SizedBox(height: 50, child: FilledButton(
+            onPressed: closed ? null : () => bookAppointment(business['name'] as String? ?? 'İşletme'),
+            style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+            child: Text(closed ? 'Geçici olarak kapalı' : 'Randevu al'),
+          )),
+        ),
+      );
+    },
+  );
+}
+
 class BusinessBookingPage extends StatefulWidget {
   final String businessId;
   final String businessName;
