@@ -48,7 +48,7 @@ class KuaforumMessagingRepository {
     final rows = await _client
         .from('conversations')
         .select('id,business_id,employee_id,customer_id,updated_at,'
-            'businesses(name),sender_business:businesses!conversations_sender_business_id_fkey(name),employees(display_name,user_id)')
+            'businesses!conversations_business_id_fkey(name),sender_business:businesses!conversations_sender_business_id_fkey(name),employees(display_name,user_id)')
         .order('updated_at', ascending: false);
 
     if (rows.isEmpty) return const [];
