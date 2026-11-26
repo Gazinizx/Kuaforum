@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1307,7 +1306,7 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
     return '${date.day} ${_monthName(date.month)}';
   }
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return 'K';
     return parts.take(2).map((p) => p.substring(0, 1).toUpperCase()).join();
   }
@@ -1406,7 +1405,7 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
                 final body = item['body'] as String? ?? '';
                 final date = DateTime.tryParse(item['created_at'] as String? ?? '')?.toLocal();
                 final id = item['id']?.toString();
-                final mine = item['user_id'] == Supabase.instance.client.auth.currentUser?.id;
+                final mine = item['user_id'] == widget.repository.currentUserId;
                 return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   CircleAvatar(radius: 19, backgroundColor: blush, child: Text(
                     _initials(author), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.w800),
