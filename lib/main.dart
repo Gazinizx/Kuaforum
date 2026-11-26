@@ -2002,8 +2002,26 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
           children: [
-            Text(widget.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)]),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 5),
+                const Text('Randevularını tarihine ve durumuna göre kolayca takip et.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 14),
+                Row(children: [
+                  _AppointmentCount(value: all.length.toString(), label: 'Toplam'),
+                  _AppointmentCount(value: all.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length.toString(), label: 'Aktif'),
+                  _AppointmentCount(value: all.where((a) => a['status'] == 'completed').length.toString(), label: 'Tamamlanan'),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 16),
             Wrap(spacing: 8, children: [
               _Chip('Aktif', active: filter == 'Aktif', onTap: () => setState(() => filter = 'Aktif')),
               _Chip('Bekleyen', active: filter == 'Bekleyen', onTap: () => setState(() => filter = 'Bekleyen')),
@@ -2104,6 +2122,15 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     },
   );
 }
+class _AppointmentCount extends StatelessWidget {
+  final String value, label;
+  const _AppointmentCount({required this.value, required this.label});
+  @override Widget build(BuildContext context) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+  ]));
+}
+
 class AppointmentTile extends StatelessWidget {
   final String name, service, time, status;
   const AppointmentTile({super.key, required this.name, required this.service, required this.time, required this.status});
@@ -3404,6 +3431,34 @@ class _ProfilePageState extends State<ProfilePage> {
   }
   Future<void> refreshProfile() async { final next = loadProfile(); setState(() => profile = next); await next; }
 
+  Future<void> editName(String current) async {
+    final controller = TextEditingController(text: current);
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Ad soyad düzenle'),
+      content: TextField(controller: controller, autofocus: true, maxLength: 100,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'Ad soyad', prefixIcon: Icon(Icons.person_outline))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+      ],
+    ));
+    if (accepted == true) {
+      final name = controller.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+      try {
+        if (name.length < 3 || !name.contains(' ')) {
+          throw Exception('Ad ve soyadını birlikte gir.');
+        }
+        await client.from('profiles').update({'full_name': name}).eq('id', client.auth.currentUser!.id);
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad soyad güncellendi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ad soyad güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
+    controller.dispose();
+  }
+
   Future<void> editPhone(String current) async {
     final controller = TextEditingController(text: current);
     final save = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
@@ -3625,6 +3680,7 @@ class _ProfilePageState extends State<ProfilePage> {
         Text(snapshot.data!['phone']?.toString() ?? 'Telefon eklenmemiş', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
         const SizedBox(height: 20),
         ...[
+          ('Ad soyad düzenle', Icons.person_outline, () => editName(snapshot.data!['full_name']?.toString() ?? '')),
           ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
           ('Şifre değiştir', Icons.lock_outline, changePassword),
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
