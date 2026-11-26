@@ -54,6 +54,7 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
   final firstName = TextEditingController();
   final lastName = TextEditingController();
   final phone = TextEditingController();
+  final inviteCode = TextEditingController();
   bool isRegister = false;
   bool busy = false;
   bool obscurePassword = true;
@@ -77,6 +78,7 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     firstName.dispose();
     lastName.dispose();
     phone.dispose();
+    inviteCode.dispose();
     super.dispose();
   }
 
@@ -119,9 +121,20 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
       } else {
         final result = await auth.signInWithPassword(email: mail, password: password.text);
         if (result.user == null) throw AuthException('Giriş yapılamadı.');
+        final code = inviteCode.text.trim();
+        if (code.isNotEmpty) {
+          try {
+            await Supabase.instance.client.rpc('claim_employee_invite', params: {'p_code': code});
+          } catch (error) {
+            await auth.signOut();
+            rethrow;
+          }
+        }
         await _openAccount(result.user!.id);
       }
     } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } on PostgrestException catch (error) {
       if (mounted) setState(() => message = error.message);
     } catch (error) {
       if (mounted) setState(() => message = 'İşlem tamamlanamadı. Bilgilerini ve bağlantını kontrol et.');
@@ -285,6 +298,21 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       ),
                       onSubmitted: (_) => busy ? null : submit(),
                     ),
+                    if (!isRegister) ...[
+                      const SizedBox(height: 14),
+                      const Text('ÇALIŞAN DAVET KODU (İSTEĞE BAĞLI)', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .7)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: inviteCode,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: 'İşletmenin verdiği davet kodu',
+                          prefixIcon: const Icon(Icons.badge_outlined, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ],
                     if (isRegister && accountType == 'business_owner')
                       const Padding(
                         padding: EdgeInsets.only(top: 10),
