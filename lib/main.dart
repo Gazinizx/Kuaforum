@@ -873,31 +873,6 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     loadFollowState();
   }
 
-  Future<void> chooseAvatar() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 86,
-    );
-    if (picked == null || !mounted) return;
-    setState(() => avatarBusy = true);
-    try {
-      await repository.uploadProfileAvatar(File(picked.path));
-      if (!mounted) return;
-      setState(() => data = load());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafın güncellendi.')),
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profil fotoğrafı yüklenemedi: $error')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => avatarBusy = false);
-    }
-  }
-
   Future<void> loadFollowState() async {
     try {
       final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
@@ -2664,6 +2639,35 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
     }
   }
 
+  Future<void> chooseAvatar() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 86,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => avatarBusy = true);
+    try {
+      await repository.uploadProfileAvatar(File(picked.path));
+      if (!mounted) return;
+      final next = load();
+      setState(() => data = next);
+      await next;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil fotoğrafın güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Profil fotoğrafı yüklenemedi: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => avatarBusy = false);
+    }
+  }
+
   Future<void> openConversation(String employeeName) async {
     try {
       final conversationId =
@@ -3471,11 +3475,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     final values = await Future.wait([
       repository.fetchSocialStats(businessId: id),
       repository.fetchProfilePosts(businessId: id),
+      repository.fetchBusinessServices(id),
+      repository.fetchMyBusinessMembership(),
     ]);
     return _BusinessProfileData(
       business,
       values[0] as Map<String, int>,
       values[1] as List<KuaforumFeedPost>,
+      values[2] as List<Map<String, dynamic>>,
+      values[3] == id,
     );
   }
 
