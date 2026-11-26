@@ -2,34 +2,39 @@
 
 Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaşım ve işletme yönetimi uygulaması.
 
-## Uygulama kapsamı
+## Tamamlanan uygulama akışları
 
-- Normal kayıt yalnızca müşteri hesabı oluşturur; e-posta, ad, soyad ve telefon zorunludur.
-- Çalışan, işletme sahibinin oluşturduğu davet kodunu müşteri hesabıyla giriş sırasında kullanarak çalışan hesabına geçer.
-- İşletmeler ana yönetici tarafından onaylanır.
-- Müşteri işletmeye katılım koduyla bağlanabilir; profilinden bağlı işletmelerini ve takip ettiklerini yönetebilir.
-- İşletme sahibi çalışan, hizmet, işletme profili, çalışma saatleri ve randevu aralığını yönetebilir.
-- Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi onaylar/reddeder.
-- Müşteri işletme, hizmet, çalışan ve uygun saat seçerek randevu talebi oluşturabilir. Kara liste/özel onay, randevu iptali ve gelmeme kuralları veritabanında uygulanır.
-- İşletme geçici kapatıldığında yeni randevu alınamaz; mevcut randevular korunur.
-- Keşfet ve Takip akışları gerçek Supabase verisiyle çalışır; paylaşım, beğeni, yorum, kaydetme, takip ve paylaşım silme işlemleri veritabanına bağlıdır.
-- Aktif işletmelerin paylaşımları Keşfet'te herkese açıktır. Üst sıralama hakkı olan işletmeler yönetici kontrolüyle öne çıkar; sıralamada etkileşim ve işletme puanları dikkate alınır.
-- Mesajlaşma, kişi bazlı gizleme, işletme sohbeti ve çalışanla özel sohbet desteklenir. İşletme sahibi çalışanların özel sohbetlerini okuyamaz.
-- Bildirim merkezi, takip/beğeni/yorum/paylaşım/mesaj ve randevu bildirimlerini gösterir.
+- Herkese açık kayıt yalnızca müşteri hesabı oluşturur; ad, soyad, telefon, e-posta ve şifre zorunludur.
+- İşletme hesapları ana yönetici tarafından yönetilir.
+- İşletme sahibi çalışan hesabını ad, soyad, telefon, e-posta ve ilk şifreyle oluşturur; çalışana e-posta doğrulama bağlantısı gönderilir.
+- İşletme sahibi çalışanı devre dışı bırakabilir veya kaldırabilir. Çalışan kendi isteğiyle işletmeden ayrılıp müşteri hesabına dönebilir.
+- Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir.
+- Müşteri işletme profilinde işletme bilgilerini, hizmetleri, çalışanları, paylaşımları ve değerlendirmeleri görebilir; işletmeyi takip edip randevu oluşturabilir.
+- Randevu akışı hizmet, çalışan ve uygun saat seçimiyle çalışır. Çalışan seçimi isteğe bağlıdır.
+- İşletme sahibi çalışanları, hizmetleri, çalışma saatlerini, randevu aralığını ve geçici kapanışı yönetebilir.
+- Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi inceler.
+- Müşteri randevusunu iptal edebilir; üç iptal/gelmeme ihlalinde işletme bazlı otomatik kara liste uygulanır.
+- Tamamlanan randevu sonrası müşteri işletmeyi puanlayıp yorumlayabilir.
+- Keşfet ve Takip akışları gerçek Supabase verisini kullanır; paylaşım, beğeni, yorum, kaydetme, takip ve silme işlemleri veritabanına bağlıdır.
+- Mesajlaşma, kişi bazlı mesaj gizleme, işletme sohbeti ve paylaşım yapan çalışanla özel sohbet desteklenir.
+- Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir.
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
-- Ana yönetici işletmeleri, kullanıcıları, Keşfet öne çıkarma ve destek taleplerini yönetebilir.
+- Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
+- Müşteri profilinde telefon düzenleme, şifre değiştirme, profil fotoğrafı, çıkış ve mevcut şifreyle doğrulanan kalıcı hesap silme bulunur.
 
-## Bilinen tamamlanmamış işler
+## Tamamlanması gerekenler
 
-- Firebase/FCM anlık push bildirimi ve bildirim türü tercih ekranı henüz tamamlanmadı; mevcut bildirim merkezi uygulama içidir.
-- Yeni cihaz girişinde e-posta doğrulaması ve aktif cihaz/oturum yönetimi henüz tamamlanmadı.
-- Hesabı uygulama içinden kalıcı silme akışı ve ayrıntılı yetkili-alt yönetici izin matrisi henüz tamamlanmadı.
-- App Store/iOS dağıtım ve son cihaz testleri yapılmadı.
-- İşletme puanlaması yalnızca tamamlanan randevudan sonra yapılabilir; ana yönetici dışındaki kullanıcılar değerlendirmeyi düzenleyemez.
+- Firebase/FCM anlık push teslimatı ve bildirim türü tercih ekranı.
+- Yeni cihaz girişinde e-posta doğrulaması ve aktif cihaz/oturum yönetimi.
+- Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
+- Türkçe/İngilizce dil seçimi ve açık/koyu tema.
+- Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
+- Profil fotoğrafı için kare kırpma/önizleme arayüzü.
+- iOS/App Store hazırlığı ve son cihaz testleri.
 
 ## Android derlemesi
 
-GitHub Actions release APK üretir. Son APK, son kaynak commit'i için analiz, test ve release derlemesi tamamlandıktan sonra paylaşılmalıdır.
+Android APK, son kaynak commit'i için analiz, test ve release derlemesi tamamlandıktan sonra paylaşılmalıdır.
 
 Yerel komutlar:
 
@@ -39,3 +44,5 @@ flutter analyze
 flutter test
 flutter build apk --release
 ```
+
+APK iş akışı ana dala gönderimde veya GitHub Actions üzerinden manuel başlatıldığında çalışır.
