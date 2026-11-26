@@ -3558,6 +3558,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     };
   }
 
+  Future<void> logout() async {
+    await client.auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+      (route) => false,
+    );
+  }
+
   void open(BuildContext context, String section) {
     final page = switch (section) {
       'Randevu Yönetimi' => const OwnerAppointments(),
@@ -3621,6 +3630,12 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
             trailing: const Icon(Icons.chevron_right, color: muted),
             onTap: () => open(context, section),
           ))),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.logout, color: wine),
+          title: const Text('Çıkış Yap', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: logout,
+        )),
       ]);
     },
   );
