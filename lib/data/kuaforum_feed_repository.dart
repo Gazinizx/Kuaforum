@@ -96,8 +96,8 @@ class KuaforumFeedRepository {
 
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id)';
+      'businesses(name,owner_id,discover_paid,discover_enabled),employees(display_name),
+      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id),feed_comments(id)';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -110,8 +110,25 @@ class KuaforumFeedRepository {
         .from('feed_posts')
         .select(_postSelection)
         .order('created_at', ascending: false)
-        .limit(limit);
-    return _mapRows(rows);
+        .limit(limit * 3);
+    final ranked = List<Map<String, dynamic>>.from(rows);
+    int boost(Map<String, dynamic> row) {
+      final business = row['businesses'];
+      return business is Map && business['discover_paid'] == true &&
+          business['discover_enabled'] == true ? 1 : 0;
+    }
+    int engagement(Map<String, dynamic> row) =>
+        (row['feed_likes'] as List? ?? const []).length +
+        (row['feed_comments'] as List? ?? const []).length;
+    ranked.sort((a, b) {
+      final boosted = boost(b).compareTo(boost(a));
+      if (boosted != 0) return boosted;
+      final active = engagement(b).compareTo(engagement(a));
+      if (active != 0) return active;
+      return DateTime.parse(b['created_at'] as String)
+          .compareTo(DateTime.parse(a['created_at'] as String));
+    });
+    return _mapRows(ranked.take(limit).toList());
   }
 
   Future<List<KuaforumFeedPost>> fetchFollowingFeed({int limit = 40}) async {
