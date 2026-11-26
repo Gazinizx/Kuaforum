@@ -575,8 +575,139 @@ class HeroPanel extends StatelessWidget {
   @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF6E2038),Color(0xFFC45B78)],begin:Alignment.topLeft,end:Alignment.bottomRight),borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:wine.withOpacity(.18),blurRadius:18,offset:const Offset(0,8))]),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow.toUpperCase(),style:const TextStyle(color:Color(0xFFFFDDE5),fontSize:10,letterSpacing:1.5,fontWeight:FontWeight.bold)),const SizedBox(height:9),Text(title,style:const TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),const SizedBox(height:7),Text(subtitle,style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4)),const SizedBox(height:14),Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20)),child:Text(button,style:const TextStyle(color:wine,fontWeight:FontWeight.bold,fontSize:12)))])),const SizedBox(width:10),Container(width:82,height:100,decoration:BoxDecoration(color:Colors.white.withOpacity(.13),borderRadius:BorderRadius.circular(22)),child:Icon(icon,size:54,color:Colors.white))]));
 }
 class SearchBarBox extends StatelessWidget {
-  final String hint; const SearchBarBox({super.key,this.hint='Kuaför, çalışan veya şehir ara...'});
-  @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Row(children:[const Icon(Icons.search,color:muted),const SizedBox(width:9),Text(hint,style:const TextStyle(color:muted,fontSize:13))]));
+  final String hint;
+  const SearchBarBox({super.key, this.hint = 'Kuaför, çalışan veya şehir ara...'});
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(16),
+    onTap: () => Navigator.push(context, MaterialPageRoute(
+      builder: (_) => const BusinessDirectoryPage())),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: blush)),
+      child: Row(children: [
+        const Icon(Icons.search, color: muted),
+        const SizedBox(width: 9),
+        Text(hint, style: const TextStyle(color: muted, fontSize: 13)),
+      ]),
+    ),
+  );
+}
+
+class BusinessDirectoryPage extends StatefulWidget {
+  const BusinessDirectoryPage({super.key});
+  @override
+  State<BusinessDirectoryPage> createState() => _BusinessDirectoryPageState();
+}
+
+class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  List<Map<String, dynamic>> results = [];
+  bool loading = false;
+  String error = '';
+
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<void> findBusinesses() async {
+    final term = search.text.trim();
+    setState(() { loading = true; error = ''; });
+    try {
+      var query = client.from('businesses')
+        .select('id,name,address,logo_url,is_temporarily_closed')
+        .eq('status', 'active');
+      if (term.isNotEmpty) query = query.or('name.ilike.%$term%,address.ilike.%$term%');
+      final rows = await query.order('name').limit(40);
+      if (mounted) setState(() => results = List<Map<String, dynamic>>.from(rows));
+    } catch (e) {
+      if (mounted) setState(() => error = 'Arama yapılamadı: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> openBusiness(Map<String, dynamic> business) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return;
+    final businessId = business['id'] as String;
+    final membership = await client.from('business_memberships')
+      .select('id').eq('business_id', businessId).eq('customer_id', userId).maybeSingle();
+    if (membership == null) {
+      final code = TextEditingController();
+      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+        AlertDialog(
+          title: Text('${business['name']} işletmesine katıl'),
+          content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'İşletmenin verdiği katılım kodu')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
+          ],
+        ));
+      if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
+      try {
+        final joinedId = await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        if (joinedId != businessId) throw Exception('Bu kod seçtiğin işletmeye ait değil.');
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeye katılınamadı: $e'), backgroundColor: wine));
+        code.dispose();
+        return;
+      }
+      code.dispose();
+    }
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
+      body: BusinessBookingPage(
+        businessId: businessId,
+        businessName: business['name'] as String? ?? 'İşletme',
+      ),
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(title: const Text('Kuaför keşfet')),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.all(16), child: TextField(
+        controller: search,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => findBusinesses(),
+        decoration: InputDecoration(
+          hintText: 'İşletme adı veya adres ara',
+          prefixIcon: const Icon(Icons.search, color: wine),
+          suffixIcon: IconButton(onPressed: findBusinesses, icon: const Icon(Icons.arrow_forward, color: wine)),
+          filled: true, fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+        ),
+      )),
+      Expanded(child: loading
+        ? const Center(child: CircularProgressIndicator(color: wine))
+        : error.isNotEmpty
+          ? Center(child: Text(error, style: const TextStyle(color: wine)))
+          : results.isEmpty
+            ? const Center(child: Text('İşletme aramak için yukarıya yaz.', style: TextStyle(color: muted)))
+            : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: results.map((business) {
+              final logo = business['logo_url'] as String?;
+              final closed = business['is_temporarily_closed'] == true;
+              return Card(color: Colors.white, elevation: 0, child: ListTile(
+                leading: CircleAvatar(backgroundColor: blush,
+                  backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+                  child: logo == null || logo.isEmpty ? const Icon(Icons.storefront, color: wine) : null),
+                title: Text(business['name'] as String? ?? 'Kuaför', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: Text(closed ? 'Geçici olarak kapalı • ${business['address'] ?? ''}' : (business['address'] as String? ?? 'Adres belirtilmemiş'),
+                  style: const TextStyle(color: muted)),
+                trailing: const Icon(Icons.chevron_right, color: wine),
+                onTap: () => openBusiness(business),
+              ));
+            }).toList()),
+      ),
+    ]),
+  );
 }
 class SalonCard extends StatelessWidget {
   final String name,detail; final String rating; const SalonCard({super.key,required this.name,required this.detail,this.rating='4.9'});
