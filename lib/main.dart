@@ -171,7 +171,7 @@ class RolePicker extends StatelessWidget {
       _role(context, AppRole.owner, 'İşletme Sahibi', 'Salonunu, ekibini, müşterilerini ve randevularını yönet.', Icons.storefront_rounded),
       _role(context, AppRole.admin, 'Ana Yönetici', 'Platformu, işletmeleri ve keşfet görünürlüğünü yönet.', Icons.admin_panel_settings_rounded),
       const SizedBox(height: 18),
-      const Text('Geliştirici test ekranı • Normal giriş ekranı yayın öncesinde eklenecek', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
+      const Text('Geliştirici test ekranı • Yerel demo hesapları • Üretimde normal giriş', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
     ])),
   );
   void _openRole(BuildContext context, AppRole role) {
