@@ -3746,6 +3746,28 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     }
   }
 
+  Future<void> removeEmployee(String employeeId, String name) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Çalışanı kaldır'),
+        content: Text('$name işletmenden kaldırılacak. Çalışanın hesabı müşteri hesabına dönecek; geçmiş randevu kayıtları korunacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Çalışanı kaldır', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('remove_employee', params: {'p_employee_id': employeeId});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışan kaldırılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
   Future<void> setActive(String employeeId, bool active) async {
     try {
       await client.rpc('set_employee_active', params: {
@@ -3797,11 +3819,21 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                     leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
                     title: Text(employee['display_name']?.toString() ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
                     subtitle: Text(active ? (employee['user_id'] == null ? 'Davet bekliyor' : 'Aktif çalışan') : 'Pasif çalışan'),
-                    trailing: Switch(
-                      value: active,
-                      activeColor: wine,
-                      onChanged: (value) => setActive(employee['id'].toString(), value),
-                    ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Switch(
+                        value: active,
+                        activeColor: wine,
+                        onChanged: (value) => setActive(employee['id'].toString(), value),
+                      ),
+                      IconButton(
+                        tooltip: 'Çalışanı kaldır',
+                        onPressed: () => removeEmployee(
+                          employee['id'].toString(),
+                          employee['display_name']?.toString() ?? 'Çalışan',
+                        ),
+                        icon: const Icon(Icons.person_remove_alt_1, color: wine),
+                      ),
+                    ]),
                   ),
                 );
               }),
