@@ -3274,8 +3274,8 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     final results = await Future.wait([
       client.from('services').select('id,name,price,duration_minutes')
         .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
-      client.from('employees').select('id,display_name,user_id')
-        .eq('business_id', widget.businessId).eq('is_active', true).not('user_id', 'is', null).order('display_name'),
+      client.from('public_business_employees').select('id,display_name,avatar_url')
+        .eq('business_id', widget.businessId).order('display_name'),
       client.from('business_reviews').select('id,customer_id,rating,body,created_at')
         .eq('business_id', widget.businessId).order('created_at', ascending: false).limit(30),
       client.from('feed_follows').select('id').eq('followed_business_id', widget.businessId),
@@ -3463,13 +3463,20 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
             )),
             const SectionTitle('Çalışanlarımız'),
             if (employees.isEmpty) const Text('Henüz aktif çalışan bulunmuyor.', style: TextStyle(color: muted))
-            else ...employees.map((employee) => Card(
-              color: Colors.white, elevation: 0,
-              child: ListTile(
-                leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
-                title: Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
-              ),
-            )),
+            else ...employees.map((employee) {
+              final avatar = employee['avatar_url'] as String?;
+              return Card(
+                color: Colors.white, elevation: 0,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: blush,
+                    backgroundImage: avatar == null || avatar.isEmpty ? null : NetworkImage(avatar),
+                    child: avatar == null || avatar.isEmpty ? const Icon(Icons.person, color: wine) : null,
+                  ),
+                  title: Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                ),
+              );
+            }),
             const SectionTitle('Paylaşımlar'),
             if (posts.isEmpty) const Text('Bu işletme henüz paylaşım yapmamış.', style: TextStyle(color: muted))
             else ...posts.map((post) => LiveFeedPostCard(post: post, repository: feedRepository)),
