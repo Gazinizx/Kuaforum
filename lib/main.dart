@@ -1266,8 +1266,151 @@ class _FollowingPageState extends State<FollowingPage> {
   );
 }
 
-class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
-class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
+class AppointmentsPage extends StatefulWidget {
+  final String title;
+  const AppointmentsPage({super.key, required this.title});
+  @override
+  State<AppointmentsPage> createState() => _AppointmentsPageState();
+}
+
+class _AppointmentsPageState extends State<AppointmentsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> appointments;
+  String filter = 'Aktif';
+
+  @override
+  void initState() {
+    super.initState();
+    appointments = loadAppointments();
+  }
+
+  Future<List<Map<String, dynamic>>> loadAppointments() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı. Yeniden giriş yapın.');
+    final employee = await client.from('employees')
+        .select('id,business_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+    if (employee == null) throw Exception('Aktif çalışan kaydınız bulunamadı.');
+    final rows = await client.rpc('get_business_appointments', params: {
+      'p_business_id': employee['business_id'],
+      'p_mine_only': true,
+    });
+    return List<Map<String, dynamic>>.from(rows as List);
+  }
+
+  Future<void> refreshAppointments() async {
+    final next = loadAppointments();
+    setState(() => appointments = next);
+    await next;
+  }
+
+  String statusLabel(String status) => switch (status) {
+    'pending' => 'Onay bekliyor',
+    'confirmed' => 'Onaylandı',
+    'completed' => 'Tamamlandı',
+    'cancelled' => 'İptal edildi',
+    'no_show' => 'Gelmedi',
+    _ => status,
+  };
+
+  Future<void> changeStatus(Map<String, dynamic> appointment, String status) async {
+    try {
+      await client.rpc('update_appointment_status', params: {
+        'p_appointment_id': appointment['appointment_id'],
+        'p_status': status,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(status == 'completed' ? 'Randevu tamamlandı.' : 'Gelmedi olarak işaretlendi.')),
+      );
+      await refreshAppointments();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşlem yapılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: appointments,
+    builder: (context, snapshot) {
+      final all = snapshot.data ?? const <Map<String, dynamic>>[];
+      final visible = all.where((item) {
+        final status = item['status'] as String? ?? '';
+        if (filter == 'Aktif') return status == 'pending' || status == 'confirmed';
+        if (filter == 'Geçmiş') return status == 'completed' || status == 'cancelled' || status == 'no_show';
+        return status == 'pending';
+      }).toList();
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: refreshAppointments,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+          children: [
+            Text(widget.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, children: [
+              _Chip('Aktif', filter == 'Aktif', onTap: () => setState(() => filter = 'Aktif')),
+              _Chip('Bekleyen', filter == 'Bekleyen', onTap: () => setState(() => filter = 'Bekleyen')),
+              _Chip('Geçmiş', filter == 'Geçmiş', onTap: () => setState(() => filter = 'Geçmiş')),
+            ]),
+            const SizedBox(height: 16),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
+            else if (snapshot.hasError)
+              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Randevular yüklenemedi', detail: snapshot.error.toString())
+            else if (visible.isEmpty)
+              const _FeedMessage(icon: Icons.calendar_month_outlined, title: 'Randevu bulunamadı', detail: 'Bu bölümde henüz gösterilecek randevu yok.')
+            else
+              ...visible.map((item) {
+                final status = item['status'] as String? ?? '';
+                final startsAt = DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
+                final dateText = startsAt == null ? 'Tarih bilgisi yok' :
+                  '${startsAt.day.toString().padLeft(2, '0')}.${startsAt.month.toString().padLeft(2, '0')}.${startsAt.year} • ${startsAt.hour.toString().padLeft(2, '0')}:${startsAt.minute.toString().padLeft(2, '0')}';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const CircleAvatar(radius: 22, backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(item['customer_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                        Text(item['service_name']?.toString() ?? 'Hizmet', style: const TextStyle(color: muted, fontSize: 12)),
+                        Text(dateText, style: const TextStyle(color: ink, fontSize: 12)),
+                      ])),
+                      Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ]),
+                    if (status == 'confirmed') ...[
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => changeStatus(item, 'no_show'),
+                          child: const Text('Gelmedi'),
+                        )),
+                        const SizedBox(width: 8),
+                        Expanded(child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                          onPressed: () => changeStatus(item, 'completed'),
+                          child: const Text('Tamamlandı'),
+                        )),
+                      ]),
+                    ],
+                  ]),
+                );
+              }),
+          ],
+        ),
+      );
+    },
+  );
+}
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
   @override
