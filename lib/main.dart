@@ -2048,25 +2048,108 @@ class _SharePageState extends State<SharePage> {
   ]);
 }
 
-class OwnerProfilePage extends StatelessWidget {
+class OwnerProfilePage extends StatefulWidget {
   const OwnerProfilePage({super.key});
-  void open(BuildContext context,String section){
-    final page=switch(section){
-      'Randevu Yönetimi'=>const OwnerAppointments(),
-      'Çalışan Randevuları'=>const OwnerAppointments(),
-      'Müşterilerim'=>const CustomersPage(),
-      'Ayarlar'=>const SettingsPage(),
-      _=>const SettingsPage(),    };
-    Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(section,style:const TextStyle(color:wine,fontWeight:FontWeight.bold))),body:page)));
+  @override
+  State<OwnerProfilePage> createState() => _OwnerProfilePageState();
+}
+
+class _OwnerProfilePageState extends State<OwnerProfilePage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
   }
-  @override Widget build(BuildContext context)=>PageBody(children:[
-    const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.storefront,size:48,color:wine))),
-    const SizedBox(height:10),const Text('Luxe Beauty Salon',textAlign:TextAlign.center,style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),
-    const Text('İşletme hesabı • Kayseri',textAlign:TextAlign.center,style:TextStyle(color:muted)),
-    const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('2.4K','Takipçi'),_Metric('180','Takip'),_Metric('96','Paylaşım')]),
-    const SizedBox(height:18),const SectionTitle('İşletme Yönetimi'),
-    ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Ayarlar'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>open(context,s)))),
-  ]);
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses')
+        .select('id,name,address,logo_url,status')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+    if (business == null) throw Exception('İşletme bilgisi bulunamadı.');
+    final businessId = business['id'] as String;
+    final followers = await client.from('feed_follows')
+        .select('id').eq('followed_business_id', businessId);
+    final posts = await client.from('feed_posts')
+        .select('id').eq('business_id', businessId);
+    return {
+      'business': Map<String, dynamic>.from(business),
+      'followers': followers.length,
+      'posts': posts.length,
+    };
+  }
+
+  void open(BuildContext context, String section) {
+    final page = switch (section) {
+      'Randevu Yönetimi' => const OwnerAppointments(),
+      'Çalışan Randevuları' => const OwnerAppointments(),
+      'Müşterilerim' => const CustomersPage(),
+      'Ayarlar' => const SettingsPage(),
+      _ => const SettingsPage(),
+    };
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(section,
+          style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+        body: page,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('İşletme profili yüklenemedi: ${snapshot.error ?? 'Bilinmeyen hata'}',
+            textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        ));
+      }
+      final business = snapshot.data!['business'] as Map<String, dynamic>;
+      final logo = business['logo_url'] as String?;
+      final address = (business['address'] as String?)?.trim() ?? '';
+      return PageBody(children: [
+        Center(child: CircleAvatar(
+          radius: 48,
+          backgroundColor: blush,
+          backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+          child: logo == null || logo.isEmpty
+              ? const Icon(Icons.storefront, size: 48, color: wine) : null,
+        )),
+        const SizedBox(height: 10),
+        Text(business['name'] as String? ?? 'İşletmem',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)),
+        Text(address.isEmpty ? 'Adres eklenmemiş' : address,
+          textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        const SizedBox(height: 18),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+          _Metric((snapshot.data!['followers'] as int).toString(), 'Takipçi'),
+          _Metric('—', 'Takip'),
+          _Metric((snapshot.data!['posts'] as int).toString(), 'Paylaşım'),
+        ]),
+        const SizedBox(height: 18),
+        const SectionTitle('İşletme Yönetimi'),
+        ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Ayarlar'].map((section) =>
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.circle_outlined, color: wine),
+            title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => open(context, section),
+          ))),
+      ]);
+    },
+  );
 }
 class EmployeeManagementPage extends StatefulWidget {
   const EmployeeManagementPage({super.key});
