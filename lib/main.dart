@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'data/kuaforum_feed_repository.dart';
 import 'employee_invite_claim_page.dart';
 import 'demo_mode.dart';
@@ -351,6 +353,28 @@ class HeroPanel extends StatelessWidget {
     ]),
   );
 }
+class _BusinessCodeScannerPage extends StatelessWidget {
+  const _BusinessCodeScannerPage();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      title: const Text('İşletme QR Kodunu Tara'),
+    ),
+    body: MobileScanner(
+      onDetect: (capture) {
+        if (capture.barcodes.isEmpty) return;
+        final value = capture.barcodes.first.rawValue?.trim();
+        if (value == null || value.isEmpty) return;
+        Navigator.of(context).pop(value);
+      },
+    ),
+  );
+}
+
 class CustomerHome extends StatefulWidget {
   const CustomerHome({super.key});
 
@@ -362,12 +386,19 @@ class _CustomerHomeState extends State<CustomerHome> {
   final repository = KuaforumFeedRepository();
   final searchController = TextEditingController();
   late Future<List<Map<String, dynamic>>> businesses;
+  late Future<String?> membership;
 
   @override
   void initState() {
     super.initState();
     businesses = repository.fetchActiveBusinesses();
+    membership = repository.fetchMyBusinessMembership();
   }
+
+  Future<String?> scanBusinessCode() => Navigator.push<String>(
+    context,
+    MaterialPageRoute(builder: (_) => const _BusinessCodeScannerPage()),
+  );
 
   @override
   void dispose() {
@@ -404,70 +435,91 @@ class _CustomerHomeState extends State<CustomerHome> {
       )),
     ),
     const SizedBox(height: 15),
-    Row(children: [
-      Expanded(child: OutlinedButton.icon(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => const CustomerAppointmentsPage(),
+    FutureBuilder<String?>(
+      future: membership,
+      builder: (context, membershipSnapshot) => Row(children: [
+        Expanded(child: OutlinedButton.icon(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const CustomerAppointmentsPage(),
+          )),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: wine,
+            side: const BorderSide(color: blush),
+            padding: const EdgeInsets.symmetric(vertical: 13),
+          ),
+          icon: const Icon(Icons.calendar_month_outlined, size: 18),
+          label: const Text('Randevularım'),
         )),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: wine,
-          side: const BorderSide(color: blush),
-          padding: const EdgeInsets.symmetric(vertical: 13),
-        ),
-        icon: const Icon(Icons.calendar_month_outlined, size: 18),
-        label: const Text('Randevularım'),
-      )),
-      const SizedBox(width: 8),
-      Expanded(child: OutlinedButton.icon(
-        onPressed: () async {
-          final controller = TextEditingController();
-          final accepted = await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: const Text('İşletmeye katıl'),
-              content: TextField(
-                controller: controller,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'İşletme katılım kodu',
-                  hintText: 'Örn. ABC123',
+        if (membershipSnapshot.hasError || membershipSnapshot.data == null) ...[
+          const SizedBox(width: 8),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: () async {
+              final controller = TextEditingController();
+              final result = await showDialog<String>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('İşletmeye katıl'),
+                  content: TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'İşletme katılım kodu',
+                      hintText: 'Örn. ABC123',
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Vazgeç'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.pop(dialogContext, '__SCAN_QR__'),
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('QR Tara'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+                      style: FilledButton.styleFrom(backgroundColor: wine),
+                      child: const Text('Katıl'),
+                    ),
+                  ],
                 ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-                FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
-              ],
-            ),
-          );
-          final code = controller.text.trim();
-          controller.dispose();
-          if (accepted != true || code.isEmpty) return;
-          try {
-            final businessId = await repository.joinBusinessByCode(code);
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('İşletmeye başarıyla katıldın.')),
-            );
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => BusinessProfilePage(businessId: businessId),
-            ));
-          } catch (error) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('İşletmeye katılınamadı: $error')),
               );
-            }
-          }
-        },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: wine,
-          side: const BorderSide(color: blush),
-          padding: const EdgeInsets.symmetric(vertical: 13),
-        ),
-        icon: const Icon(Icons.store_mall_directory_outlined, size: 18),
-        label: const Text('İşletmeye katıl'),
-      )),
-    ]),
+              controller.dispose();
+              if (!context.mounted || result == null) return;
+              final code = result == '__SCAN_QR__'
+                  ? await scanBusinessCode()
+                  : result;
+              if (code == null || code.trim().isEmpty || !context.mounted) return;
+              try {
+                final businessId = await repository.joinBusinessByCode(code);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('İşletmeye başarıyla katıldın.')),
+                );
+                setState(() => membership = repository.fetchMyBusinessMembership());
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => BusinessProfilePage(businessId: businessId),
+                ));
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('İşletmeye katılınamadı: $error')),
+                  );
+                }
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: wine,
+              side: const BorderSide(color: blush),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+            icon: const Icon(Icons.store_mall_directory_outlined, size: 18),
+            label: const Text('İşletmeye katıl'),
+          )),
+        ],
+      ]),
+    ),
     const SizedBox(height: 14),
     TextField(
       controller: searchController,
@@ -3753,28 +3805,54 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
                       );
                     }
                     final code = codeSnapshot.data!;
-                    return Row(children: [
-                      const Icon(Icons.qr_code_2_rounded, color: wine, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('İşletme kodun', style: TextStyle(color: muted, fontSize: 11)),
-                          Text(code, style: const TextStyle(color: ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2)),
-                        ],
-                      )),
-                      IconButton(
-                        tooltip: 'Kodu kopyala',
-                        onPressed: () async {
-                          await Clipboard.setData(ClipboardData(text: code));
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Katılım kodu kopyalandı.')),
-                          );
-                        },
-                        icon: const Icon(Icons.copy_rounded, color: wine),
-                      ),
-                    ]);
+                    return Column(
+                      children: [
+                        QrImageView(
+                          data: code,
+                          size: 190,
+                          backgroundColor: Colors.white,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: wine,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('İşletme katılım kodun', style: TextStyle(color: muted, fontSize: 11)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              code,
+                              style: const TextStyle(
+                                color: ink,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Kodu kopyala',
+                              onPressed: () async {
+                                await Clipboard.setData(ClipboardData(text: code));
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Katılım kodu kopyalandı.')),
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded, color: wine),
+                            ),
+                          ],
+                        ),
+                        const Text(
+                          'Kamera kullanılamazsa yukarıdaki kodu elle girebilirsin.',
+                          style: TextStyle(color: muted, fontSize: 11),
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
