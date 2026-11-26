@@ -15,6 +15,9 @@ jobs:
         with:
           channel: stable
       - run: flutter create . --platforms=android --org com.gazinizx
+      - name: Configure image cropper activity
+        run: |
+          grep -q 'com.yalantis.ucrop.UCropActivity' android/app/src/main/AndroidManifest.xml || sed -i '/<\/application>/i\        <activity android:name="com.yalantis.ucrop.UCropActivity" android:screenOrientation="portrait" android:theme="@style/Theme.AppCompat.Light.NoActionBar" />' android/app/src/main/AndroidManifest.xml
       - name: Ensure release internet access
         run: |
           grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
