@@ -803,7 +803,7 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
         .eq('status', 'active');
       if (term.isNotEmpty) {
         final safeTerm = term
-            .replaceAll(RegExp(r'[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ \\-]'), ' ')
+            .replaceAll(RegExp(r'[^-a-zA-Z0-9ğüşıöçĞÜŞİÖÇ ]'), ' ')
             .trim();
         if (safeTerm.isNotEmpty) {
           query = query.or('name.ilike.%$safeTerm%,address.ilike.%$safeTerm%');
