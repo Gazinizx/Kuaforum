@@ -2400,6 +2400,13 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
         ],
       ));
     if (accepted != true) { subject.dispose(); body.dispose(); return; }
+    if (subject.text.trim().length < 3 || body.text.trim().isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Konu en az 3 karakter olmalı ve mesaj boş bırakılamaz.')));
+      subject.dispose();
+      body.dispose();
+      return;
+    }
     try {
       final userId = client.auth.currentUser!.id;
       final row = await client.from('support_tickets').insert({
