@@ -303,10 +303,10 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         final user = client.auth.currentUser;
         if (user == null || !await _ensureTrustedDevice(user)) return;
       }
-      final profile = await client.from('profiles')
-          .select('account_type,is_admin,is_blocked')
-          .eq('id', userId)
-          .maybeSingle();
+      final statusRows = await client.rpc('get_my_account_status') as List;
+      final profile = statusRows.isEmpty
+          ? null
+          : Map<String, dynamic>.from(statusRows.first as Map);
       if (!mounted) return;
       if (profile == null) {
         await client.auth.signOut();
@@ -582,10 +582,10 @@ class RolePicker extends StatelessWidget {
       );
       final user = response.user;
       if (user == null) throw AuthException('Oturum açılamadı.');
-      final profile = await auth.from('profiles')
-          .select('account_type,is_admin,is_blocked')
-          .eq('id', user.id)
-          .maybeSingle();
+      final statusRows = await auth.rpc('get_my_account_status') as List;
+      final profile = statusRows.isEmpty
+          ? null
+          : Map<String, dynamic>.from(statusRows.first as Map);
       if (profile == null || profile['is_blocked'] == true) {
         await auth.auth.signOut();
         throw AuthException('Bu hesap uygulamaya erişemiyor.');
@@ -682,7 +682,9 @@ class _RoleShellState extends State<RoleShell> {
     try {
       final user = client.auth.currentUser;
       if (user == null) return;
-      final profile = await client.from('profiles').select('is_admin').eq('id', user.id).single();
+      final statusRows = await client.rpc('get_my_account_status') as List;
+      if (statusRows.isEmpty) return;
+      final profile = Map<String, dynamic>.from(statusRows.first as Map);
       if (profile['is_admin'] == true) return;
       const keys = ['dashboard','businesses','users','discover','support'];
       const names = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek'];
@@ -3480,8 +3482,18 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<Map<String, dynamic>> loadProfile() async {
     final user = client.auth.currentUser;
     if (user == null) throw Exception('Oturum bulunamadı.');
-    final row = Map<String, dynamic>.from(await client.from('profiles')
-      .select('full_name,email,phone,avatar_url,account_type').eq('id', user.id).single());
+    final publicProfile = Map<String, dynamic>.from(await client.from('public_profiles')
+      .select('id,full_name,account_type,avatar_url').eq('id', user.id).single());
+    final contactRows = await client.rpc('get_my_profile_contact') as List;
+    final contact = contactRows.isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(contactRows.first as Map);
+    final row = <String, dynamic>{
+      ...publicProfile,
+      'email': user.email ?? '',
+      'phone': contact['phone'] ?? '',
+      'full_name': contact['full_name'] ?? publicProfile['full_name'],
+    };
     if (row['account_type'] == 'customer') {
       final memberships = await client.from('business_memberships')
           .select('business_id,businesses(name,address)')
