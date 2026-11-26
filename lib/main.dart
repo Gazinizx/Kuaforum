@@ -2183,7 +2183,128 @@ class OwnerAppointments extends StatelessWidget {
     ownerMode: true,
   );
 }
-class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
+class CustomersPage extends StatefulWidget {
+  const CustomersPage({super.key});
+  @override
+  State<CustomersPage> createState() => _CustomersPageState();
+}
+
+class _CustomersPageState extends State<CustomersPage> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<Map<String, dynamic>> data;
+  String query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final customers = await client.rpc('get_business_customers', params: {
+      'p_business_id': business['id'],
+    });
+    return {'business_id': business['id'], 'customers': List<Map<String, dynamic>>.from(customers as List)};
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> toggleBlacklist(String businessId, Map<String, dynamic> customer, bool blocked) async {
+    try {
+      await client.rpc('set_customer_blacklist', params: {
+        'p_business_id': businessId,
+        'p_customer_id': customer['customer_id'],
+        'p_blocked': blocked,
+        'p_reason': blocked ? 'İşletme tarafından kara listeye alındı' : null,
+      });
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kara liste güncellenemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      final customers = (snapshot.data?['customers'] as List<Map<String, dynamic>>? ?? [])
+          .where((customer) {
+            final value = '${customer['full_name'] ?? ''} ${customer['phone'] ?? ''}'.toLowerCase();
+            return value.contains(query.toLowerCase());
+          }).toList();
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: refreshData,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+          children: [
+            const Text('Müşterilerim', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: search,
+              onChanged: (value) => setState(() => query = value),
+              decoration: InputDecoration(
+                hintText: 'İsim veya telefon ara...',
+                prefixIcon: const Icon(Icons.search, color: wine),
+                filled: true, fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: blush)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Center(child: CircularProgressIndicator(color: wine))
+            else if (snapshot.hasError)
+              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Müşteriler yüklenemedi', detail: snapshot.error.toString())
+            else if (customers.isEmpty)
+              const _FeedMessage(icon: Icons.people_outline, title: 'Müşteri bulunamadı', detail: 'Arama ölçütünü değiştir veya işletmene bağlı müşterileri bekle.')
+            else
+              ...customers.map((customer) {
+                final blocked = customer['is_blacklisted'] == true;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: blush,
+                      child: Icon(blocked ? Icons.block : Icons.person, color: wine),
+                    ),
+                    title: Text(customer['full_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                    subtitle: Text('${customer['phone'] ?? 'Telefon yok'} • ${customer['appointment_count'] ?? 0} randevu'),
+                    isThreeLine: true,
+                    trailing: TextButton(
+                      onPressed: () => toggleBlacklist(snapshot.data!['business_id'] as String, customer, !blocked),
+                      child: Text(blocked ? 'Listeden çıkar' : 'Kara listeye al',
+                        style: TextStyle(color: blocked ? Colors.green.shade700 : wine, fontSize: 11)),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      );
+    },
+  );
+}
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
