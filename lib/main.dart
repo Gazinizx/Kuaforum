@@ -4958,7 +4958,7 @@ class _OwnerHomeState extends State<OwnerHome> {
           _StatCard((snapshot.data!['customers'] as int).toString(), 'Müşteri'),
           _StatCard(appointments.length.toString(), 'Toplam Randevu'),
         ]),
-        const SectionTitle('Son Randevular', action: 'Tümünü Gör'),
+        SectionTitle('Son Randevular', action: 'Tümünü Gör', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerAppointments()))),
         if (appointments.isEmpty)
           const Text('Henüz randevu bulunmuyor.', style: TextStyle(color: muted))
         else
