@@ -266,16 +266,19 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
 
   Future<void> _compose() async {
     if (composer.text.trim().isEmpty) {
-      final controller = TextEditingController();
+      var description = '';
       final value = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
         title: const Text('Yeni demo paylaşımı'),
-        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(hintText: 'Paylaşım açıklaması')),
+        content: TextField(
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'Paylaşım açıklaması'),
+          onChanged: (text) => description = text,
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Yayınla')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, description.trim()), child: const Text('Yayınla')),
         ],
       ));
-      controller.dispose();
       if (value == null || value.trim().isEmpty) return;
       composer.text = value;
     }
