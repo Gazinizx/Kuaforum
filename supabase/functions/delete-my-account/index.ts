@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
     if (!password) return respond({ error: "Hesabını silmek için mevcut şifreni gir." }, 400);
 
     const { data: profile, error: profileError } = await admin.from("profiles")
-      .select("account_type,is_admin").eq("id", auth.user.id).single();
+      .select("account_type,is_admin,avatar_url").eq("id", auth.user.id).single();
     if (profileError || profile.account_type !== "customer" || profile.is_admin) {
       return respond({ error: "Bu işlem yalnızca müşteri hesapları için kullanılabilir." }, 403);
     }
@@ -46,6 +46,18 @@ Deno.serve(async (req: Request) => {
       email: auth.user.email, password,
     });
     if (passwordError) return respond({ error: "Mevcut şifre doğru değil." }, 401);
+
+    // Revoke refresh tokens across the user's sessions before deletion.
+    await verifier.auth.signOut({ scope: "global" });
+
+    const avatarUrl = profile.avatar_url as string | null;
+    const marker = "/storage/v1/object/public/salon-avatars/";
+    if (avatarUrl?.includes(marker)) {
+      const objectPath = decodeURIComponent(avatarUrl.split(marker)[1] ?? "");
+      if (objectPath.startsWith(`profiles/${auth.user.id}/`)) {
+        try { await admin.storage.from("salon-avatars").remove([objectPath]); } catch (_) {}
+      }
+    }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(auth.user.id);
     if (deleteError) return respond({ error: deleteError.message }, 400);
