@@ -2926,26 +2926,40 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
         else if ((snapshot.data ?? []).isEmpty)
           const _FeedMessage(icon: Icons.support_agent, title: 'Henüz destek talebi yok', detail: 'Yardıma ihtiyaç duyduğunda yeni talep oluşturabilirsin.')
         else
-          ...(snapshot.data ?? []).map((ticket) => Card(
-            color: Colors.white, elevation: 0,
-            child: ListTile(
-              leading: const Icon(Icons.support_agent, color: wine),
-              title: Text(ticket['subject'] as String? ?? 'Destek talebi',
-                style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
-              subtitle: Text(statusLabel(ticket['status'] as String? ?? 'pending'),
-                style: const TextStyle(color: muted)),
-              trailing: const Icon(Icons.chevron_right, color: muted),
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(builder: (_) =>
-                  SupportTicketChatPage(
-                    ticketId: ticket['id'] as String,
-                    subject: ticket['subject'] as String? ?? 'Destek',
-                    adminMode: widget.adminMode,
-                  )));
-                if (mounted) refresh();
-              },
-            ),
-          )),
+          ...(snapshot.data ?? []).map((ticket) {
+            final status = ticket['status'] as String? ?? 'pending';
+            final updated = DateTime.tryParse(ticket['updated_at']?.toString() ?? '')?.toLocal();
+            final date = updated == null ? '' : '\${updated.day.toString().padLeft(2, '0')}.\${updated.month.toString().padLeft(2, '0')}.\${updated.year}';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 11),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                leading: Container(width: 44, height: 44,
+                  decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.forum_outlined, color: wine)),
+                title: Text(ticket['subject'] as String? ?? 'Destek talebi',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Row(children: [
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(20)),
+                    child: Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 10, fontWeight: FontWeight.w800))),
+                  if (date.isNotEmpty) ...[const SizedBox(width: 8), Text(date, style: const TextStyle(color: muted, fontSize: 11))],
+                ])),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, color: muted, size: 16),
+                onTap: () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+                    SupportTicketChatPage(
+                      ticketId: ticket['id'] as String,
+                      subject: ticket['subject'] as String? ?? 'Destek',
+                      adminMode: widget.adminMode,
+                    )));
+                  if (mounted) refresh();
+                },
+              ),
+            );
+          }),
       ]),
     ),
   );
