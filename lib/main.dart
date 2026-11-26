@@ -2048,6 +2048,13 @@ class _ProfilePageState extends State<ProfilePage> {
               subtitle: Text(business['address'] as String? ?? '', style: const TextStyle(color: muted)),
               trailing: TextButton(onPressed: () => leaveBusiness(membership['business_id'] as String),
                 child: const Text('Ayrıl')),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+                appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
+                body: BusinessBookingPage(
+                  businessId: membership['business_id'] as String,
+                  businessName: business['name'] as String? ?? 'İşletme',
+                ),
+              ))),
             ));
           }),
           Card(color: Colors.white, elevation: 0, child: ListTile(
@@ -2061,6 +2068,179 @@ class _ProfilePageState extends State<ProfilePage> {
     ]),
   );
 }
+class BusinessBookingPage extends StatefulWidget {
+  final String businessId;
+  final String businessName;
+  const BusinessBookingPage({super.key, required this.businessId, required this.businessName});
+  @override
+  State<BusinessBookingPage> createState() => _BusinessBookingPageState();
+}
+
+class _BusinessBookingPageState extends State<BusinessBookingPage> {
+  final client = Supabase.instance.client;
+  List<Map<String, dynamic>> services = [];
+  List<Map<String, dynamic>> employees = [];
+  List<Map<String, dynamic>> slots = [];
+  String? serviceId;
+  String? employeeId;
+  String? selectedSlot;
+  DateTime selectedDate = DateTime.now();
+  bool loading = true;
+  bool loadingSlots = false;
+  bool booking = false;
+
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final results = await Future.wait([
+        client.from('services').select('id,name,price,duration_minutes')
+          .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
+        client.from('employees').select('id,display_name')
+          .eq('business_id', widget.businessId).eq('is_active', true).not('user_id', 'is', null).order('display_name'),
+      ]);
+      services = List<Map<String, dynamic>>.from(results[0]);
+      employees = List<Map<String, dynamic>>.from(results[1]);
+      serviceId = services.isEmpty ? null : services.first['id'] as String;
+      if (serviceId != null) await loadSlots();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu bilgileri yüklenemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  String dateValue(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  Future<void> loadSlots() async {
+    if (serviceId == null) return;
+    setState(() { loadingSlots = true; slots = []; selectedSlot = null; });
+    try {
+      final targets = employeeId == null
+          ? employees
+          : employees.where((e) => e['id'] == employeeId).toList();
+      final all = <String, Map<String, dynamic>>{};
+      for (final employee in targets) {
+        final rows = await client.rpc('get_available_appointment_slots', params: {
+          'p_business_id': widget.businessId,
+          'p_employee_id': employee['id'],
+          'p_service_id': serviceId,
+          'p_date': dateValue(selectedDate),
+        });
+        for (final raw in rows as List) {
+          final row = Map<String, dynamic>.from(raw);
+          final start = row['slot_start'] as String;
+          all.putIfAbsent(start, () => {...row, 'employee_id': employee['id']});
+        }
+      }
+      final result = all.values.toList()
+        ..sort((a, b) => DateTime.parse(a['slot_start'] as String)
+          .compareTo(DateTime.parse(b['slot_start'] as String)));
+      if (mounted) setState(() => slots = result);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Uygun saatler alınamadı: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => loadingSlots = false);
+    }
+  }
+
+  Future<void> chooseDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+    );
+    if (date == null) return;
+    setState(() => selectedDate = date);
+    await loadSlots();
+  }
+
+  Future<void> book() async {
+    if (serviceId == null || selectedSlot == null) return;
+    final slot = slots.firstWhere((s) => s['slot_start'] == selectedSlot);
+    setState(() => booking = true);
+    try {
+      await client.rpc('book_appointment', params: {
+        'p_business_id': widget.businessId,
+        'p_employee_id': slot['employee_id'],
+        'p_service_id': serviceId,
+        'p_starts_at': selectedSlot,
+        'p_customer_note': null,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu talebin oluşturuldu.')));
+      Navigator.pop(context);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu oluşturulamadı: $error'), backgroundColor: wine));
+      await loadSlots();
+    } finally {
+      if (mounted) setState(() => booking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return PageBody(children: [
+      Text(widget.businessName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 6),
+      const Text('Hizmetini, çalışanını ve sana uygun saati seç.', style: TextStyle(color: muted)),
+      const SizedBox(height: 18),
+      DropdownButtonFormField<String>(
+        value: serviceId,
+        decoration: const InputDecoration(labelText: 'Hizmet seç'),
+        items: services.map((service) => DropdownMenuItem(
+          value: service['id'] as String,
+          child: Text('${service['name']} • ${service['price']} ₺'),
+        )).toList(),
+        onChanged: (value) async { setState(() => serviceId = value); await loadSlots(); },
+      ),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String?>(
+        value: employeeId,
+        decoration: const InputDecoration(labelText: 'Çalışan seç'),
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('Fark etmez')),
+          ...employees.map((employee) => DropdownMenuItem<String?>(
+            value: employee['id'] as String,
+            child: Text(employee['display_name'] as String? ?? 'Çalışan'),
+          )),
+        ],
+        onChanged: (value) async { setState(() => employeeId = value); await loadSlots(); },
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(onPressed: chooseDate,
+        icon: const Icon(Icons.calendar_month),
+        label: Text(dateValue(selectedDate))),
+      const SizedBox(height: 14),
+      const Text('Uygun saatler', style: TextStyle(fontWeight: FontWeight.w700, color: ink)),
+      const SizedBox(height: 8),
+      if (loadingSlots)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (slots.isEmpty)
+        const Text('Bu gün için uygun saat bulunamadı.', style: TextStyle(color: muted))
+      else
+        Wrap(spacing: 8, runSpacing: 8, children: slots.map((slot) {
+          final start = DateTime.parse(slot['slot_start'] as String).toLocal();
+          final label = '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+          final value = slot['slot_start'] as String;
+          return ChoiceChip(label: Text(label), selected: selectedSlot == value,
+            onSelected: (_) => setState(() => selectedSlot = value), selectedColor: blush);
+        }).toList()),
+      const SizedBox(height: 20),
+      ElevatedButton(onPressed: booking || selectedSlot == null ? null : book,
+        child: booking ? const CircularProgressIndicator() : const Text('Randevu talebi oluştur')),
+    ]);
+  }
+}
+
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatefulWidget {
   const EmployeeHome({super.key});
