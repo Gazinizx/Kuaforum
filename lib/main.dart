@@ -161,13 +161,6 @@ class _RoleShellState extends State<RoleShell> {
     appBar: AppBar(
       title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)),
       actions: [
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: AppRole.customer, child: Text('Müşteri')),
-              PopupMenuItem(value: AppRole.employee, child: Text('Çalışan')),
-              PopupMenuItem(value: AppRole.owner, child: Text('İşletme Sahibi')),
-              PopupMenuItem(value: AppRole.admin, child: Text('Ana Yönetici')),
-            ],
-          ),
         IconButton(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())),
           icon: const Icon(Icons.notifications_none_rounded),
