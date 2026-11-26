@@ -26,7 +26,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 
 ## Tamamlanması gerekenler
 
-- Firebase/FCM anlık push teslimatı.
+- Firebase/FCM anlık push teslimatı. Uygulama içi bildirim merkezi çalışır; gerçek push için Firebase Android/iOS yapılandırma dosyaları, FCM kayıt tokenları ve güvenli gönderim işlevi henüz eklenmelidir.
 - Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
 - Supabase sızdırılmış parola koruması yalnızca Pro ve üzeri planda sunulduğundan ücretsiz plan kapsamında açılmayacak; güvenlik danışmanındaki bu uyarı bilinen ücretsiz-plan kısıtıdır.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
