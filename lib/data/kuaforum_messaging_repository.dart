@@ -72,14 +72,18 @@ class KuaforumMessagingRepository {
     };
 
     final conversationIds = rows.map((row) => row['id'] as String).toList();
+    final hiddenRows = await _client.from('message_hidden_for_me')
+        .select('message_id').eq('user_id', _userId);
+    final hiddenIds = hiddenRows.map((row) => row['message_id'] as String).toSet();
     final messages = await _client
         .from('messages')
-        .select('conversation_id,body,sender_id,created_at')
+        .select('id,conversation_id,body,sender_id,created_at')
         .inFilter('conversation_id', conversationIds)
         .order('created_at', ascending: false)
         .limit(500);
     final latestByConversation = <String, Map<String, dynamic>>{};
     for (final message in messages) {
+      if (hiddenIds.contains(message['id'] as String)) continue;
       latestByConversation.putIfAbsent(
         message['conversation_id'] as String,
         () => Map<String, dynamic>.from(message),
@@ -113,12 +117,24 @@ class KuaforumMessagingRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchMessages(String conversationId) async {
+    final hiddenRows = await _client.from('message_hidden_for_me')
+        .select('message_id').eq('user_id', _userId);
+    final hiddenIds = hiddenRows.map((row) => row['message_id'] as String).toSet();
     final rows = await _client
         .from('messages')
         .select('id,conversation_id,sender_id,body,created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: true);
-    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+    return rows.where((row) => !hiddenIds.contains(row['id'] as String))
+        .map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> hideMessageForMe(String messageId) async {
+    await _client.from('message_hidden_for_me').upsert(
+      {'message_id': messageId, 'user_id': _userId},
+      onConflict: 'message_id,user_id',
+      ignoreDuplicates: true,
+    );
   }
 
   Future<void> sendMessage(String conversationId, String body) async {
