@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -667,12 +668,15 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   bool followStateLoaded = false;
   bool isCustomer = false;
   bool openingChat = false;
+  late bool saved;
+  bool deleted = false;
 
   @override
   void initState() {
     super.initState();
     liked = widget.post.isLikedByMe;
     likes = widget.post.likeCount;
+    saved = widget.post.isSavedByMe;
     loadFollowState();
   }
 
@@ -756,6 +760,40 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     }
   }
 
+  Future<void> toggleSaved() async {
+    final previous = saved;
+    setState(() => saved = !previous);
+    try {
+      await widget.repository.toggleSave(widget.post.id, currentlySaved: previous);
+    } catch (_) {
+      if (mounted) {
+        setState(() => saved = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paylaşım kaydedilemedi.')));
+      }
+    }
+  }
+
+  Future<void> deleteOwnPost() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Paylaşımı sil'),
+        content: const Text('Bu paylaşım ve yorumları kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Sil')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await widget.repository.deletePost(widget.post.id);
+      if (mounted) setState(() => deleted = true);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Paylaşım silinemedi: $error'), backgroundColor: wine));
+    }
+  }
+
   Future<void> toggleLike() async {
     if (busy) return;
     final previousLiked = liked;
@@ -781,7 +819,9 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    if (deleted) return const SizedBox.shrink();
+    return Container(
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -798,21 +838,23 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
           Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
         ])),
-        if (!widget.post.isOwnPost && followStateLoaded)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz, color: muted),
-            onSelected: (value) {
-              if (value == 'business') toggleBusinessFollow();
-              if (value == 'author') toggleAuthorFollow();
-            },
-            itemBuilder: (_) => [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_horiz, color: muted),
+          onSelected: (value) {
+            if (value == 'business') toggleBusinessFollow();
+            if (value == 'author') toggleAuthorFollow();
+            if (value == 'delete') deleteOwnPost();
+          },
+          itemBuilder: (_) => [
+            if (widget.post.isOwnPost)
+              const PopupMenuItem(value: 'delete', child: Text('Paylaşımı sil')),
+            if (!widget.post.isOwnPost && followStateLoaded) ...[
               PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
               if (widget.post.isEmployeePost)
                 PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
             ],
-          )
-        else
-          const Icon(Icons.more_horiz, color: muted),
+          ],
+        ),
       ]),
       const SizedBox(height: 12),
       ClipRRect(
@@ -864,7 +906,20 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
             ]),
           ),
         ),
-        const Spacer(),
+        IconButton(
+          tooltip: saved ? 'Kaydedilenlerden çıkar' : 'Kaydet',
+          onPressed: toggleSaved,
+          icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border, color: saved ? wine : muted),
+        ),
+        IconButton(
+          tooltip: 'Paylaşım bağlantısını kopyala',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: '${widget.post.caption}\n${widget.post.mediaUrl}'));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Paylaşım bağlantısı kopyalandı.')));
+          },
+          icon: const Icon(Icons.share_outlined, color: muted),
+        ),
         Text(
           '${widget.post.createdAt.day}.${widget.post.createdAt.month}.${widget.post.createdAt.year}',
           style: const TextStyle(color: muted, fontSize: 10),
@@ -888,6 +943,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
       ],
     ]),
   );
+  }
 }
 
 class InlineFeedVideo extends StatefulWidget {
