@@ -188,7 +188,12 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         final employees = await client.from('employees').select('id')
             .eq('user_id', userId).eq('is_active', true).limit(1);
         if (!mounted) return;
-        if (employees.isNotEmpty) {
+        if (profile['account_type'] == 'employee') {
+          if (employees.isEmpty) {
+            await client.auth.signOut();
+            if (mounted) setState(() => message = 'Çalışan hesabın pasif veya işletme bağlantın kaldırılmış. İşletme sahibinle iletişime geç.');
+            return;
+          }
           role = AppRole.employee;
         } else if (profile['account_type'] == 'business_owner') {
           role = AppRole.owner;
