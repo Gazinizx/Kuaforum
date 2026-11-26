@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kuaforum/main.dart';
 
 void main() {
-  testWidgets('developer test screen lists all four account roles', (tester) async {
+  void configureViewport(WidgetTester tester) {
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+  }
 
+  testWidgets('developer role picker shows all four roles without credentials', (tester) async {
+    configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(home: RolePicker()));
 
     expect(find.text('Müşteri'), findsOneWidget);
@@ -17,38 +20,36 @@ void main() {
     await tester.ensureVisible(find.text('Ana Yönetici'));
     await tester.pumpAndSettle();
     expect(find.text('Ana Yönetici'), findsOneWidget);
+    expect(find.text('E-posta'), findsNothing);
+    expect(find.text('Şifre'), findsNothing);
   });
 
-  testWidgets('business role selection asks for a real test account', (tester) async {
-    tester.view.physicalSize = const Size(1000, 1800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
+  testWidgets('tapping a role opens its panel immediately', (tester) async {
+    configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(home: RolePicker()));
+
+    await tester.ensureVisible(find.text('İşletme Sahibi'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('İşletme Sahibi'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
-    expect(find.text('E-posta'), findsOneWidget);
-    expect(find.text('Şifre'), findsOneWidget);
+    expect(find.text('İşletme Paneli'), findsOneWidget);
+    expect(find.text('Test hesabıyla devam et'), findsNothing);
+    expect(find.text('E-posta'), findsNothing);
+    expect(find.text('Şifre'), findsNothing);
   });
 
-  testWidgets('admin role selection also requires a real test account', (tester) async {
-    tester.view.physicalSize = const Size(1000, 1800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('role switch menu changes panels with one selection', (tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const MaterialApp(home: RoleShell(role: AppRole.customer)));
 
-    await tester.pumpWidget(const MaterialApp(home: RolePicker()));
-    await tester.ensureVisible(find.text('Ana Yönetici'));
+    expect(find.text('Kuaförüm ♡'), findsOneWidget);
+    await tester.tap(find.byTooltip('Rol değiştir'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ana Yönetici'));
+    await tester.tap(find.text('Ana Yönetici').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
-    expect(find.text('E-posta'), findsOneWidget);
-    expect(find.text('Şifre'), findsOneWidget);
+    expect(find.text('Yönetim Merkezi'), findsOneWidget);
   });
 
   testWidgets('hero panel action responds to taps', (tester) async {
