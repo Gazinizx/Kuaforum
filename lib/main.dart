@@ -620,45 +620,8 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
   }
 
   Future<void> openBusiness(Map<String, dynamic> business) async {
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) return;
-    final rawLogo = business['logo_url'] as String?;
-    business['logo_public_url'] = rawLogo == null || rawLogo.isEmpty ? null :
-      (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
-    final businessId = business['id'] as String;
-    final membership = await client.from('business_memberships')
-      .select('id').eq('business_id', businessId).eq('customer_id', userId).maybeSingle();
-    if (membership == null) {
-      final code = TextEditingController();
-      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
-        AlertDialog(
-          title: Text('${business['name']} işletmesine katıl'),
-          content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'İşletmenin verdiği katılım kodu')),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
-          ],
-        ));
-      if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
-      try {
-        final joinedId = await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
-        if (joinedId != businessId) throw Exception('Bu kod seçtiğin işletmeye ait değil.');
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İşletmeye katılınamadı: $e'), backgroundColor: wine));
-        code.dispose();
-        return;
-      }
-      code.dispose();
-    }
-    if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
-      appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
-      body: BusinessBookingPage(
-        businessId: businessId,
-        businessName: business['name'] as String? ?? 'İşletme',
-      ),
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => BusinessProfilePage(
+      businessId: business['id'] as String,
     )));
   }
 
@@ -727,46 +690,8 @@ class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
         .limit(5));
 
   Future<void> openBusiness(Map<String, dynamic> business) async {
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) return;
-    final businessId = business['id'] as String;
-    final membership = await client.from('business_memberships')
-        .select('id').eq('business_id', businessId)
-        .eq('customer_id', userId).maybeSingle();
-    if (membership == null) {
-      final code = TextEditingController();
-      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
-        AlertDialog(
-          title: Text('${business['name']} işletmesine katıl'),
-          content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'İşletmenin verdiği katılım kodu')),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl ve devam et')),
-          ],
-        ));
-      if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
-      try {
-        final joinedId = await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
-        if (joinedId != businessId) {
-          throw Exception('Girdiğin kod bu işletmeye ait değil.');
-        }
-      } catch (error) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine));
-        code.dispose();
-        return;
-      }
-      code.dispose();
-    }
-    if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
-      appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
-      body: BusinessBookingPage(
-        businessId: businessId,
-        businessName: business['name'] as String? ?? 'İşletme',
-      ),
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => BusinessProfilePage(
+      businessId: business['id'] as String,
     )));
   }
 
@@ -3188,12 +3113,8 @@ class _ProfilePageState extends State<ProfilePage> {
               subtitle: Text(business['address'] as String? ?? '', style: const TextStyle(color: muted)),
               trailing: TextButton(onPressed: () => leaveBusiness(membership['business_id'] as String),
                 child: const Text('Ayrıl')),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
-                appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
-                body: BusinessBookingPage(
-                  businessId: membership['business_id'] as String,
-                  businessName: business['name'] as String? ?? 'İşletme',
-                ),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BusinessProfilePage(
+                businessId: membership['business_id'] as String,
               ))),
             ));
           }),
