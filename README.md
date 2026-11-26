@@ -26,7 +26,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 ## Tamamlanması gerekenler
 
 - Firebase/FCM anlık push teslimatı.
-- Yeni cihaz girişinde e-posta doğrulaması.
+- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
 - Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
