@@ -511,8 +511,8 @@ class _RoleShellState extends State<RoleShell> {
         pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
-        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
-        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
+        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
+        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true)];
         break;
     }
   }
@@ -2355,6 +2355,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ...[
           ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
+          ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
           ('Çıkış Yap', Icons.logout, logout),
         ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
           leading: Icon(item.$2, color: wine),
