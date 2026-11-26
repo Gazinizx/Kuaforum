@@ -773,6 +773,164 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
   final client = Supabase.instance.client;
   final search = TextEditingController();
   List<Map<String, dynamic>> results = [];
+  List<Map<String, dynamic>> employeeResults = [];
+  bool loading = false;
+  bool employeeMode = false;
+  String error = '';
+
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<void> findBusinesses() async {
+    final term = search.text.trim();
+    setState(() { loading = true; error = ''; });
+    try {
+      var query = client.from('businesses')
+        .select('id,name,address,logo_url,is_temporarily_closed')
+        .eq('status', 'active');
+      if (term.isNotEmpty) {
+        final safeTerm = term.replaceAll(',', ' ').trim();
+        query = query.or('name.ilike.%$safeTerm%,address.ilike.%$safeTerm%');
+      }
+      final rows = await query.order('name').limit(40);
+      final mapped = List<Map<String, dynamic>>.from(rows);
+      for (final business in mapped) {
+        final rawLogo = business['logo_url'] as String?;
+        business['logo_public_url'] = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      }
+      if (mounted) setState(() => results = mapped);
+    } catch (e) {
+      if (mounted) setState(() => error = 'İşletme araması yapılamadı: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> findEmployees() async {
+    final term = search.text.trim();
+    setState(() { loading = true; error = ''; });
+    try {
+      var query = client.from('public_business_employees')
+        .select('id,business_id,display_name,avatar_url');
+      if (term.isNotEmpty) query = query.ilike('display_name', '%$term%');
+      final rows = await query.order('display_name').limit(40);
+      final employees = List<Map<String, dynamic>>.from(rows);
+      final businessIds = employees.map((e) => e['business_id'] as String).toSet().toList();
+      final businesses = businessIds.isEmpty ? <Map<String, dynamic>>[] :
+        List<Map<String, dynamic>>.from(await client.from('businesses')
+          .select('id,name,address').inFilter('id', businessIds));
+      final businessById = {for (final b in businesses) b['id'] as String: b};
+      for (final employee in employees) {
+        final business = businessById[employee['business_id']];
+        employee['business_name'] = business?['name'] ?? 'İşletme';
+        employee['business_address'] = business?['address'] ?? '';
+      }
+      if (mounted) setState(() => employeeResults = employees);
+    } catch (e) {
+      if (mounted) setState(() => error = 'Çalışan araması yapılamadı: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> searchCurrent() => employeeMode ? findEmployees() : findBusinesses();
+
+  Future<void> openBusiness(String businessId) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+      BusinessProfilePage(businessId: businessId)));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(title: const Text('Kuaför keşfet')),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), child: Row(children: [
+        ChoiceChip(
+          label: const Text('İşletmeler'),
+          selected: !employeeMode,
+          selectedColor: blush,
+          onSelected: (_) {
+            setState(() { employeeMode = false; });
+            findBusinesses();
+          },
+        ),
+        const SizedBox(width: 8),
+        ChoiceChip(
+          label: const Text('Çalışanlar'),
+          selected: employeeMode,
+          selectedColor: blush,
+          onSelected: (_) {
+            setState(() { employeeMode = true; });
+            findEmployees();
+          },
+        ),
+      ])),
+      Padding(padding: const EdgeInsets.all(16), child: TextField(
+        controller: search,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => searchCurrent(),
+        decoration: InputDecoration(
+          hintText: employeeMode ? 'Çalışan adı ara' : 'İşletme adı veya adres ara',
+          prefixIcon: const Icon(Icons.search, color: wine),
+          suffixIcon: IconButton(onPressed: searchCurrent,
+            icon: const Icon(Icons.arrow_forward, color: wine)),
+          filled: true, fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+        ),
+      )),
+      Expanded(child: loading
+        ? const Center(child: CircularProgressIndicator(color: wine))
+        : error.isNotEmpty
+          ? Center(child: Padding(padding: const EdgeInsets.all(20),
+              child: Text(error, textAlign: TextAlign.center, style: const TextStyle(color: wine))))
+          : employeeMode
+            ? employeeResults.isEmpty
+              ? const Center(child: Text('Çalışan aramak için yukarıya yaz.', style: TextStyle(color: muted)))
+              : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children:
+                  employeeResults.map((employee) {
+                    final avatar = employee['avatar_url'] as String?;
+                    return Card(color: Colors.white, elevation: 0, child: ListTile(
+                      leading: CircleAvatar(backgroundColor: blush,
+                        backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                        child: avatar == null || avatar.isEmpty ? const Icon(Icons.person, color: wine) : null),
+                      title: Text(employee['display_name'] as String? ?? 'Çalışan',
+                        style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                      subtitle: Text(employee['business_name'] as String? ?? 'İşletme',
+                        style: const TextStyle(color: muted)),
+                      trailing: const Icon(Icons.chevron_right, color: wine),
+                      onTap: () => openBusiness(employee['business_id'] as String),
+                    ));
+                  }).toList())
+            : results.isEmpty
+              ? const Center(child: Text('İşletme aramak için yukarıya yaz.', style: TextStyle(color: muted)))
+              : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children:
+                  results.map((business) {
+                    final logo = business['logo_public_url'] as String?;
+                    final closed = business['is_temporarily_closed'] == true;
+                    return Card(color: Colors.white, elevation: 0, child: ListTile(
+                      leading: CircleAvatar(backgroundColor: blush,
+                        backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+                        child: logo == null || logo.isEmpty ? const Icon(Icons.storefront, color: wine) : null),
+                      title: Text(business['name'] as String? ?? 'Kuaför',
+                        style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                      subtitle: Text(closed ? 'Geçici olarak kapalı • ${business['address'] ?? ''}' :
+                        (business['address'] as String? ?? 'Adres belirtilmemiş'),
+                        style: const TextStyle(color: muted)),
+                      trailing: const Icon(Icons.chevron_right, color: wine),
+                      onTap: () => openBusiness(business['id'] as String),
+                    ));
+                  }).toList()),
+      ),
+    ]),
+  );
+}
+
+class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  List<Map<String, dynamic>> results = [];
   bool loading = false;
   String error = '';
 
