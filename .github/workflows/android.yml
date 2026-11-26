@@ -1,5 +1,8 @@
 name: Android APK
 on:
+  push:
+    branches:
+      - feature/profile-follow-lists
   workflow_dispatch:
     inputs:
       test_mode:
@@ -21,7 +24,7 @@ jobs:
       - run: flutter create . --platforms=android --org com.gazinizx
       - name: Ensure release internet access
         run: |
-          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
       - name: Configure password reset deep link
         run: |
           python3 - <<'PY'
@@ -44,7 +47,7 @@ jobs:
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
       - name: Build APK (quick role picker for test builds)
-        run: flutter build apk --release --dart-define=KUAFORUM_TEST_MODE=${{ inputs.test_mode }}
+        run: flutter build apk --release --dart-define=KUAFORUM_TEST_MODE=${{ github.event_name == 'push' || inputs.test_mode }}
       - uses: actions/upload-artifact@v4
         with:
           name: kuaforum-release-apk
