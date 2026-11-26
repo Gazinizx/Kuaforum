@@ -1,28 +1,37 @@
 # Kuaförüm
 
-Kadın kuaförleri için premium salon keşif, randevu ve sosyal paylaşım uygulaması.
+Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaşım ve işletme yönetimi uygulaması.
 
-## Mevcut uygulama durumu
+## Uygulama kapsamı
 
-- Hızlı test rol ekranı korunur; her rol için gerçek Supabase hesabıyla giriş yapılır ve hesap rolü doğrulanır.
-- Müşteri, çalışan, işletme sahibi ve ana yönetici panellerinin tasarım akışı bulunur.
-- İşletme sahibi ve aktif çalışan hesapları fotoğraf/video paylaşabilir.
-- Keşfet ve Takip akışları, beğeniler, takip ilişkileri ve yorumlar Supabase üzerinden kalıcı olarak çalışır.
-- Paylaşılan medya özel `salon-feed` Storage alanında saklanır; görüntüleme izinleri işletme ve Keşfet görünürlüğü kurallarına bağlıdır.
-- Keşfet görünürlüğü veritabanında işletme bazında tutulur; ana yönetici ekranındaki erişim anahtarlarının veritabanına bağlanması henüz tamamlanmamıştır. Test işletmesinin görünürlüğü kapalıdır.
+- Normal kayıt yalnızca müşteri hesabı oluşturur; e-posta, ad, soyad ve telefon zorunludur.
+- Çalışan, işletme sahibinin oluşturduğu davet kodunu müşteri hesabıyla giriş sırasında kullanarak çalışan hesabına geçer.
+- İşletmeler ana yönetici tarafından onaylanır.
+- Müşteri işletmeye katılım koduyla bağlanabilir; profilinden bağlı işletmelerini ve takip ettiklerini yönetebilir.
+- İşletme sahibi çalışan, hizmet, işletme profili, çalışma saatleri ve randevu aralığını yönetebilir.
+- Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi onaylar/reddeder.
+- Müşteri işletme, hizmet, çalışan ve uygun saat seçerek randevu talebi oluşturabilir. Kara liste/özel onay, randevu iptali ve gelmeme kuralları veritabanında uygulanır.
+- İşletme geçici kapatıldığında yeni randevu alınamaz; mevcut randevular korunur.
+- Keşfet ve Takip akışları gerçek Supabase verisiyle çalışır; paylaşım, beğeni, yorum, kaydetme, takip ve paylaşım silme işlemleri veritabanına bağlıdır.
+- Aktif işletmelerin paylaşımları Keşfet'te herkese açıktır. Üst sıralama hakkı olan işletmeler yönetici kontrolüyle öne çıkar; sıralamada etkileşim ve işletme puanları dikkate alınır.
+- Mesajlaşma, kişi bazlı gizleme, işletme sohbeti ve çalışanla özel sohbet desteklenir. İşletme sahibi çalışanların özel sohbetlerini okuyamaz.
+- Bildirim merkezi, takip/beğeni/yorum/paylaşım/mesaj ve randevu bildirimlerini gösterir.
+- Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
+- Ana yönetici işletmeleri, kullanıcıları, Keşfet öne çıkarma ve destek taleplerini yönetebilir.
 
-## Henüz tamamlanmayan bölümler
+## Bilinen tamamlanmamış işler
 
-- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü şu anda tasarım/örnek veri aşamasındadır.
-- Mesajlaşma ekranı henüz gerçek sohbet altyapısına bağlı değildir.
-- Profil sayfaları, takipçi/takip edilen listeleri, içerik arama ve gelişmiş moderasyon tamamlanmamıştır.
-- Normal kullanıcı kayıt/giriş ekranı, hızlı test ekranının yerine son aşamada eklenecektir.
+- Firebase/FCM anlık push bildirimi ve bildirim türü tercih ekranı henüz tamamlanmadı; mevcut bildirim merkezi uygulama içidir.
+- Yeni cihaz girişinde e-posta doğrulaması ve aktif cihaz/oturum yönetimi henüz tamamlanmadı.
+- Hesabı uygulama içinden kalıcı silme akışı ve ayrıntılı yetkili-alt yönetici izin matrisi henüz tamamlanmadı.
+- App Store/iOS dağıtım ve son cihaz testleri yapılmadı.
+- İşletme puanlaması yalnızca tamamlanan randevudan sonra yapılabilir; ana yönetici dışındaki kullanıcılar değerlendirmeyi düzenleyemez.
 
-## Android test derlemesi
+## Android derlemesi
 
-GitHub Actions, her `main` güncellemesinde Android platform dosyalarını oluşturur; bağımlılıkları indirir, analiz ve testleri çalıştırır ve başarılı olursa release APK çıktısını `kuaforum-release-apk` adlı artifact olarak yükler.
+GitHub Actions release APK üretir. Son APK, son kaynak commit'i için analiz, test ve release derlemesi tamamlandıktan sonra paylaşılmalıdır.
 
-Yerel derleme komutları:
+Yerel komutlar:
 
 ```bash
 flutter pub get
