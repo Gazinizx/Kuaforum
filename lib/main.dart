@@ -5765,7 +5765,7 @@ class _DiscoverControlState extends State<DiscoverControl> {
   @override
   void initState() { super.initState(); businesses = load(); }
   Future<List<Map<String, dynamic>>> load() async =>
-    List<Map<String, dynamic>>.from(await client.rpc('admin_list_businesses') as List);
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_discover_businesses') as List);
   Future<void> refreshData() async { final next = load(); setState(() => businesses = next); await next; }
   Future<void> update(String id, bool enabled) async {
     try {
