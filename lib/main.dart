@@ -18,6 +18,8 @@ Future<void> main() async {
   runApp(const KuaforumApp());
 }
 
+const bool _developerTestMode = bool.fromEnvironment('KUAFORUM_TEST_MODE', defaultValue: false);
+
 const wine = Color(0xFF8E2947);
 const rose = Color(0xFFC65B79);
 const blush = Color(0xFFF7DDE3);
@@ -117,8 +119,8 @@ class _KuaforumAppState extends State<KuaforumApp> {
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
     ),
-    // Test APKs can open directly on the developer role picker; production remains on AuthGate.
-    home: const RolePicker(),
+    // Test APKs open the role picker; production builds use the normal authenticated flow.
+    home: _developerTestMode ? const RolePicker() : const AuthGate(),
   );
 }
 
@@ -171,77 +173,10 @@ class RolePicker extends StatelessWidget {
       const Text('Geliştirici test ekranı • Normal giriş ekranı yayın öncesinde eklenecek', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
     ])),
   );
-  Future<void> _openRole(BuildContext context, AppRole role) async {
-    final email = TextEditingController();
-    final password = TextEditingController();
-    final credentials = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Test hesabıyla devam et'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'E-posta')),
-          TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Devam et')),
-        ],
-      ),
+  void _openRole(BuildContext context, AppRole role) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => RoleShell(role: role)),
     );
-    if (credentials != true || !context.mounted) return;
-    try {
-      final auth = Supabase.instance.client;
-      final response = await auth.auth.signInWithPassword(
-        email: email.text.trim(),
-        password: password.text,
-      );
-      final user = response.user;
-      if (user == null) throw AuthException('Oturum açılamadı.');
-      final statusRows = await auth.rpc('get_my_account_status') as List;
-      final profile = statusRows.isEmpty
-          ? null
-          : Map<String, dynamic>.from(statusRows.first as Map);
-      if (profile == null || profile['is_blocked'] == true) {
-        await auth.auth.signOut();
-        throw AuthException('Bu hesap uygulamaya erişemiyor.');
-      }
-      var allowed = false;      switch (role) {
-        case AppRole.admin:
-          allowed = profile['is_admin'] == true;
-          break;
-        case AppRole.owner:
-          allowed = profile['account_type'] == 'business_owner' && profile['is_admin'] != true;
-          break;
-        case AppRole.employee:
-          final employee = await auth.from('employees').select('id')
-              .eq('user_id', user.id).eq('is_active', true).limit(1);          allowed = employee.isNotEmpty;
-          break;
-        case AppRole.customer:
-          allowed = profile['account_type'] == 'customer' && profile['is_admin'] != true;
-          break;
-      }
-      if (!allowed) {
-        await auth.auth.signOut();
-        throw AuthException('Bu hesap seçtiğin role bağlı değil.');
-      }
-      if (!context.mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => RoleShell(role: role)));
-    } on AuthException catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message), backgroundColor: wine),
-        );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Giriş yapılamadı. Bağlantını ve hesap bilgilerini kontrol et.'), backgroundColor: wine),
-        );
-      }
-    } finally {
-      email.dispose();
-      password.dispose();
-    }
   }
   Widget _role(BuildContext context, AppRole role, String title, String subtitle, IconData icon) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -290,7 +225,30 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())), icon: const Icon(Icons.notifications_none_rounded)), const SizedBox(width: 5)]),
+    appBar: AppBar(
+      title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)),
+      actions: [
+        if (_developerTestMode)
+          PopupMenuButton<AppRole>(
+            tooltip: 'Rol değiştir',
+            icon: const Icon(Icons.swap_horiz_rounded),
+            onSelected: (role) => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => RoleShell(role: role)),
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: AppRole.customer, child: Text('Müşteri')),
+              PopupMenuItem(value: AppRole.employee, child: Text('Çalışan')),
+              PopupMenuItem(value: AppRole.owner, child: Text('İşletme Sahibi')),
+              PopupMenuItem(value: AppRole.admin, child: Text('Ana Yönetici')),
+            ],
+          ),
+        IconButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())),
+          icon: const Icon(Icons.notifications_none_rounded),
+        ),
+        const SizedBox(width: 5),
+      ],
+    ),
     body: IndexedStack(index:index, children:pages),
     bottomNavigationBar: NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
