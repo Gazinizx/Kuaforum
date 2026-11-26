@@ -3069,6 +3069,33 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> leaveEmployeeBusiness() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeden ayrıl'),
+        content: const Text('Çalışan bağlantın kaldırılacak ve hesabın müşteri hesabına dönecek. Daha sonra başka bir işletmeye katılabilirsin. Devam edilsin mi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ayrıl', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('leave_employee_business');
+      await client.auth.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+        (route) => false,
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeden ayrılamadın: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
   Future<void> logout() async {
     await client.auth.signOut();
     if (!mounted) return;
@@ -3120,6 +3147,12 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: item.$3,
         ))),
         if (snapshot.data!['account_type'] == 'employee') ...[
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.link_off, color: wine),
+            title: const Text('İşletmeden ayrıl', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: leaveEmployeeBusiness,
+          )),
           const SectionTitle('Çalışma ve İzin'),
           Card(color: Colors.white, elevation: 0, child: ListTile(
             leading: const Icon(Icons.schedule, color: wine),
