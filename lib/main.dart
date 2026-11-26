@@ -229,7 +229,28 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
           if (pendingUser == null) throw AuthException('Kayıt başlatılamadı.');
           final signupCode = await _askForEmailCode(mail, 'E-posta adresini doğrula');
           if (signupCode == null) return;
-          if (!RegExp(r'^\d{6}
+          if (!RegExp(r'^\d{6}$').hasMatch(signupCode)) {
+            setState(() => message = 'Doğrulama kodu 6 haneli olmalı.');
+            return;
+          }
+          final verified = await auth.verifyOTP(
+            type: OtpType.signup,
+            email: mail,
+            token: signupCode,
+          );
+          if (verified.user == null || verified.user!.id != pendingUser.id) {
+            throw AuthException('E-posta doğrulaması tamamlanamadı.');
+          }
+          final deviceId = await _deviceId();
+          await Supabase.instance.client.rpc('trust_current_device', params: {
+            'p_device_id': deviceId,
+            'p_device_name': Platform.isAndroid ? 'Android cihaz' : Platform.isIOS ? 'iPhone / iPad' : 'Mobil cihaz',
+          });
+          await _openAccount(verified.user!.id, checkDevice: false);
+        } else if (result.user != null) {
+          if (!await _ensureTrustedDevice(result.user!)) return;
+          await _openAccount(result.user!.id, checkDevice: false);
+        }
       } else {
         final result = await auth.signInWithPassword(email: mail, password: password.text);
         if (result.user == null) throw AuthException('Giriş yapılamadı.');
