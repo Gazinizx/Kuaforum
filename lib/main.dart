@@ -2475,7 +2475,44 @@ class _WorkingHoursPageState extends State<WorkingHoursPage> {
   ]);
 }
 
-class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
+class AdminHome extends StatefulWidget {
+  const AdminHome({super.key});
+  @override State<AdminHome> createState() => _AdminHomeState();
+}
+class _AdminHomeState extends State<AdminHome> {
+  late Future<Map<String, dynamic>> stats;
+  @override
+  void initState() { super.initState(); stats = load(); }
+  Future<Map<String, dynamic>> load() async {
+    final rows = await Supabase.instance.client.rpc('admin_dashboard_stats');
+    final row = (rows as List).first as Map;
+    return Map<String, dynamic>.from(row);
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: stats,
+    builder: (context, snapshot) => PageBody(children: [
+      const Text('Ana Yönetici', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 14),
+      const HeroPanel(eyebrow: 'Platform kontrolü', title: 'Kuaförüm ekosistemini yönet',
+        subtitle: 'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',
+        icon: Icons.admin_panel_settings, button: 'Platformu yönet'),
+      const SizedBox(height: 14),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        _FeedMessage(icon: Icons.cloud_off_outlined, title: 'İstatistikler yüklenemedi', detail: snapshot.error.toString())
+      else
+        Row(children: [
+          Expanded(child: _StatCard(snapshot.data!['business_count'].toString(), 'İşletme')),
+          Expanded(child: _StatCard(snapshot.data!['user_count'].toString(), 'Kullanıcı')),
+          Expanded(child: _StatCard(snapshot.data!['post_count'].toString(), 'Paylaşım')),
+        ]),
+      const SectionTitle('Yönetim araçları'),
+      const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.', style: TextStyle(color: muted, height: 1.5)),
+    ]),
+  );
+}
 class AdminBusinesses extends StatefulWidget {
   const AdminBusinesses({super.key});
   @override State<AdminBusinesses> createState() => _AdminBusinessesState();
