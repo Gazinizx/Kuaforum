@@ -5366,6 +5366,122 @@ class _WorkingHoursPageState extends State<WorkingHoursPage> {
   ]);
 }
 
+class AdminSubAdmins extends StatefulWidget {
+  const AdminSubAdmins({super.key});
+  @override State<AdminSubAdmins> createState() => _AdminSubAdminsState();
+}
+class _AdminSubAdminsState extends State<AdminSubAdmins> {
+  final client = Supabase.instance.client;
+  final email = TextEditingController();
+  final permissions = <String>{};
+  bool loading = true;
+  bool saving = false;
+  List<Map<String, dynamic>> admins = [];
+  static const options = <String, String>{
+    'dashboard': 'Genel bakış', 'businesses': 'İşletme yönetimi',
+    'users': 'Kullanıcı yönetimi', 'discover': 'Keşfet yönetimi',
+    'support': 'Destek yönetimi',
+  };
+  @override void initState() { super.initState(); load(); }
+  @override void dispose() { email.dispose(); super.dispose(); }
+  Future<void> load() async {
+    try {
+      final rows = await client.rpc('admin_list_subadmins') as List;
+      admins = List<Map<String, dynamic>>.from(rows);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Alt yöneticiler yüklenemedi: $error')));
+    } finally { if (mounted) setState(() => loading = false); }
+  }
+  Future<void> save() async {
+    final address = email.text.trim();
+    if (!address.contains('@') || permissions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geçerli e-posta ve en az bir yetki seç.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await client.rpc('admin_set_subadmin', params: {
+        'p_email': address, 'p_permissions': permissions.toList(),
+      });
+      email.clear(); permissions.clear();
+      await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alt yönetici yetkileri kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yetkiler kaydedilemedi: $error')));
+    } finally { if (mounted) setState(() => saving = false); }
+  }
+  Future<void> edit(Map<String, dynamic> admin) async {
+    email.text = admin['email']?.toString() ?? '';
+    permissions..clear()
+      ..addAll(List<String>.from(admin['permissions'] ?? const []));
+    await showDialog<void>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, refreshDialog) => AlertDialog(
+        title: Text(admin['full_name']?.toString() ?? 'Alt yönetici'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          ...options.entries.map((entry) => CheckboxListTile(
+            contentPadding: EdgeInsets.zero, title: Text(entry.value),
+            value: permissions.contains(entry.key), activeColor: wine,
+            onChanged: (value) => refreshDialog(() {
+              if (value == true) { permissions.add(entry.key); }
+              else { permissions.remove(entry.key); }
+            }),
+          )),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç')),
+          FilledButton(onPressed: () async {
+            Navigator.pop(dialogContext); await save();
+          }, child: const Text('Kaydet')),
+        ],
+      )));
+    email.clear(); permissions.clear();
+  }
+  @override Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18), children: [
+      const Text('Alt Yönetici Yetkileri', style: TextStyle(
+        fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 6),
+      const Text('Mevcut müşteri hesabını e-posta adresiyle seçip yönetim alanlarını yetkilendir.',
+        style: TextStyle(color: muted)),
+      const SizedBox(height: 16),
+      TextField(controller: email, keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(labelText: 'Kullanıcı e-posta adresi')),
+      const SizedBox(height: 8),
+      ...options.entries.map((entry) => CheckboxListTile(
+        contentPadding: EdgeInsets.zero, title: Text(entry.value),
+        value: permissions.contains(entry.key), activeColor: wine,
+        onChanged: (value) => setState(() {
+          if (value == true) { permissions.add(entry.key); }
+          else { permissions.remove(entry.key); }
+        }),
+      )),
+      const SizedBox(height: 8),
+      FilledButton(onPressed: saving ? null : save,
+        child: Text(saving ? 'Kaydediliyor...' : 'Alt yönetici yetkilerini kaydet')),
+      const SectionTitle('Yetkili hesaplar'),
+      if (loading) const Center(child: CircularProgressIndicator(color: wine))
+      else if (admins.isEmpty) const Text('Henüz alt yönetici eklenmedi.',
+        style: TextStyle(color: muted))
+      else ...admins.map((admin) => Card(color: Colors.white, elevation: 0,
+        child: ListTile(
+          leading: const CircleAvatar(backgroundColor: blush,
+            child: Icon(Icons.admin_panel_settings, color: wine)),
+          title: Text(admin['full_name']?.toString() ?? 'Kullanıcı'),
+          subtitle: Text('${admin['email'] ?? ''} • '
+            '${(admin['permissions'] as List? ?? []).length} yetki'),
+          trailing: IconButton(icon: const Icon(Icons.edit_outlined, color: wine),
+            onPressed: () => edit(admin)),
+        ),
+      )),
+    ],
+  );
+}
+
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
   @override State<AdminHome> createState() => _AdminHomeState();
