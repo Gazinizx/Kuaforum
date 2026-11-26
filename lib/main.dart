@@ -51,6 +51,9 @@ class LoginEntryPage extends StatefulWidget {
 class _LoginEntryPageState extends State<LoginEntryPage> {
   final email = TextEditingController();
   final password = TextEditingController();
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
+  final phone = TextEditingController();
   bool isRegister = false;
   bool busy = false;
   bool obscurePassword = true;
@@ -71,11 +74,18 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
   void dispose() {
     email.dispose();
     password.dispose();
+    firstName.dispose();
+    lastName.dispose();
+    phone.dispose();
     super.dispose();
   }
 
   Future<void> submit() async {
     final mail = email.text.trim();
+    if (isRegister && (firstName.text.trim().isEmpty || lastName.text.trim().isEmpty || phone.text.trim().isEmpty)) {
+      setState(() => message = 'Ad, soyad ve telefon bilgilerini doldur.');
+      return;
+    }
     if (mail.isEmpty || !mail.contains('@')) {
       setState(() => message = 'Geçerli bir e-posta adresi gir.');
       return;
@@ -93,7 +103,13 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         final result = await auth.signUp(
           email: mail,
           password: password.text,
-          data: {'account_type': accountType},
+          data: {
+            'account_type': 'customer',
+            'first_name': firstName.text.trim(),
+            'last_name': lastName.text.trim(),
+            'full_name': '${firstName.text.trim()} ${lastName.text.trim()}',
+            'phone': phone.text.trim(),
+          },
         );
         if (result.session == null) {
           setState(() => message = 'Doğrulama bağlantısı e-posta adresine gönderildi. E-postanı kontrol et.');
@@ -197,16 +213,43 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       style: const TextStyle(color: muted, fontSize: 13)),
                     if (isRegister) ...[
                       const SizedBox(height: 20),
-                      const Text('HESAP TÜRÜ', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                      const SizedBox(height: 8),
-                      SegmentedButton<String>(
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(value: 'customer', label: Text('Müşteri')),
-                          ButtonSegment(value: 'business_owner', label: Text('İşletme')),
-                        ],
-                        selected: {accountType},
-                        onSelectionChanged: (value) => setState(() => accountType = value.first),
+                      const Text('ADIN', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: firstName,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Adın',
+                          prefixIcon: const Icon(Icons.person_outline, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('SOYADIN', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: lastName,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Soyadın',
+                          prefixIcon: const Icon(Icons.person_outline, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('TELEFON', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: phone,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          hintText: '05xx xxx xx xx',
+                          prefixIcon: const Icon(Icons.phone_outlined, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
