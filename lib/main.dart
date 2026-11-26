@@ -1347,6 +1347,11 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         await client.rpc('cancel_appointment', params: {
           'p_appointment_id': appointment['appointment_id'],
         });
+      } else if (status == 'approve' || status == 'reject') {
+        await client.rpc('review_appointment_request', params: {
+          'p_appointment_id': appointment['appointment_id'],
+          'p_decision': status,
+        });
       } else {
         await client.rpc('update_appointment_status', params: {
           'p_appointment_id': appointment['appointment_id'],
@@ -1355,7 +1360,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
       }
       if (!mounted) return;
       final message = status == 'completed' ? 'Randevu tamamlandı.' :
-        status == 'no_show' ? 'Gelmedi olarak işaretlendi.' : 'Randevu iptal edildi.';
+        status == 'no_show' ? 'Gelmedi olarak işaretlendi.' :
+        status == 'approve' ? 'Randevu onaylandı.' :
+        status == 'reject' ? 'Randevu reddedildi.' : 'Randevu iptal edildi.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       await refreshAppointments();
     } catch (error) {
@@ -1419,26 +1426,40 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       ])),
                       Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.bold)),
                     ]),
-                    if (status == 'confirmed') ...[
+                    if ((status == 'confirmed' || status == 'pending') && item.containsKey('business_name')) ...[
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: TextButton(
+                        onPressed: () => changeStatus(item, 'cancelled'),
+                        child: const Text('Randevuyu iptal et', style: TextStyle(color: wine)),
+                      )),
+                    ] else if (status == 'pending' && item['requires_business_approval'] == true) ...[
                       const SizedBox(height: 12),
-                      if (item.containsKey('business_name'))
-                        Align(alignment: Alignment.centerRight, child: TextButton(
-                          onPressed: () => changeStatus(item, 'cancelled'),
-                          child: const Text('Randevuyu iptal et', style: TextStyle(color: wine)),
-                        ))
-                      else
-                        Row(children: [
-                          Expanded(child: OutlinedButton(
-                            onPressed: () => changeStatus(item, 'no_show'),
-                            child: const Text('Gelmedi'),
-                          )),
-                          const SizedBox(width: 8),
-                          Expanded(child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
-                            onPressed: () => changeStatus(item, 'completed'),
-                            child: const Text('Tamamlandı'),
-                          )),
-                        ]),
+                      Row(children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => changeStatus(item, 'reject'),
+                          child: const Text('Reddet'),
+                        )),
+                        const SizedBox(width: 8),
+                        Expanded(child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                          onPressed: () => changeStatus(item, 'approve'),
+                          child: const Text('Onayla'),
+                        )),
+                      ]),
+                    ] else if (status == 'confirmed') ...[
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => changeStatus(item, 'no_show'),
+                          child: const Text('Gelmedi'),
+                        )),
+                        const SizedBox(width: 8),
+                        Expanded(child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                          onPressed: () => changeStatus(item, 'completed'),
+                          child: const Text('Tamamlandı'),
+                        )),
+                      ]),
                     ],
                   ]),
                 );
