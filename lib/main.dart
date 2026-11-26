@@ -5451,6 +5451,31 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
         SnackBar(content: Text('Yetkiler kaydedilemedi: $error')));
     } finally { if (mounted) setState(() => saving = false); }
   }
+  Future<void> revoke(Map<String, dynamic> admin) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Alt yöneticiyi kaldır'),
+        content: Text('${admin['email'] ?? 'Bu hesap'} için tüm yönetim yetkileri kaldırılacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Yetkileri kaldır')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('admin_set_subadmin', params: {
+        'p_email': admin['email'], 'p_permissions': <String>[],
+      });
+      await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alt yönetici yetkileri kaldırıldı.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yetkiler kaldırılamadı: $error')));
+    }
+  }
   Future<void> edit(Map<String, dynamic> admin) async {
     email.text = admin['email']?.toString() ?? '';
     permissions..clear()
@@ -5511,8 +5536,12 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
           title: Text(admin['full_name']?.toString() ?? 'Kullanıcı'),
           subtitle: Text('${admin['email'] ?? ''} • '
             '${(admin['permissions'] as List? ?? []).length} yetki'),
-          trailing: IconButton(icon: const Icon(Icons.edit_outlined, color: wine),
-            onPressed: () => edit(admin)),
+          trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(icon: const Icon(Icons.edit_outlined, color: wine),
+              onPressed: () => edit(admin)),
+            IconButton(icon: const Icon(Icons.delete_outline, color: wine),
+              onPressed: () => revoke(admin)),
+          ]),
         ),
       )),
     ],
