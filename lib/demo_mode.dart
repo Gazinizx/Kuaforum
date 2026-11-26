@@ -145,9 +145,13 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
 
   Widget _panel({required Widget child}) => Container(
     margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(15),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: _demoBlush)),
-    child: child,
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(padding: const EdgeInsets.all(15), child: child),
+    ),
   );
 
   Widget _home() {
