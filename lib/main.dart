@@ -4317,7 +4317,29 @@ class SharePage extends StatefulWidget {
 }
 class _SharePageState extends State<SharePage> {
   final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false;
-  Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(() { selectedMedia=file; isVideo=video; }); }
+  Future<void> chooseMedia(bool video) async {
+    final file = video
+        ? await picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 2))
+        : await picker.pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 2400, maxHeight: 2400);
+    if (file == null || !mounted) return;
+    if (video) {
+      setState(() { selectedMedia = file; isVideo = true; });
+      return;
+    }
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 90,
+      uiSettings: [
+        AndroidUiSettings(toolbarTitle: 'Gönderi fotoğrafını düzenle', toolbarColor: wine,
+          toolbarWidgetColor: Colors.white, lockAspectRatio: false),
+        IOSUiSettings(title: 'Gönderi fotoğrafını düzenle', aspectRatioLockEnabled: false),
+      ],
+    );
+    if (cropped != null && mounted) {
+      setState(() { selectedMedia = XFile(cropped.path); isVideo = false; });
+    }
+  }
   @override void dispose(){caption.dispose();super.dispose();}
   Future<void> publish() async {
     final text = caption.text.trim();
