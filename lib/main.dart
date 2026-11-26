@@ -5620,15 +5620,6 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
     }
   }
 
-  Future<void> setDiscover(String id, bool enabled) async {
-    try {
-      await client.rpc('admin_set_discover_visibility', params: {'p_business_id': id, 'p_enabled': enabled});
-      await refreshData();
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Keşfet görünürlüğü değiştirilemedi: $error')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
     future: businesses,
@@ -5674,13 +5665,16 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
                   const SizedBox(height: 6),
                   Text('Durum: ${status == 'active' ? 'Aktif' : status == 'rejected' ? 'Reddedildi' : 'Pasif'}',
                     style: const TextStyle(color: muted, fontSize: 12)),
-                  if (paid) SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Keşfet üst sıraları'),
-                    value: b['discover_enabled'] == true,
-                    activeColor: wine,
-                    onChanged: (value) => setDiscover(b['id'].toString(), value),
-                  ) else const Padding(padding: EdgeInsets.only(top: 8), child: Text('Keşfet üst sıra hakkı tanımlı değil.', style: TextStyle(color: muted, fontSize: 12))),
+                  if (paid)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Keşfet üst sıra hakkı tanımlı.',
+                        style: TextStyle(color: muted, fontSize: 12)),
+                    ) else const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Keşfet üst sıra hakkı tanımlı değil.',
+                        style: TextStyle(color: muted, fontSize: 12)),
+                    ),
                 ])),
               );
             }),
