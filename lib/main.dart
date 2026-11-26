@@ -1287,6 +1287,21 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   Future<List<Map<String, dynamic>>> loadAppointments() async {
     final user = client.auth.currentUser;
     if (user == null) throw Exception('Oturum bulunamadı. Yeniden giriş yapın.');
+    final profile = await client.from('profiles')
+        .select('account_type').eq('id', user.id).single();
+    if (profile['account_type'] == 'customer') {
+      final rows = await client.from('appointments').select(
+        'id,starts_at,ends_at,status,requires_business_approval,'
+        'businesses(name),services(name),employees(display_name)'
+      ).eq('customer_id', user.id).order('starts_at', ascending: false);
+      return List<Map<String, dynamic>>.from(rows).map((item) => {
+        ...item,
+        'appointment_id': item['id'],
+        'business_name': (item['businesses'] as Map?)?['name'] ?? 'İşletme',
+        'service_name': (item['services'] as Map?)?['name'] ?? 'Hizmet',
+        'employee_name': (item['employees'] as Map?)?['display_name'] ?? 'Çalışan',
+      }).toList();
+    }
     final employee = await client.from('employees')
         .select('id,business_id')
         .eq('user_id', user.id)
@@ -1317,14 +1332,20 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   Future<void> changeStatus(Map<String, dynamic> appointment, String status) async {
     try {
-      await client.rpc('update_appointment_status', params: {
-        'p_appointment_id': appointment['appointment_id'],
-        'p_status': status,
-      });
+      if (status == 'cancelled') {
+        await client.rpc('cancel_appointment', params: {
+          'p_appointment_id': appointment['appointment_id'],
+        });
+      } else {
+        await client.rpc('update_appointment_status', params: {
+          'p_appointment_id': appointment['appointment_id'],
+          'p_status': status,
+        });
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(status == 'completed' ? 'Randevu tamamlandı.' : 'Gelmedi olarak işaretlendi.')),
-      );
+      final message = status == 'completed' ? 'Randevu tamamlandı.' :
+        status == 'no_show' ? 'Gelmedi olarak işaretlendi.' : 'Randevu iptal edildi.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       await refreshAppointments();
     } catch (error) {
       if (!mounted) return;
@@ -1381,26 +1402,32 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       const CircleAvatar(radius: 22, backgroundColor: blush, child: Icon(Icons.person, color: wine)),
                       const SizedBox(width: 11),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(item['customer_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                        Text(item['service_name']?.toString() ?? 'Hizmet', style: const TextStyle(color: muted, fontSize: 12)),
+                        Text(item['customer_name']?.toString() ?? item['business_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                        Text('${item['service_name']?.toString() ?? 'Hizmet'} • ${item['employee_name']?.toString() ?? 'Çalışan'}', style: const TextStyle(color: muted, fontSize: 12)),
                         Text(dateText, style: const TextStyle(color: ink, fontSize: 12)),
                       ])),
                       Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.bold)),
                     ]),
                     if (status == 'confirmed') ...[
                       const SizedBox(height: 12),
-                      Row(children: [
-                        Expanded(child: OutlinedButton(
-                          onPressed: () => changeStatus(item, 'no_show'),
-                          child: const Text('Gelmedi'),
-                        )),
-                        const SizedBox(width: 8),
-                        Expanded(child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
-                          onPressed: () => changeStatus(item, 'completed'),
-                          child: const Text('Tamamlandı'),
-                        )),
-                      ]),
+                      if (item.containsKey('business_name'))
+                        Align(alignment: Alignment.centerRight, child: TextButton(
+                          onPressed: () => changeStatus(item, 'cancelled'),
+                          child: const Text('Randevuyu iptal et', style: TextStyle(color: wine)),
+                        ))
+                      else
+                        Row(children: [
+                          Expanded(child: OutlinedButton(
+                            onPressed: () => changeStatus(item, 'no_show'),
+                            child: const Text('Gelmedi'),
+                          )),
+                          const SizedBox(width: 8),
+                          Expanded(child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                            onPressed: () => changeStatus(item, 'completed'),
+                            child: const Text('Tamamlandı'),
+                          )),
+                        ]),
                     ],
                   ]),
                 );
@@ -1749,7 +1776,7 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
-class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
+class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:s=='Randevularım'?()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AppointmentsPage(title:'Randevularım'))):s=='Çıkış Yap'?() async {await Supabase.instance.client.auth.signOut();if(context.mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const KuaforumApp(autoResume:false)),(route)=>false);}:null)))]);}
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
