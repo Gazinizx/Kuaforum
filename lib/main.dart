@@ -1351,6 +1351,60 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
     }
   }
 
+  Future<void> editComment(Map<String, dynamic> item) async {
+    final editController = TextEditingController(text: item['body'] as String? ?? '');
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Yorumu düzenle'),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          maxLength: 1000,
+          maxLines: 4,
+          decoration: const InputDecoration(hintText: 'Yorumunu yaz...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+        ],
+      ));
+    if (accepted == true) {
+      try {
+        await widget.repository.updateComment(item['id'] as String, editController.text);
+        if (!mounted) return;
+        setState(() => comments = widget.repository.fetchComments(widget.postId));
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Yorum güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
+    editController.dispose();
+  }
+
+  Future<void> removeComment(Map<String, dynamic> item) async {
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Yorumu sil?'),
+        content: const Text('Yorumun kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (accepted != true) return;
+    try {
+      await widget.repository.deleteComment(item['id'] as String);
+      if (!mounted) return;
+      setState(() => comments = widget.repository.fetchComments(widget.postId));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yorum silinemedi: $error'), backgroundColor: wine));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -1434,6 +1488,20 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
                               style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
                             )),
                             Text(dateText, style: const TextStyle(color: muted, fontSize: 10)),
+                            if (item['user_id'] == Supabase.instance.client.auth.currentUser?.id)
+                              PopupMenuButton<String>(
+                                padding: EdgeInsets.zero,
+                                iconSize: 18,
+                                icon: const Icon(Icons.more_horiz, color: muted),
+                                onSelected: (value) {
+                                  if (value == 'edit') editComment(item);
+                                  if (value == 'delete') removeComment(item);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                  PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                ],
+                              ),
                           ]),
                           const SizedBox(height: 4),
                           Text(item['body'] as String? ?? '',
