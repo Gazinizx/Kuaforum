@@ -6,7 +6,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 
 - Herkese açık kayıt yalnızca müşteri hesabı oluşturur; ad, soyad, telefon, e-posta ve şifre zorunludur.
 - İşletme hesapları ana yönetici tarafından yönetilir.
-- İşletme sahibi çalışan hesabını ad, soyad, telefon, e-posta ve ilk şifreyle oluşturur; çalışana e-posta doğrulama bağlantısı gönderilir.
+- İşletme sahibi çalışan hesabını ad, soyad, telefon, e-posta ve ilk şifreyle oluşturur; çalışana e-posta doğrulama bağlantısı gönderilir. Çalışan ilk girişinden sonra profilinden fotoğrafını yükleyebilir.
 - İşletme sahibi çalışanı devre dışı bırakabilir veya kaldırabilir. Çalışan kendi isteğiyle işletmeden ayrılıp müşteri hesabına dönebilir.
 - Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir.
 - Müşteri işletme profilinde işletme bilgilerini, hizmetleri, çalışanları, paylaşımları ve değerlendirmeleri görebilir; işletmeyi takip edebilir, mesaj gönderebilir ve randevu oluşturabilir.
@@ -30,7 +30,6 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
-- Profil ve işletme fotoğraflarında kare kırpma/önizleme arayüzü.
 - iOS/App Store hazırlığı ve son cihaz testleri.
 
 ## Android derlemesi
