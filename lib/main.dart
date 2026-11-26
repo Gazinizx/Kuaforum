@@ -2197,6 +2197,110 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
+class ActiveSessionsPage extends StatefulWidget {
+  const ActiveSessionsPage({super.key});
+  @override State<ActiveSessionsPage> createState() => _ActiveSessionsPageState();
+}
+
+class _ActiveSessionsPageState extends State<ActiveSessionsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    sessions = load();
+  }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('get_my_sessions') as List);
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => sessions = next);
+    await next;
+  }
+
+  String formatDate(dynamic raw) {
+    final date = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (date == null) return 'Bilinmiyor';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> revoke(Map<String, dynamic> session) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Oturumu kapat'),
+        content: const Text('Seçilen cihazın oturumu kapatılacak. Bu cihaz tekrar giriş yapmak zorunda kalacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Oturumu kapat', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('revoke_my_session', params: {'p_session_id': session['session_id']});
+      await refresh();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seçilen cihazın oturumu kapatıldı.')),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Oturum kapatılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: sessions,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        const Text('Aktif Cihazlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 6),
+        const Text('Hesabının açık olduğu cihazları görüntüleyebilir ve diğer cihazlardan çıkış yapabilirsin.',
+          style: TextStyle(color: muted)),
+        const SizedBox(height: 12),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Oturumlar yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.devices_outlined, title: 'Aktif oturum bulunamadı', detail: 'Yeniden giriş yaparak oturumunu görebilirsin.')
+        else
+          ...(snapshot.data ?? []).map((session) {
+            final current = session['is_current'] == true;
+            final agent = session['user_agent']?.toString().trim();
+            final ip = session['ip_address']?.toString();
+            return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 9),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: blush,
+                  child: Icon((agent ?? '').toLowerCase().contains('android') ? Icons.phone_android : Icons.devices, color: wine)),
+                title: Text(agent == null || agent.isEmpty ? 'Bilinmeyen cihaz' : agent,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: Text('Son etkinlik: ${formatDate(session['last_active_at'])}
+Başlangıç: ${formatDate(session['created_at'])}${ip == null || ip.isEmpty ? '' : '
+IP: $ip'}',
+                  style: const TextStyle(color: muted, fontSize: 11)),
+                trailing: current
+                  ? const Text('Bu cihaz', style: TextStyle(color: wine, fontWeight: FontWeight.bold, fontSize: 11))
+                  : IconButton(
+                      tooltip: 'Uzaktan çıkış yap',
+                      onPressed: () => revoke(session),
+                      icon: const Icon(Icons.logout, color: wine),
+                    ),
+              ),
+            );
+          }),
+      ]),
+    ),
+  );
+}
+
 class NotificationPreferencesPage extends StatefulWidget {
   const NotificationPreferencesPage({super.key});
   @override State<NotificationPreferencesPage> createState() => _NotificationPreferencesPageState();
@@ -3181,6 +3285,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
           ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
           ('Bildirim Tercihleri', Icons.notifications_active_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Bildirim Tercihleri')), body: const NotificationPreferencesPage())))),
+          ('Aktif Cihazlar', Icons.devices_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Aktif Cihazlar')), body: const ActiveSessionsPage())))),
           ('Çıkış Yap', Icons.logout, logout),
           if (snapshot.data!['account_type'] == 'customer') ('Hesabı kalıcı sil', Icons.delete_forever, deleteAccount),
         ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
@@ -3942,6 +4047,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
             trailing: const Icon(Icons.chevron_right, color: muted),
             onTap: () => open(context, section),
           ))),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.devices_outlined, color: wine),
+          title: const Text('Aktif Cihazlar', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Aktif Cihazlar')),
+            body: const ActiveSessionsPage(),
+          ))),
+        )),
         Card(color: Colors.white, elevation: 0, child: ListTile(
           leading: const Icon(Icons.notifications_active_outlined, color: wine),
           title: const Text('Bildirim Tercihleri', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
