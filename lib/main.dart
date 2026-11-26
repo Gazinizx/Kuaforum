@@ -3060,6 +3060,40 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> deleteAccount() async {
+    final password = TextEditingController();
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Hesabını kalıcı olarak sil'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Hesabın ve hesabına bağlı kişisel verilerin silinmesini onaylıyor musun? Bu işlem geri alınamaz.'),
+          const SizedBox(height: 12),
+          TextField(controller: password, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Mevcut şifren')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Hesabımı sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) { password.dispose(); return; }
+    try {
+      await client.functions.invoke('delete-my-account', body: {'password': password.text});
+      await client.auth.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+        (route) => false,
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hesap silinemedi: $error'), backgroundColor: wine));
+    } finally {
+      password.dispose();
+    }
+  }
+
   Future<void> logout() async {
     await client.auth.signOut();
     if (!mounted) return;
@@ -3103,6 +3137,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
           ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
           ('Çıkış Yap', Icons.logout, logout),
+          if (snapshot.data!['account_type'] == 'customer') ('Hesabı kalıcı sil', Icons.delete_forever, deleteAccount),
         ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
           leading: Icon(item.$2, color: wine),
           title: Text(item.$1, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
