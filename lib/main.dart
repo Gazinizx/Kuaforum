@@ -1140,9 +1140,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
           const SizedBox(height: 5),
           const Text('İşletmelerden ve çalışanlardan gerçek paylaşımlar.', style: TextStyle(color: muted)),
           const SizedBox(height: 16),
-          const SearchBarBox(hint: 'Saç modeli, salon veya çalışan ara...'),
+          const SearchBarBox(hint: 'Salon veya çalışan ara...'),
           const SizedBox(height: 12),
-          const Wrap(spacing: 8, children: [_Chip('Tümü', active: true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
           const SectionTitle('Keşfet akışı'),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
