@@ -21,6 +21,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
 - Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
+- Yeni cihaz girişlerinde e-posta OTP doğrulaması uygulanır; cihaz kimliği yerel olarak saklanır ve güvenilen cihaz kaydı Supabase'in private şemasında tutulur. Supabase Auth > Email Templates > Magic Link şablonu, 6 haneli kod gönderecek şekilde `{{ .Token }}` kullanmalıdır; aksi halde ekrandaki kod doğrulaması çalışmaz.
 
 ## Tamamlanması gerekenler
 
