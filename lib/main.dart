@@ -4219,7 +4219,26 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     final employees = await client.from('employees')
         .select('id,display_name,is_active,user_id')
         .eq('business_id', business['id']).order('created_at');
-    return {'business_id': business['id'], 'employees': employees};
+    final employeeUserIds = employees
+        .map((row) => row['user_id'])
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final avatars = employeeUserIds.isEmpty
+        ? <dynamic>[]
+        : await client.from('public_profiles')
+            .select('id,avatar_url')
+            .inFilter('id', employeeUserIds);
+    final avatarByUserId = {
+      for (final profile in avatars)
+        profile['id'] as String: profile['avatar_url'] as String?,
+    };
+    final employeesWithAvatars = employees.map((row) {
+      final employee = Map<String, dynamic>.from(row);
+      employee['avatar_url'] = avatarByUserId[employee['user_id']];
+      return employee;
+    }).toList();
+    return {'business_id': business['id'], 'employees': employeesWithAvatars};
   }
 
   Future<void> refreshData() async {
@@ -4356,7 +4375,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
             ),
             const SizedBox(height: 12),
             if ((snapshot.data!['employees'] as List).isEmpty)
-              const _FeedMessage(icon: Icons.people_outline, title: 'Henüz çalışan yok', detail: 'Davet kodu oluşturarak ekibine çalışan ekleyebilirsin.')
+              const _FeedMessage(icon: Icons.people_outline, title: 'Henüz çalışan yok', detail: 'Çalışan Davet Et bölümünden ekibine yeni çalışan ekleyebilirsin.')
             else
               ...(snapshot.data!['employees'] as List).map((raw) {
                 final employee = Map<String, dynamic>.from(raw as Map);
@@ -4365,7 +4384,15 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                   color: Colors.white,
                   elevation: 0,
                   child: ListTile(
-                    leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                    leading: CircleAvatar(
+                      backgroundColor: blush,
+                      backgroundImage: (employee['avatar_url'] as String?)?.isNotEmpty == true
+                          ? NetworkImage(employee['avatar_url'] as String)
+                          : null,
+                      child: (employee['avatar_url'] as String?)?.isNotEmpty == true
+                          ? null
+                          : const Icon(Icons.person, color: wine),
+                    ),
                     title: Text(employee['display_name']?.toString() ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
                     subtitle: Text(active ? (employee['user_id'] == null ? 'Davet bekliyor' : 'Aktif çalışan') : 'Pasif çalışan'),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
