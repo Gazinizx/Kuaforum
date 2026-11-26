@@ -113,11 +113,19 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     }) as bool;
     if (trusted) return true;
 
-    await client.auth.signInWithOtp(
-      email: userEmail,
-      shouldCreateUser: false,
-    );
-    if (!mounted) return false;
+    try {
+      await client.auth.signInWithOtp(
+        email: userEmail,
+        shouldCreateUser: false,
+      );
+    } catch (error) {
+      await client.auth.signOut();
+      rethrow;
+    }
+    if (!mounted) {
+      await client.auth.signOut();
+      return false;
+    }
     final token = TextEditingController();
     final entered = await showDialog<bool>(
       context: context,
