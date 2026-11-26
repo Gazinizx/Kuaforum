@@ -120,11 +120,23 @@ class KuaforumFeedRepository {
     int engagement(Map<String, dynamic> row) =>
         (row['feed_likes'] as List? ?? const []).length +
         (row['feed_comments'] as List? ?? const []).length;
+    double rating(Map<String, dynamic> row) {
+      final business = row['businesses'];
+      final reviews = business is Map
+          ? (business['business_reviews'] as List? ?? const [])
+          : const [];
+      if (reviews.isEmpty) return 0;
+      final total = reviews.fold<double>(0, (sum, item) =>
+          sum + ((item is Map ? item['rating'] : null) as num? ?? 0).toDouble());
+      return total / reviews.length;
+    }
     ranked.sort((a, b) {
       final boosted = boost(b).compareTo(boost(a));
       if (boosted != 0) return boosted;
       final active = engagement(b).compareTo(engagement(a));
       if (active != 0) return active;
+      final score = rating(b).compareTo(rating(a));
+      if (score != 0) return score;
       return DateTime.parse(b['created_at'] as String)
           .compareTo(DateTime.parse(a['created_at'] as String));
     });
