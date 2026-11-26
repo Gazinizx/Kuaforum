@@ -2179,12 +2179,17 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
   bool loading = true;
   bool loadingSlots = false;
   bool booking = false;
+  bool businessClosed = false;
 
   @override
   void initState() { super.initState(); load(); }
 
   Future<void> load() async {
     try {
+      final business = await client.from('businesses')
+          .select('is_temporarily_closed').eq('id', widget.businessId).single();
+      businessClosed = business['is_temporarily_closed'] as bool? ?? false;
+      if (businessClosed) return;
       final results = await Future.wait([
         client.from('services').select('id,name,price,duration_minutes')
           .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
@@ -2279,6 +2284,11 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    if (businessClosed) return const Center(
+      child: Padding(padding: EdgeInsets.all(24),
+        child: Text('Bu işletme şu anda geçici olarak kapalı. Yeni randevu kabul edilmiyor.',
+          textAlign: TextAlign.center, style: TextStyle(color: muted))),
+    );
     return PageBody(children: [
       Text(widget.businessName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
       const SizedBox(height: 6),
