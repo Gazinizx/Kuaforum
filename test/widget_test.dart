@@ -20,6 +20,11 @@ void main() {
     expect(find.text('Hesabını oluştur'), findsOneWidget);
     expect(find.text('Hesap oluştur'), findsOneWidget);
     expect(find.text('Zaten hesabın var mı? Giriş yap'), findsOneWidget);
+    expect(find.text('ADIN'), findsOneWidget);
+    expect(find.text('SOYADIN'), findsOneWidget);
+    expect(find.text('TELEFON'), findsOneWidget);
+    expect(find.text('HESAP TÜRÜ'), findsNothing);
+    expect(find.text('İşletme'), findsNothing);
     expect(find.text('Devam etmek için rolünü seç'), findsNothing);
   });
 }
