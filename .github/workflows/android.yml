@@ -1,5 +1,8 @@
 name: Android APK
 on:
+  push:
+    branches:
+      - feature/profile-follow-lists
   workflow_dispatch:
     inputs:
       test_mode:
