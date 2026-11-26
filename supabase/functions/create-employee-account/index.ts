@@ -47,6 +47,9 @@ Deno.serve(async (req: Request) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ error: "Geçerli bir e-posta adresi girin." }, 400);
     }
+    if (email === "gazitasdemir56@gmail.com") {
+      return json({ error: "Bu e-posta ana yönetici hesabına ayrılmıştır." }, 409);
+    }
     if (password.length < 8) return json({ error: "Şifre en az 8 karakter olmalıdır." }, 400);
     if (phone.replace(/\D/g, "").length < 10) return json({ error: "Geçerli bir telefon numarası girin." }, 400);
 
