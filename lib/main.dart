@@ -2476,8 +2476,175 @@ class _WorkingHoursPageState extends State<WorkingHoursPage> {
 }
 
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
-class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
+class AdminBusinesses extends StatefulWidget {
+  const AdminBusinesses({super.key});
+  @override State<AdminBusinesses> createState() => _AdminBusinessesState();
+}
+
+class _AdminBusinessesState extends State<AdminBusinesses> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> businesses;
+  String query = '';
+
+  @override
+  void initState() { super.initState(); businesses = load(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_businesses') as List);
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => businesses = next);
+    await next;
+  }
+
+  Future<void> setStatus(String id, String status) async {
+    try {
+      await client.rpc('admin_set_business_status', params: {'p_business_id': id, 'p_status': status});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İşletme durumu değiştirilemedi: $error')));
+    }
+  }
+
+  Future<void> setDiscover(String id, bool enabled) async {
+    try {
+      await client.rpc('admin_set_discover_visibility', params: {'p_business_id': id, 'p_enabled': enabled});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Keşfet görünürlüğü değiştirilemedi: $error')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      final items = (snapshot.data ?? []).where((b) =>
+        '${b['name'] ?? ''} ${b['address'] ?? ''}'.toLowerCase().contains(query.toLowerCase())).toList();
+      return RefreshIndicator(
+        onRefresh: refreshData,
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('İşletme Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          TextField(controller: search, onChanged: (v) => setState(() => query = v),
+            decoration: const InputDecoration(hintText: 'İşletme ara...', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'İşletmeler yüklenemedi', detail: snapshot.error.toString())
+          else if (items.isEmpty)
+            const _FeedMessage(icon: Icons.store_outlined, title: 'İşletme bulunamadı', detail: 'Arama ölçütünü değiştir.')
+          else
+            ...items.map((b) {
+              final status = b['status']?.toString() ?? 'inactive';
+              final paid = b['discover_paid'] == true;
+              return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 10),
+                child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const CircleAvatar(backgroundColor: blush, child: Icon(Icons.store, color: wine)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(b['name']?.toString() ?? 'İşletme', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                      Text(b['address']?.toString() ?? 'Adres yok', style: const TextStyle(color: muted, fontSize: 12)),
+                    ])),
+                    PopupMenuButton<String>(
+                      onSelected: (value) => setStatus(b['id'].toString(), value),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'active', child: Text('Aktif yap')),
+                        PopupMenuItem(value: 'inactive', child: Text('Geçici kapat')),
+                        PopupMenuItem(value: 'rejected', child: Text('Reddet')),
+                      ],
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text('Durum: ${status == 'active' ? 'Aktif' : status == 'rejected' ? 'Reddedildi' : 'Pasif'}',
+                    style: const TextStyle(color: muted, fontSize: 12)),
+                  if (paid) SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Keşfet üst sıraları'),
+                    value: b['discover_enabled'] == true,
+                    activeColor: wine,
+                    onChanged: (value) => setDiscover(b['id'].toString(), value),
+                  ) else const Padding(padding: EdgeInsets.only(top: 8), child: Text('Keşfet üst sıra hakkı tanımlı değil.', style: TextStyle(color: muted, fontSize: 12))),
+                ])),
+              );
+            }),
+        ]),
+      );
+    },
+  );
+}
+class AdminUsers extends StatefulWidget {
+  const AdminUsers({super.key});
+  @override State<AdminUsers> createState() => _AdminUsersState();
+}
+
+class _AdminUsersState extends State<AdminUsers> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> users;
+  String query = '';
+  @override
+  void initState() { super.initState(); users = load(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_users') as List);
+  Future<void> refreshData() async { final next = load(); setState(() => users = next); await next; }
+  Future<void> setBlocked(String id, bool blocked) async {
+    try {
+      await client.rpc('set_user_blocked', params: {'p_user_id': id, 'p_blocked': blocked});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kullanıcı durumu değiştirilemedi: $error')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: users,
+    builder: (context, snapshot) {
+      final items = (snapshot.data ?? []).where((u) =>
+        '${u['full_name'] ?? ''} ${u['email'] ?? ''} ${u['phone'] ?? ''}'.toLowerCase().contains(query.toLowerCase())).toList();
+      return RefreshIndicator(onRefresh: refreshData, child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('Kullanıcı Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          TextField(controller: search, onChanged: (v) => setState(() => query = v),
+            decoration: const InputDecoration(hintText: 'İsim, e-posta veya telefon ara...', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Kullanıcılar yüklenemedi', detail: snapshot.error.toString())
+          else if (items.isEmpty)
+            const _FeedMessage(icon: Icons.people_outline, title: 'Kullanıcı bulunamadı', detail: 'Arama ölçütünü değiştir.')
+          else
+            ...items.map((u) {
+              final admin = u['is_admin'] == true;
+              final blocked = u['is_blocked'] == true;
+              return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(backgroundColor: blush, child: Icon(admin ? Icons.admin_panel_settings : Icons.person, color: wine)),
+                  title: Text(u['full_name']?.toString() ?? 'Kullanıcı', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                  subtitle: Text('${u['email'] ?? ''} • ${u['account_type'] ?? 'customer'} • ${blocked ? 'Engelli' : 'Aktif'}'),
+                  trailing: admin ? const Icon(Icons.verified_user, color: wine) : IconButton(
+                    tooltip: blocked ? 'Engeli kaldır' : 'Engelle',
+                    icon: Icon(blocked ? Icons.lock_open : Icons.block, color: wine),
+                    onPressed: () => setBlocked(u['id'].toString(), !blocked),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ));
+    },
+  );
+}
 class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
 class _DiscoverControlState extends State<DiscoverControl> {
   final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
