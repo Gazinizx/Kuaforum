@@ -158,8 +158,30 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
       if (mounted) setState(() => message = 'Yeni cihaz doğrulanmadı. Giriş tamamlanmadı.');
       return false;
     }
-    if (!RegExp(r'^\\d{6}
-    final mail = email.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      await client.auth.signOut();
+      if (mounted) setState(() => message = 'Doğrulama kodu 6 haneli olmalı. Tekrar giriş yap.');
+      return false;
+    }
+    final verified = await client.auth.verifyOTP(
+      type: OtpType.email,
+      email: userEmail,
+      token: code,
+    );
+    if (verified.user?.id != user.id) {
+      await client.auth.signOut();
+      if (mounted) setState(() => message = 'Doğrulanan hesap eşleşmedi. Tekrar giriş yap.');
+      return false;
+    }
+    await client.rpc('trust_current_device', params: {
+      'p_device_id': deviceId,
+      'p_device_name': Platform.isAndroid ? 'Android cihaz' : Platform.isIOS ? 'iPhone / iPad' : 'Mobil cihaz',
+    });
+    return true;
+  }
+
+  Future<void> submit() async {
+
     if (isRegister && (firstName.text.trim().isEmpty || lastName.text.trim().isEmpty || phone.text.trim().isEmpty)) {
       setState(() => message = 'Ad, soyad ve telefon bilgilerini doldur.');
       return;
