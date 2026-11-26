@@ -688,12 +688,12 @@ class _RoleShellState extends State<RoleShell> {
       const names = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek'];
       const glyphs = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
       final widgets = <Widget>[const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true)];
-      final allowed = <int>[];
-      for (var i = 0; i < keys.length; i++) {
-        if (await client.rpc('has_admin_permission', params: {'p_permission': keys[i]}) == true) {
-          allowed.add(i);
-        }
-      }
+      final permissionRows = await client.rpc('get_my_admin_permissions') as List;
+      final permissionSet = Set<String>.from(permissionRows);
+      final allowed = <int>[
+        for (var i = 0; i < keys.length; i++)
+          if (permissionSet.contains(keys[i])) i,
+      ];
       if (!mounted) return;
       setState(() {
         labels = allowed.map((i) => names[i]).toList();
