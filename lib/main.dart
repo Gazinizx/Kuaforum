@@ -3022,6 +3022,23 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: const Icon(Icons.chevron_right, color: muted),
           onTap: item.$3,
         ))),
+        if (snapshot.data!['account_type'] == 'employee') ...[
+          const SectionTitle('Çalışma ve İzin'),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.schedule, color: wine),
+            title: const Text('Çalışma saatlerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+              appBar: AppBar(title: Text('Çalışma Saatlerim')), body: EmployeeSchedulePage()))),
+          )),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.event_busy, color: wine),
+            title: const Text('İzin talebi', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+              appBar: AppBar(title: Text('İzin Talebi')), body: EmployeeTimeOffPage()))),
+          )),
+        ],
         if (snapshot.data!['account_type'] == 'customer') ...[
           const SectionTitle('İşletmelerim'),
           ...(snapshot.data!['memberships'] as List<Map<String, dynamic>>).map((membership) {
@@ -3976,6 +3993,7 @@ class SettingsPage extends StatelessWidget {
       'Hizmetler' => const ServicesPage(),
       'Çalışma Saatleri' => const WorkingHoursPage(),
       'Randevu Aralığı' => const AppointmentIntervalPage(),
+      'Çalışan İzinleri' => const OwnerTimeOffPage(),
       _ => null,
     };
     if (page == null) return;
@@ -3991,7 +4009,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => PageBody(children: [
     const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
     const SizedBox(height: 12),
-    ...['İşletme Profili','Çalışanlar','Hizmetler','Çalışma Saatleri','Randevu Aralığı'].map((section) => Card(
+    ...['İşletme Profili','Çalışanlar','Hizmetler','Çalışma Saatleri','Randevu Aralığı','Çalışan İzinleri'].map((section) => Card(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
