@@ -12,6 +12,29 @@ class KuaforumMessagingRepository {
     return id;
   }
 
+
+  Future<String> startBusinessConversation(String businessId) async {
+    final result = await _client.rpc(
+      'start_business_conversation',
+      params: {'p_business_id': businessId},
+    );
+    if (result is String && result.isNotEmpty) return result;
+    throw const PostgrestException(message: 'İşletme sohbeti başlatılamadı.');
+  }
+
+  Future<List<Map<String, dynamic>>> searchBusinesses(String query) async {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    final rows = await _client
+        .from('businesses')
+        .select('id,name,address,logo_url')
+        .eq('status', 'active')
+        .ilike('name', '%$term%')
+        .order('name')
+        .limit(20);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
   Future<String> startEmployeeConversation(String employeeUserId) async {
     final result = await _client.rpc(
       'start_employee_conversation',
