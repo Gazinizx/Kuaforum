@@ -1565,13 +1565,16 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     if (profile['account_type'] == 'customer') {
       final rows = await client.from('appointments').select(
         'id,starts_at,ends_at,status,requires_business_approval,'
-        'businesses(id,name),services(name),employees(display_name),business_reviews(id)'
+        'businesses(id,name),services(name),employees(display_name),business_reviews(id,rating,body)'
       ).eq('customer_id', user.id).order('starts_at', ascending: false);
       return List<Map<String, dynamic>>.from(rows).map((item) => {
         ...item,
         'appointment_id': item['id'],
         'business_id': (item['businesses'] as Map?)?['id'],
         'business_name': (item['businesses'] as Map?)?['name'] ?? 'İşletme',
+        'review': ((item['business_reviews'] as List?) ?? const []).isNotEmpty
+            ? Map<String, dynamic>.from(((item['business_reviews'] as List).first as Map))
+            : null,
         'reviewed': ((item['business_reviews'] as List?) ?? const []).isNotEmpty,
         'service_name': (item['services'] as Map?)?['name'] ?? 'Hizmet',
         'employee_name': (item['employees'] as Map?)?['display_name'] ?? 'Çalışan',
@@ -1616,11 +1619,14 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   };
 
   Future<void> rateAppointment(Map<String, dynamic> appointment) async {
-    int rating = 5;
-    final body = TextEditingController();
+    final existing = appointment['review'] is Map
+        ? Map<String, dynamic>.from(appointment['review'] as Map)
+        : null;
+    int rating = (existing?['rating'] as num?)?.toInt() ?? 5;
+    final body = TextEditingController(text: existing?['body']?.toString() ?? '');
     final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
       StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: const Text('İşletmeyi değerlendir'),
+        title: Text(existing == null ? 'İşletmeyi değerlendir' : 'Değerlendirmeyi düzenle'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('Hizmet deneyimin nasıldı?'),
           const SizedBox(height: 12),
@@ -1635,27 +1641,61 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Gönder')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(existing == null ? 'Gönder' : 'Kaydet')),
         ],
       )));
     if (accepted == true) {
       try {
-        await client.from('business_reviews').insert({
-          'business_id': appointment['business_id'],
-          'customer_id': client.auth.currentUser!.id,
-          'appointment_id': appointment['appointment_id'],
-          'rating': rating,
-          'body': body.text.trim(),
-        });
+        final values = {'rating': rating, 'body': body.text.trim()};
+        if (existing == null) {
+          await client.from('business_reviews').insert({
+            'business_id': appointment['business_id'],
+            'customer_id': client.auth.currentUser!.id,
+            'appointment_id': appointment['appointment_id'],
+            ...values,
+          });
+        } else {
+          await client.from('business_reviews').update(values)
+              .eq('id', existing['id']).eq('customer_id', client.auth.currentUser!.id);
+        }
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Değerlendirmen kaydedildi.')));
+          SnackBar(content: Text(existing == null ? 'Değerlendirmen kaydedildi.' : 'Değerlendirmen güncellendi.')));
         await refreshAppointments();
       } catch (error) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Değerlendirme gönderilemedi: $error'), backgroundColor: wine));
+          SnackBar(content: Text('Değerlendirme kaydedilemedi: $error'), backgroundColor: wine));
       }
     }
     body.dispose();
+  }
+
+  Future<void> deleteReview(Map<String, dynamic> appointment) async {
+    final review = appointment['review'] is Map
+        ? Map<String, dynamic>.from(appointment['review'] as Map)
+        : null;
+    if (review == null) return;
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Değerlendirmeyi sil?'),
+        content: const Text('Bu değerlendirme kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (accepted != true) return;
+    try {
+      await client.from('business_reviews').delete()
+          .eq('id', review['id']).eq('customer_id', client.auth.currentUser!.id);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Değerlendirmen silindi.')));
+      await refreshAppointments();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Değerlendirme silinemedi: $error'), backgroundColor: wine));
+    }
   }
 
   Future<void> changeStatus(Map<String, dynamic> appointment, String status) async {
@@ -1752,8 +1792,19 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       )),
                     ] else if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] == true) ...[
                       const SizedBox(height: 8),
-                      const Align(alignment: Alignment.centerRight,
-                        child: Text('Değerlendirildi', style: TextStyle(color: muted, fontSize: 12))),
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        TextButton.icon(
+                          onPressed: () => rateAppointment(item),
+                          icon: const Icon(Icons.edit_outlined, size: 17),
+                          label: const Text('Düzenle'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => deleteReview(item),
+                          icon: const Icon(Icons.delete_outline, size: 17),
+                          label: const Text('Sil'),
+                          style: TextButton.styleFrom(foregroundColor: wine),
+                        ),
+                      ]),
                     ],
                     if ((status == 'confirmed' || status == 'pending') && item.containsKey('business_name')) ...[
                       const SizedBox(height: 8),
