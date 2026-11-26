@@ -21,6 +21,7 @@ class DemoPost {
   final String time;
   int likes;
   bool liked;
+  final List<String> comments = [];
 }
 
 class DemoChat {
@@ -222,11 +223,63 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
       IconButton(onPressed: () => setState(() { post.liked = !post.liked; post.likes += post.liked ? 1 : -1; }), icon: Icon(post.liked ? Icons.favorite : Icons.favorite_border, color: _demoWine)),
       Text('${post.likes}', style: const TextStyle(color: _demoMuted)),
       const SizedBox(width: 12),
-      IconButton(onPressed: () => _notice('Yorum alanı demo olarak açıldı.'), icon: const Icon(Icons.chat_bubble_outline, color: _demoWine)),
+      IconButton(onPressed: () => _showComments(post), icon: const Icon(Icons.chat_bubble_outline, color: _demoWine)),
       TextButton(onPressed: () => _notice('Paylaşım bağlantısı kopyalandı.'), child: const Text('Paylaş')),
     ]),
   ]));
 
+  Future<void> _showComments(DemoPost post) async {
+    var draft = '';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Yorumlar'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (post.comments.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text('Henüz yorum yok. İlk yorumu sen yaz!'),
+                ),
+              if (post.comments.isNotEmpty)
+                ...post.comments.map((comment) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(comment, style: const TextStyle(color: _demoInk)),
+                )),
+              TextField(
+                maxLines: 2,
+                onChanged: (value) => draft = value,
+                decoration: const InputDecoration(
+                  hintText: 'Yorumunu yaz...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Kapat'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final comment = draft.trim();
+              if (comment.isEmpty) return;
+              setState(() => post.comments.add(comment));
+              Navigator.pop(dialogContext);
+            },
+            style: FilledButton.styleFrom(backgroundColor: _demoWine),
+            child: const Text('Yorum yap'),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _messages() => _page([
     _header('Mesajlar', 'Bu rolün kendi demo sohbetleri. Mesaj gönderme aktif.'),
     ...store.inbox(widget.role).map((chat) => _panel(child: ExpansionTile(
