@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kuaforum/main.dart';
+import 'package:kuaforum/demo_mode.dart';
 
 void main() {
   setUpAll(() async {
@@ -79,5 +80,38 @@ void main() {
 
     await tester.tap(find.text('Devam'));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('employee demo account has its own posts and can send a message', (tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: DemoWorkspacePage(role: 'employee', section: 'Mesajlar'),
+    ));
+
+    expect(find.text('Elif Kaya'), findsOneWidget);
+    await tester.tap(find.text('Elif Kaya'));
+    await tester.pumpAndSettle();
+    final messageField = find.byType(TextField).last;
+    await tester.enterText(messageField, 'Test mesajı gönderildi');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Test mesajı gönderildi'), findsOneWidget);
+  });
+
+  testWidgets('demo share creates a post without using Supabase', (tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: DemoWorkspacePage(role: 'employee', section: 'Paylaşım'),
+    ));
+
+    await tester.tap(find.text('Demo paylaşımı yayınla'));
+    await tester.pumpAndSettle();
+    expect(find.text('Yeni demo paylaşımı'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'Yeni saç tasarımı');
+    await tester.tap(find.text('Yayınla'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Yeni saç tasarımı'), findsOneWidget);
   });
 }
