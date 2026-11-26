@@ -1808,7 +1808,130 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
-class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:s=='Randevularım'?()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AppointmentsPage(title:'Randevularım'))):s=='Çıkış Yap'?() async {await Supabase.instance.client.auth.signOut();if(context.mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const KuaforumApp(autoResume:false)),(route)=>false);}:null)))]);}
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+  @override State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> profile;
+  bool uploading = false;
+
+  @override
+  void initState() { super.initState(); profile = loadProfile(); }
+  Future<Map<String, dynamic>> loadProfile() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    return Map<String, dynamic>.from(await client.from('profiles')
+      .select('full_name,email,phone,avatar_url').eq('id', user.id).single());
+  }
+  Future<void> refreshProfile() async { final next = loadProfile(); setState(() => profile = next); await next; }
+
+  Future<void> editPhone(String current) async {
+    final controller = TextEditingController(text: current);
+    final save = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Telefon numarası'),
+      content: TextField(controller: controller, keyboardType: TextInputType.phone,
+        decoration: const InputDecoration(hintText: '05xx xxx xx xx')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+        ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+      ],
+    ));
+    if (save == true) {
+      try {
+        await client.from('profiles').update({'phone': controller.text.trim()})
+          .eq('id', client.auth.currentUser!.id);
+        await refreshProfile();
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Telefon güncellenemedi: $error')));
+      }
+    }
+    controller.dispose();
+  }
+
+  Future<void> uploadAvatar() async {
+    final user = client.auth.currentUser;
+    if (user == null || uploading) return;
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1024, maxHeight: 1024);
+    if (image == null) return;
+    setState(() => uploading = true);
+    try {
+      final file = File(image.path);
+      if (await file.length() > 5 * 1024 * 1024) throw Exception('Fotoğraf 5 MB sınırını aşıyor.');
+      final extension = image.name.split('.').last.toLowerCase();
+      final contentType = switch (extension) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+      final path = 'profiles/${user.id}/avatar.${extension == 'png' || extension == 'webp' ? extension : 'jpg'}';
+      await client.storage.from('salon-avatars').upload(path, file,
+        fileOptions: FileOptions(upsert: true, contentType: contentType));
+      final url = client.storage.from('salon-avatars').getPublicUrl(path);
+      await client.from('profiles').update({'avatar_url': url}).eq('id', user.id);
+      await refreshProfile();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profil fotoğrafı yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+
+  Future<void> logout() async {
+    await client.auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: profile,
+    builder: (context, snapshot) => PageBody(children: [
+      Center(child: Stack(children: [
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: blush,
+          backgroundImage: snapshot.data?['avatar_url'] != null ? NetworkImage(snapshot.data!['avatar_url'].toString()) : null,
+          child: snapshot.data?['avatar_url'] == null ? const Icon(Icons.person, size: 55, color: wine) : null,
+        ),
+        Positioned(right: 0, bottom: 0, child: IconButton.filled(
+          style: IconButton.styleFrom(backgroundColor: wine),
+          onPressed: uploading ? null : uploadAvatar,
+          icon: uploading ? const SizedBox(width: 18,height: 18,child: CircularProgressIndicator(strokeWidth: 2,color: Colors.white)) : const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+        )),
+      ])),
+      const SizedBox(height: 10),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        Text('Profil yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else ...[
+        Text(snapshot.data!['full_name']?.toString() ?? 'Kuaförüm kullanıcısı',
+          textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+        Text(snapshot.data!['email']?.toString() ?? '', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        Text(snapshot.data!['phone']?.toString() ?? 'Telefon eklenmemiş', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        const SizedBox(height: 20),
+        ...[
+          ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
+          ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
+          ('Çıkış Yap', Icons.logout, logout),
+        ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: Icon(item.$2, color: wine),
+          title: Text(item.$1, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: item.$3,
+        ))),
+      ],
+    ]),
+  );
+}
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
