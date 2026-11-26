@@ -15,7 +15,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi inceler.
 - Müşteri randevusunu iptal edebilir; üç iptal/gelmeme ihlalinde işletme bazlı otomatik kara liste uygulanır.
 - Tamamlanan randevu sonrası müşteri işletmeyi puanlayıp yorumlayabilir.
-- Keşfet ve Takip akışları gerçek Supabase verisini kullanır; paylaşım, beğeni, yorum, kaydetme, takip ve silme işlemleri veritabanına bağlıdır.
+- Keşfet ve Takip akışları gerçek Supabase verisini kullanır; paylaşım, beğeni, yorum, kaydetme, takip ve silme işlemleri veritabanına bağlıdır. Keşfet aramasından aktif işletmeler ve çalışanlar ayrı ayrı aranabilir.
 - Mesajlaşma, kişi bazlı mesaj gizleme, işletme sohbeti ve paylaşım yapan çalışanla özel sohbet desteklenir.
 - Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
@@ -27,7 +27,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 ## Tamamlanması gerekenler
 
 - Firebase/FCM anlık push teslimatı.
-- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
+- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma, sızdırılmış parola korumasını açma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
 - iOS/App Store hazırlığı ve son cihaz testleri.
