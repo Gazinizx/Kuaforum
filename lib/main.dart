@@ -686,9 +686,15 @@ class _RoleShellState extends State<RoleShell> {
     final client = Supabase.instance.client;
     try {
       final user = client.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
       final statusRows = await client.rpc('get_my_account_status') as List;
-      if (statusRows.isEmpty) return;
+      if (statusRows.isEmpty) {
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
       final profile = Map<String, dynamic>.from(statusRows.first as Map);
       if (profile['is_admin'] == true) return;
       const keys = ['dashboard','businesses','users','discover','support'];
