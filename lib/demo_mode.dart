@@ -121,6 +121,7 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
   Widget build(BuildContext context) {
     final section = widget.section;
     if (section == 'Profil') return _profile();
+    if (section == 'Bildirimler') return _notifications();
     if (section == 'Mesajlar') return _messages();
     if (section == 'Paylaşım' || section == 'Paylaş') return _share();
     if (section == 'Randevular' || section == 'Randevum') return _appointments();
@@ -323,6 +324,21 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
       _panel(child: const Text('Bu rol, test APK’sına ait yerel demo kimliğidir. Gerçek hesabına veya Supabase verilerine bağlı değildir.', style: TextStyle(fontSize: 12, color: _demoMuted))),
     ]);
   }
+
+  Widget _notifications() => _page([
+    _header('Bildirimler', 'Bu demo hesabına ait örnek bildirimler.'),
+    ...[
+      'Lale Hair Studio randevu talebini onayladı.',
+      'Ayşe Yılmaz yeni bir saç tasarımı paylaştı.',
+      'Mesaj kutunda okunmamış bir mesajın var.',
+    ].map((item) => _panel(child: ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const CircleAvatar(backgroundColor: _demoBlush, child: Icon(Icons.notifications_active, color: _demoWine)),
+      title: Text(item, style: const TextStyle(fontWeight: FontWeight.w700, color: _demoInk)),
+      subtitle: const Text('Az önce • Demo bildirim', style: TextStyle(color: _demoMuted, fontSize: 11)),
+      onTap: () => _notice('Bildirim açıldı.'),
+    ))),
+  ]);
 
   Widget _adminDashboard() => _page([
     _header('Yönetim Merkezi', 'Ana yönetici demo hesabı'),
