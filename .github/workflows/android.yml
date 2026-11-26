@@ -16,7 +16,7 @@ jobs:
           channel: stable
       - run: flutter create . --platforms=android --org com.gazinizx
       - name: Set Android app display name
-        run: sed -i 's/android:label="kuaforum"/android:label="Kuaförüm"/' android/app/src/main/AndroidManifest.xml
+        run: sed -i 's/android:label="[^"]*"/android:label="Kuaförüm"/' android/app/src/main/AndroidManifest.xml
       - name: Configure image cropper activity
         run: |
           grep -q 'com.yalantis.ucrop.UCropActivity' android/app/src/main/AndroidManifest.xml || sed -i '/<\/application>/i\        <activity android:name="com.yalantis.ucrop.UCropActivity" android:screenOrientation="portrait" android:theme="@style/Theme.AppCompat.Light.NoActionBar" />' android/app/src/main/AndroidManifest.xml
