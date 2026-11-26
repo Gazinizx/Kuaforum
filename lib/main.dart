@@ -802,8 +802,12 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
         .select('id,name,address,logo_url,is_temporarily_closed')
         .eq('status', 'active');
       if (term.isNotEmpty) {
-        final safeTerm = term.replaceAll(',', ' ').trim();
-        query = query.or('name.ilike.%$safeTerm%,address.ilike.%$safeTerm%');
+        final safeTerm = term
+            .replaceAll(RegExp(r'[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ \\-]'), ' ')
+            .trim();
+        if (safeTerm.isNotEmpty) {
+          query = query.or('name.ilike.%$safeTerm%,address.ilike.%$safeTerm%');
+        }
       }
       final rows = await query.order('name').limit(40);
       final mapped = List<Map<String, dynamic>>.from(rows);
