@@ -611,7 +611,13 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
         .eq('status', 'active');
       if (term.isNotEmpty) query = query.or('name.ilike.%$term%,address.ilike.%$term%');
       final rows = await query.order('name').limit(40);
-      if (mounted) setState(() => results = List<Map<String, dynamic>>.from(rows));
+      final mapped = List<Map<String, dynamic>>.from(rows);
+      for (final business in mapped) {
+        final rawLogo = business['logo_url'] as String?;
+        business['logo_public_url'] = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      }
+      if (mounted) setState(() => results = mapped);
     } catch (e) {
       if (mounted) setState(() => error = 'Arama yapılamadı: $e');
     } finally {
@@ -712,7 +718,9 @@ class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
         return const Text('Henüz onaylı işletme bulunmuyor.', style: TextStyle(color: muted));
       }
       return Column(children: items.map((business) {
-        final logo = business['logo_url'] as String?;
+        final rawLogo = business['logo_url'] as String?;
+        final logo = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : Supabase.instance.client.storage.from('salon-avatars').getPublicUrl(rawLogo));
         final closed = business['is_temporarily_closed'] == true;
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
