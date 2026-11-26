@@ -1197,7 +1197,7 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
   );
 }
 
-class _Chip extends StatelessWidget {final String text;final bool active;const _Chip(this.text,[this.active=false]);@override Widget build(BuildContext context)=>Chip(label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
+class _Chip extends StatelessWidget {final String text;final bool active;final VoidCallback? onTap;const _Chip(this.text,[this.active=false],{this.onTap});@override Widget build(BuildContext context)=>ActionChip(onPressed:onTap,label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
 class PostCard extends StatelessWidget {
   final String name,caption,likes; final DemoPost? post;
   const PostCard({super.key,required this.name,required this.caption,required this.likes,this.post});
