@@ -20,12 +20,12 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
-- Müşteri profilinde telefon düzenleme, şifre değiştirme, profil fotoğrafı, çıkış ve mevcut şifreyle doğrulanan kalıcı hesap silme bulunur.
+- Profilde telefon düzenleme, şifre değiştirme, profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
 
 ## Tamamlanması gerekenler
 
 - Firebase/FCM anlık push teslimatı.
-- Yeni cihaz girişinde e-posta doğrulaması ve aktif cihaz/oturum yönetimi.
+- Yeni cihaz girişinde e-posta doğrulaması.
 - Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
