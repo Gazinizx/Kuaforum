@@ -101,6 +101,8 @@ class KuaforumFeedRepository {
 
   final SupabaseClient _client;
 
+  String? get currentUserId => _client.auth.currentUser?.id;
+
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
       'businesses(name,owner_id,logo_url),employees(display_name),'
