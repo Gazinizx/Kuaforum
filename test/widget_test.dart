@@ -3,35 +3,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kuaforum/main.dart';
 
 void main() {
-  testWidgets('role selection screen contains all four app roles', (tester) async {
-    await tester.pumpWidget(const KuaforumApp());
+  testWidgets('developer test screen lists all four account roles', (tester) async {
+    await tester.view.setPhysicalSize(const Size(1000, 1800));
+    await tester.view.setDevicePixelRatio(1);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: RolePicker()));
+
     expect(find.text('Müşteri'), findsOneWidget);
     expect(find.text('Çalışan'), findsOneWidget);
     expect(find.text('İşletme Sahibi'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Ana Yönetici'));
     await tester.pumpAndSettle();
     expect(find.text('Ana Yönetici'), findsOneWidget);
   });
 
-  testWidgets('role selection requires test account credentials', (tester) async {
-    await tester.pumpWidget(const KuaforumApp());
+  testWidgets('business role selection asks for a real test account', (tester) async {
+    await tester.view.setPhysicalSize(const Size(1000, 1800));
+    await tester.view.setDevicePixelRatio(1);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: RolePicker()));
     await tester.tap(find.text('İşletme Sahibi'));
     await tester.pumpAndSettle();
+
     expect(find.text('Test hesabıyla devam et'), findsOneWidget);
     expect(find.text('E-posta'), findsOneWidget);
     expect(find.text('Şifre'), findsOneWidget);
   });
 
-  testWidgets('admin role also requires authenticated test account', (tester) async {
-    tester.view.physicalSize = const Size(1000, 1800);
-    tester.view.devicePixelRatio = 1;
-    await tester.pumpWidget(const KuaforumApp());
-    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Ana Yönetici'));
-    await tester.pumpAndSettle();
-    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
+  testWidgets('admin role selection also requires a real test account', (tester) async {
+    await tester.view.setPhysicalSize(const Size(1000, 1800));
+    await tester.view.setDevicePixelRatio(1);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: RolePicker()));
+    await tester.ensureVisible(find.text('Ana Yönetici'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ana Yönetici'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
+    expect(find.text('E-posta'), findsOneWidget);
+    expect(find.text('Şifre'), findsOneWidget);
   });
 
   testWidgets('hero panel action responds to taps', (tester) async {
