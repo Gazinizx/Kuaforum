@@ -18,6 +18,7 @@ class KuaforumFeedPost {
     required this.createdAt,
     required this.likeCount,
     required this.isLikedByMe,
+    required this.isSavedByMe,
   });
 
   final String id;
@@ -34,6 +35,7 @@ class KuaforumFeedPost {
   final DateTime createdAt;
   final int likeCount;
   final bool isLikedByMe;
+  final bool isSavedByMe;
 
   bool get isVideo => mediaType == 'video';
 
@@ -46,6 +48,7 @@ class KuaforumFeedPost {
     final employee = json['employees'];
     final profile = json['profiles'];
     final likes = (json['feed_likes'] as List<dynamic>? ?? const []);
+    final saves = (json['feed_saves'] as List<dynamic>? ?? const []);
     final liked = likes.any((item) =>
         item is Map<String, dynamic> && item['user_id'] == currentUserId);
 
@@ -80,6 +83,7 @@ class KuaforumFeedPost {
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       likeCount: likes.length,
       isLikedByMe: liked,
+      isSavedByMe: saves.any((item) => item is Map<String, dynamic> && item['user_id'] == currentUserId),
     );
   }
 }
@@ -93,7 +97,7 @@ class KuaforumFeedRepository {
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
       'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id)';
+      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id)';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -324,6 +328,32 @@ class KuaforumFeedRepository {
         .delete()
         .eq('id', commentId)
         .eq('user_id', _userId);
+  }
+
+  Future<void> toggleSave(String postId, {required bool currentlySaved}) async {
+    if (currentlySaved) {
+      await _client.from('feed_saves').delete()
+          .eq('post_id', postId).eq('user_id', _userId);
+    } else {
+      await _client.from('feed_saves').upsert(
+        {'post_id': postId, 'user_id': _userId},
+        onConflict: 'post_id,user_id',
+        ignoreDuplicates: true,
+      );
+    }
+  }
+
+  Future<void> deletePost(String postId) async {
+    final row = await _client.from('feed_posts')
+        .select('media_url').eq('id', postId).single();
+    final path = row['media_url'] as String;
+    await _client.from('feed_posts').delete().eq('id', postId)
+        .eq('author_user_id', _userId);
+    try {
+      await _client.storage.from('salon-feed').remove([path]);
+    } catch (_) {
+      // A failed media cleanup must not restore a post already deleted from the feed.
+    }
   }
 
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
