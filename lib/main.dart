@@ -1739,16 +1739,41 @@ class _ChatPageState extends State<ChatPage> {
   late final Stream<List<Map<String, dynamic>>> messageStream;
   bool sending = false;
   String? sendError;
+  final Set<String> hiddenMessageIds = {};
 
   @override
   void initState() {
     super.initState();
+    loadHiddenMessages();
     messageStream = Supabase.instance.client
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('conversation_id', widget.conversationId)
         .order('created_at')
         .map((rows) => rows.map((row) => Map<String, dynamic>.from(row)).toList());
+  }
+
+  Future<void> loadHiddenMessages() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final rows = await Supabase.instance.client.from('message_hidden_for_me')
+          .select('message_id').eq('user_id', userId);
+      if (!mounted) return;
+      setState(() => hiddenMessageIds.addAll(rows.map((row) => row['message_id'] as String)));
+    } catch (_) {
+      // The chat remains usable if hidden-message metadata cannot be refreshed.
+    }
+  }
+
+  Future<void> hideMessage(String messageId) async {
+    try {
+      await repository.hideMessageForMe(messageId);
+      if (mounted) setState(() => hiddenMessageIds.add(messageId));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesaj gizlenemedi: $error'), backgroundColor: wine));
+    }
   }
 
   @override
@@ -1793,7 +1818,9 @@ class _ChatPageState extends State<ChatPage> {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator(color: wine));
             }
-            final rows = snapshot.data!;
+            final rows = snapshot.data!
+                .where((row) => !hiddenMessageIds.contains(row['id'] as String))
+                .toList();
             if (rows.isEmpty) {
               return const Center(child: Text('Sohbet başladı. İlk mesajı sen gönder ♡', style: TextStyle(color: muted)));
             }
@@ -1806,16 +1833,24 @@ class _ChatPageState extends State<ChatPage> {
                 final mine = row['sender_id'] == userId;
                 return Align(
                   alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
-                    margin: const EdgeInsets.only(bottom: 9),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: mine ? wine : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: mine ? null : Border.all(color: blush),
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'hide') hideMessage(row['id'] as String);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'hide', child: Text('Benden sil')),
+                    ],
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: mine ? wine : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: mine ? null : Border.all(color: blush),
+                      ),
+                      child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
                     ),
-                    child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
                   ),
                 );
               },
