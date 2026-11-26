@@ -4188,9 +4188,10 @@ class _EmployeeHomeState extends State<EmployeeHome> {
           _StatCard(appointments.where((a) => a['status'] == 'completed').length.toString(), 'Tamamlanan'),
         ]),
         const SizedBox(height: 16),
-        const HeroPanel(eyebrow: 'Portfolyonu büyüt', title: 'Çalışmalarını paylaş',
+        HeroPanel(eyebrow: 'Portfolyonu büyüt', title: 'Çalışmalarını paylaş',
           subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',
-          icon: Icons.camera_alt, button: 'Paylaşım yap →'),
+          icon: Icons.camera_alt, button: 'Paylaşım yap →',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SharePage()))),
         const SectionTitle('Randevularım'),
         if (appointments.isEmpty)
           const Text('Henüz randevun bulunmuyor.', style: TextStyle(color: muted))
@@ -4823,7 +4824,9 @@ class _OwnerHomeState extends State<OwnerHome> {
         const SizedBox(height: 14),
         HeroPanel(eyebrow: 'İşletme paneli', title: 'İşletmeni yönet',
           subtitle: 'Randevularını, ekibini ve müşteri deneyimini tek yerden takip et.',
-          icon: Icons.storefront, button: 'Yönetim araçları'),
+          icon: Icons.storefront, button: 'Yönetim araçları',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
+            Scaffold(appBar: AppBar(title: const Text('İşletme Ayarları')), body: const SettingsPage()))),
         const SizedBox(height: 14),
         Row(children: [
           _StatCard((snapshot.data!['today'] as int).toString(), 'Bugünkü Randevu'),
