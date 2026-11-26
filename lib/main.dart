@@ -589,7 +589,10 @@ class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
         ));
       if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
       try {
-        await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        final joinedId = await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        if (joinedId != businessId) {
+          throw Exception('Girdiğin kod bu işletmeye ait değil.');
+        }
       } catch (error) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine));
