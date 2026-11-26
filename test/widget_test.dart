@@ -4,8 +4,8 @@ import 'package:kuaforum/main.dart';
 
 void main() {
   testWidgets('developer test screen lists all four account roles', (tester) async {
-    tester.view.physicalSizeTestValue = const Size(1000, 1800);
-    tester.view.devicePixelRatioTestValue = 1;
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -20,8 +20,8 @@ void main() {
   });
 
   testWidgets('business role selection asks for a real test account', (tester) async {
-    tester.view.physicalSizeTestValue = const Size(1000, 1800);
-    tester.view.devicePixelRatioTestValue = 1;
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -35,8 +35,8 @@ void main() {
   });
 
   testWidgets('admin role selection also requires a real test account', (tester) async {
-    tester.view.physicalSizeTestValue = const Size(1000, 1800);
-    tester.view.devicePixelRatioTestValue = 1;
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
