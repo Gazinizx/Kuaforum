@@ -48,7 +48,7 @@ class KuaforumMessagingRepository {
     final rows = await _client
         .from('conversations')
         .select('id,business_id,employee_id,customer_id,updated_at,'
-            'businesses(name),employees(display_name,user_id)')
+            'businesses(name),sender_business:businesses!conversations_sender_business_id_fkey(name),employees(display_name,user_id)')
         .order('updated_at', ascending: false);
 
     if (rows.isEmpty) return const [];
@@ -98,15 +98,21 @@ class KuaforumMessagingRepository {
       final business = row['businesses'] is Map
           ? Map<String, dynamic>.from(row['businesses'] as Map)
           : <String, dynamic>{};
+      final senderBusiness = row['sender_business'] is Map
+          ? Map<String, dynamic>.from(row['sender_business'] as Map)
+          : <String, dynamic>{};
       final customerId = row['customer_id'] as String;
       final employeeUserId = employee['user_id'] as String?;
       final peerIsCustomer = _userId != customerId;
       final peerId = peerIsCustomer ? customerId : employeeUserId;
       final peerProfile = peerId == null ? null : profileById[peerId];
-      row['peer_name'] = peerIsCustomer
-          ? (peerProfile?['full_name'] as String? ?? 'Müşteri')
-          : (employee['display_name'] as String? ??
-              business['name'] as String? ?? 'Çalışan');
+      row['peer_name'] = row['sender_business_id'] != null
+          ? (peerIsCustomer
+              ? (senderBusiness['name'] as String? ?? peerProfile?['full_name'] as String? ?? 'İşletme')
+              : (business['name'] as String? ?? 'İşletme'))
+          : (peerIsCustomer
+              ? (peerProfile?['full_name'] as String? ?? 'Müşteri')
+              : (employee['display_name'] as String? ?? business['name'] as String? ?? 'Çalışan'));
       row['business_name'] = business['name'] as String? ?? 'İşletme';
       row['last_message'] =
           latestByConversation[row['id']]?['body'] as String? ?? 'Sohbet başladı';
