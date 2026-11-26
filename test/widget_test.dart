@@ -107,6 +107,25 @@ void main() {
     expect(find.text('Yeni saç tasarımı'), findsOneWidget);
   });
 
+  testWidgets('demo post comments open and can be added', (tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: DemoWorkspacePage(role: 'customer', section: 'Keşfet')),
+    ));
+
+    await tester.tap(find.byIcon(Icons.chat_bubble_outline).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Yorumlar'), findsOneWidget);
+    expect(find.text('Henüz yorum yok. İlk yorumu sen yaz!'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Harika bir çalışma!');
+    await tester.tap(find.text('Yorum yap'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.chat_bubble_outline).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Harika bir çalışma!'), findsOneWidget);
+  });
   testWidgets('customer demo opens the customer identity', (tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(
