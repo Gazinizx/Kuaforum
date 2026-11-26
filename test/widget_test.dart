@@ -1,36 +1,25 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kuaforum/main.dart';
 
 void main() {
-  testWidgets('role selection screen contains all four app roles', (tester) async {
-    await tester.pumpWidget(const KuaforumApp());
-    expect(find.text('Müşteri'), findsOneWidget);
-    expect(find.text('Çalışan'), findsOneWidget);
-    expect(find.text('İşletme Sahibi'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    expect(find.text('Ana Yönetici'), findsOneWidget);
+  testWidgets('normal app launch shows login and registration entry, not role picker', (tester) async {
+    await tester.pumpWidget(const KuaforumApp(autoResume: false));
+
+    expect(find.text('Tekrar hoş geldin'), findsOneWidget);
+    expect(find.text('Giriş yap'), findsOneWidget);
+    expect(find.text('Hesabın yok mu? Kayıt ol'), findsOneWidget);
+    expect(find.text('Devam etmek için rolünü seç'), findsNothing);
   });
 
-  testWidgets('role selection requires test account credentials', (tester) async {
-    await tester.pumpWidget(const KuaforumApp());
-    await tester.tap(find.text('İşletme Sahibi'));
-    await tester.pumpAndSettle();
-    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
-    expect(find.text('E-posta'), findsOneWidget);
-    expect(find.text('Şifre'), findsOneWidget);
-  });
+  testWidgets('login entry can switch to registration form', (tester) async {
+    await tester.pumpWidget(const KuaforumApp(autoResume: false));
 
-  testWidgets('admin role also requires authenticated test account', (tester) async {
-    tester.view.physicalSize = const Size(1000, 1800);
-    tester.view.devicePixelRatio = 1;
-    await tester.pumpWidget(const KuaforumApp());
-    await tester.scrollUntilVisible(find.text('Ana Yönetici'), 250, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Ana Yönetici'));
+    await tester.tap(find.text('Hesabın yok mu? Kayıt ol'));
     await tester.pumpAndSettle();
-    expect(find.text('Test hesabıyla devam et'), findsOneWidget);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+
+    expect(find.text('Hesabını oluştur'), findsOneWidget);
+    expect(find.text('Hesap oluştur'), findsOneWidget);
+    expect(find.text('Zaten hesabın var mı? Giriş yap'), findsOneWidget);
+    expect(find.text('Devam etmek için rolünü seç'), findsNothing);
   });
 }
