@@ -72,3 +72,11 @@ flutter build apk --release
 İşletme kayıt RPC'si ve profil rol/yönetici/engelli alanlarının kullanıcı tarafından değiştirilememesi SQL transaction içinde test edildi; test verisi rollback ile geri alındı. Auth kullanıcı oluşturma trigger'ı kuruldu ve veritabanında doğrulandı. Gerçek e-posta kayıt/doğrulama akışı cihaz testi aşamasında doğrulanacak.
 
 Bu dalda henüz Flutter analizi, test veya APK derlemesi çalıştırılmadı.
+
+
+## Geliştirici test APK'sı
+- `KUAFORUM_TEST_MODE=true` ile açıldığında dört ayrı yerel demo kimliği sunulur: müşteri, çalışan, işletme sahibi ve ana yönetici.
+- Demo profilleri, akış gönderileri, beğeniler, sohbetler, yerel mesaj gönderimi, randevu örnekleri, bildirimler ve ana yönetici Keşfet görünürlüğü kontrolü Supabase'e yazmadan çalışır.
+- Rol menüsünden geçiş, seçilen rolün ayrı demo kimliğine ve kendi örnek içeriklerine geçer.
+- Test modunda gerçek davet kodu/Auth işlemleri açılmaz. Üretim derlemesinde `AuthGate` ve mevcut Supabase tabanlı ekranlar korunur.
+- Demo mesajları ve gönderileri yalnızca uygulama belleğinde tutulur; uygulama kapatılınca sıfırlanır. Fotoğraf yükleme, gerçek rezervasyon, gerçek bildirim teslimi ve canlı mesajlaşma bu yerel demo kapsamına dahil değildir.
