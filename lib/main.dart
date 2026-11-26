@@ -1876,8 +1876,63 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<Map<String, dynamic>> loadProfile() async {
     final user = client.auth.currentUser;
     if (user == null) throw Exception('Oturum bulunamadı.');
-    return Map<String, dynamic>.from(await client.from('profiles')
-      .select('full_name,email,phone,avatar_url').eq('id', user.id).single());
+    final row = Map<String, dynamic>.from(await client.from('profiles')
+      .select('full_name,email,phone,avatar_url,account_type').eq('id', user.id).single());
+    if (row['account_type'] == 'customer') {
+      final memberships = await client.from('business_memberships')
+          .select('business_id,businesses(name,address)')
+          .eq('customer_id', user.id);
+      row['memberships'] = memberships.map((item) => Map<String, dynamic>.from(item)).toList();
+    } else {
+      row['memberships'] = <Map<String, dynamic>>[];
+    }
+    return row;
+  }
+
+  Future<void> joinBusiness() async {
+    final code = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeye katıl'),
+        content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'İşletme katılım kodu')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
+        ],
+      ));
+    if (accepted == true && code.text.trim().isNotEmpty) {
+      try {
+        await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletmeye başarıyla katıldın.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine));
+      }
+    }
+    code.dispose();
+  }
+
+  Future<void> leaveBusiness(String businessId) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeden ayrıl'),
+        content: const Text('Bu işletmeyle bağlantın kaldırılacak. Devam etmek istiyor musun?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Ayrıl')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('leave_business', params: {'p_business_id': businessId});
+      await refreshProfile();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeden ayrılamadın: $error'), backgroundColor: wine));
+    }
   }
   Future<void> refreshProfile() async { final next = loadProfile(); setState(() => profile = next); await next; }
 
@@ -1981,6 +2036,27 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: const Icon(Icons.chevron_right, color: muted),
           onTap: item.$3,
         ))),
+        if (snapshot.data!['account_type'] == 'customer') ...[
+          const SectionTitle('İşletmelerim'),
+          ...(snapshot.data!['memberships'] as List<Map<String, dynamic>>).map((membership) {
+            final business = membership['businesses'] is Map
+                ? Map<String, dynamic>.from(membership['businesses'] as Map)
+                : <String, dynamic>{};
+            return Card(color: Colors.white, elevation: 0, child: ListTile(
+              leading: const Icon(Icons.storefront_outlined, color: wine),
+              title: Text(business['name'] as String? ?? 'İşletme', style: const TextStyle(color: ink)),
+              subtitle: Text(business['address'] as String? ?? '', style: const TextStyle(color: muted)),
+              trailing: TextButton(onPressed: () => leaveBusiness(membership['business_id'] as String),
+                child: const Text('Ayrıl')),
+            ));
+          }),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.add_business_outlined, color: wine),
+            title: const Text('İşletmeye katıl', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: joinBusiness,
+          )),
+        ],
       ],
     ]),
   );
