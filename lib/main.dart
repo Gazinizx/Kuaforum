@@ -3691,6 +3691,16 @@ class _ProfilePageState extends State<ProfilePage> {
     ]),
   );
 }
+class _ProfileMetric extends StatelessWidget {
+  final String value, label;
+  const _ProfileMetric({required this.value, required this.label});
+  @override Widget build(BuildContext context) => Column(children: [
+    Text(value, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+    const SizedBox(height: 3),
+    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+  ]);
+}
+
 class BusinessProfilePage extends StatefulWidget {
   final String businessId;
   const BusinessProfilePage({super.key, required this.businessId});
@@ -3833,23 +3843,36 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
           color: wine,
           onRefresh: refresh,
           child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-            Center(child: CircleAvatar(
-              radius: 48, backgroundColor: blush,
-              backgroundImage: logo == null ? null : NetworkImage(logo),
-              child: logo == null ? const Icon(Icons.storefront, size: 48, color: wine) : null,
-            )),
-            const SizedBox(height: 10),
-            Text(business['name'] as String? ?? 'Kuaför', textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: ink)),
-            Text(business['address'] as String? ?? 'Adres belirtilmemiş',
-              textAlign: TextAlign.center, style: const TextStyle(color: muted)),
-            const SizedBox(height: 10),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFE5A93D), size: 20),
-              const SizedBox(width: 4),
-              Text('$average  •  ${reviews.length} değerlendirme  •  ${snapshot.data!['followers']} takipçi',
-                style: const TextStyle(color: ink, fontWeight: FontWeight.w700, fontSize: 12)),
-            ]),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [BoxShadow(color: wine.withOpacity(.16), blurRadius: 18, offset: const Offset(0, 8))],
+              ),
+              child: Column(children: [
+                CircleAvatar(
+                  radius: 43, backgroundColor: Colors.white,
+                  backgroundImage: logo == null ? null : NetworkImage(logo),
+                  child: logo == null ? const Icon(Icons.storefront, size: 42, color: wine) : null,
+                ),
+                const SizedBox(height: 12),
+                Text(business['name'] as String? ?? 'Kuaför', textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 5),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.location_on_outlined, color: Colors.white70, size: 16),
+                  Flexible(child: Text(business['address'] as String? ?? 'Adres belirtilmemiş',
+                    textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70))),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _ProfileMetric(value: average, label: 'Puan')),
+                  Expanded(child: _ProfileMetric(value: reviews.length.toString(), label: 'Yorum')),
+                  Expanded(child: _ProfileMetric(value: snapshot.data!['followers'].toString(), label: 'Takipçi')),
+                ]),
+              ]),
+            ),
             if (closed) const Padding(
               padding: EdgeInsets.only(top: 10),
               child: Text('İşletme şu anda geçici olarak kapalı.', textAlign: TextAlign.center,
