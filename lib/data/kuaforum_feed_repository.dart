@@ -376,13 +376,13 @@ class KuaforumFeedRepository {
     final row = await _client.from('feed_posts')
         .select('media_url').eq('id', postId).single();
     final path = row['media_url'] as String;
-    await _client.from('feed_posts').delete().eq('id', postId)
-        .eq('author_user_id', _userId);
     try {
       await _client.storage.from('salon-feed').remove([path]);
     } catch (_) {
-      // A failed media cleanup must not restore a post already deleted from the feed.
+      // The post is still removed from the feed if media cleanup fails.
     }
+    await _client.from('feed_posts').delete().eq('id', postId)
+        .eq('author_user_id', _userId);
   }
 
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
