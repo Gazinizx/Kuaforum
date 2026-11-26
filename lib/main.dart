@@ -5603,7 +5603,7 @@ class _AdminBusinessesState extends State<AdminBusinesses> {
   void dispose() { search.dispose(); super.dispose(); }
 
   Future<List<Map<String, dynamic>>> load() async =>
-    List<Map<String, dynamic>>.from(await client.rpc('admin_list_discover_businesses') as List);
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_businesses') as List);
 
   Future<void> refreshData() async {
     final next = load();
