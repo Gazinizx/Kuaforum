@@ -2197,6 +2197,115 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
+class NotificationPreferencesPage extends StatefulWidget {
+  const NotificationPreferencesPage({super.key});
+  @override State<NotificationPreferencesPage> createState() => _NotificationPreferencesPageState();
+}
+
+class _NotificationPreferencesPageState extends State<NotificationPreferencesPage> {
+  final client = Supabase.instance.client;
+  final Map<String, bool> values = {
+    'appointments': true,
+    'messages': true,
+    'social': true,
+    'support': true,
+    'account': true,
+  };
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('notification_preferences')
+        .select('appointments,messages,social,support,account')
+        .eq('user_id', userId).maybeSingle();
+      if (row != null && mounted) {
+        setState(() {
+          for (final key in values.keys) {
+            values[key] = row[key] as bool? ?? true;
+          }
+        });
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bildirim tercihleri yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> updateValue(String key, bool value) async {
+    final previous = values[key]!;
+    setState(() { values[key] = value; saving = true; });
+    try {
+      await client.from('notification_preferences').upsert({
+        'user_id': client.auth.currentUser!.id,
+        ...values,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => values[key] = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tercih kaydedilemedi: $error'), backgroundColor: wine),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
+    const Text('Bildirim Tercihleri', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+    const SizedBox(height: 6),
+    const Text('Hangi konularda bildirim almak istediğini seç.', style: TextStyle(color: muted)),
+    if (loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(color: wine))),
+    if (!loading) ...[
+      SwitchListTile(
+        value: values['appointments']!, activeColor: wine,
+        onChanged: (value) => updateValue('appointments', value),
+        title: const Text('Randevular', style: TextStyle(color: ink)),
+        subtitle: const Text('Randevu onayı, iptali ve kara liste uyarıları'),
+      ),
+      SwitchListTile(
+        value: values['messages']!, activeColor: wine,
+        onChanged: (value) => updateValue('messages', value),
+        title: const Text('Mesajlar', style: TextStyle(color: ink)),
+        subtitle: const Text('Yeni mesaj ve sohbet hareketleri'),
+      ),
+      SwitchListTile(
+        value: values['social']!, activeColor: wine,
+        onChanged: (value) => updateValue('social', value),
+        title: const Text('Sosyal etkileşimler', style: TextStyle(color: ink)),
+        subtitle: const Text('Takip, beğeni, yorum ve paylaşım bildirimleri'),
+      ),
+      SwitchListTile(
+        value: values['support']!, activeColor: wine,
+        onChanged: (value) => updateValue('support', value),
+        title: const Text('Destek', style: TextStyle(color: ink)),
+        subtitle: const Text('Destek taleplerindeki yeni mesajlar ve durum değişiklikleri'),
+      ),
+      SwitchListTile(
+        value: values['account']!, activeColor: wine,
+        onChanged: (value) => updateValue('account', value),
+        title: const Text('Hesap ve çalışan işlemleri', style: TextStyle(color: ink)),
+        subtitle: const Text('Hesap güvenliği, çalışan bağlantısı ve izin bildirimleri'),
+      ),
+      if (saving) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Kaydediliyor…', style: TextStyle(color: muted, fontSize: 12))),
+    ],
+  ]);
+}
+
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
   @override
@@ -3071,6 +3180,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ('Şifre değiştir', Icons.lock_outline, changePassword),
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
           ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
+          ('Bildirim Tercihleri', Icons.notifications_active_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Bildirim Tercihleri')), body: const NotificationPreferencesPage())))),
           ('Çıkış Yap', Icons.logout, logout),
           if (snapshot.data!['account_type'] == 'customer') ('Hesabı kalıcı sil', Icons.delete_forever, deleteAccount),
         ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
@@ -3802,6 +3912,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
             trailing: const Icon(Icons.chevron_right, color: muted),
             onTap: () => open(context, section),
           ))),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.notifications_active_outlined, color: wine),
+          title: const Text('Bildirim Tercihleri', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Bildirim Tercihleri')),
+            body: const NotificationPreferencesPage(),
+          ))),
+        )),
         Card(color: Colors.white, elevation: 0, child: ListTile(
           leading: const Icon(Icons.logout, color: wine),
           title: const Text('Çıkış Yap', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
