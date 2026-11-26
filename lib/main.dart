@@ -216,7 +216,7 @@ class _RoleShellState extends State<RoleShell> {
         pages = _developerTestMode ? _demoPages('employee') : [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
-        labels = ['Ana Sayfa','Keşfet','Takip','Randevular','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
+        labels = _developerTestMode ? ['Ana Sayfa','Keşfet','Takip','Randevular','Paylaş','Mesajlar','Profil'] : ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = _developerTestMode ? [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline] : [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
         pages = _developerTestMode ? _demoPages('owner') : [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
