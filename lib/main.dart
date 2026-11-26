@@ -390,20 +390,6 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
 
 enum AppRole { customer, employee, owner, admin }
 
-class DemoPost {
-  final String author, caption, audience;
-  final String? mediaPath;
-  final bool businessPost;
-  int likes;
-  bool liked;
-  DemoPost({required this.author, required this.caption, required this.audience, this.businessPost=false, this.likes=0, this.liked=false, this.mediaPath});
-}
-final ValueNotifier<List<DemoPost>> demoPosts = ValueNotifier([
-  DemoPost(author:'Zeynep Kaya',caption:'Işıltılı dalgalar ✨',audience:'Çalışan',likes:12500),
-  DemoPost(author:'Merve Demir',caption:'Yeni sezon renk geçişi ♡',audience:'Çalışan',likes:8700),
-  DemoPost(author:'Luxe Beauty Salon',caption:'Salonumuzdan günün dönüşümü ✨',audience:'İşletme',businessPost:true,likes:6200),
-]);
-
 class RolePicker extends StatelessWidget {
   const RolePicker({super.key});
   @override
@@ -535,7 +521,7 @@ class _RoleShellState extends State<RoleShell> {
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
@@ -1565,25 +1551,6 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
 }
 
 class _Chip extends StatelessWidget {final String text;final bool active;final VoidCallback? onTap;const _Chip(this.text,{this.active=false,this.onTap});@override Widget build(BuildContext context)=>ActionChip(onPressed:onTap,label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
-class PostCard extends StatelessWidget {
-  final String name,caption,likes; final DemoPost? post;
-  const PostCard({super.key,required this.name,required this.caption,required this.likes,this.post});
-  @override Widget build(BuildContext context)=>Container(
-    margin:const EdgeInsets.only(bottom:16),padding:const EdgeInsets.all(12),
-    decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22),border:Border.all(color:blush),boxShadow:[BoxShadow(color:wine.withOpacity(.05),blurRadius:16,offset:const Offset(0,5))]),
-    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Row(children:[CircleAvatar(backgroundColor:blush,child:Icon(post?.businessPost==true?Icons.storefront:Icons.person,color:wine)),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(post?.audience??'Kuaförüm topluluğu',style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.more_horiz,color:muted)]),
-      const SizedBox(height:12),
-      Container(height:215,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(17),gradient:const LinearGradient(colors:[Color(0xFFE9C5CC),Color(0xFFB66A7D),Color(0xFF6E2038)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[if(post?.mediaPath!=null) ClipRRect(borderRadius:BorderRadius.circular(17),child:Image.file(File(post!.mediaPath!),width:double.infinity,height:215,fit:BoxFit.cover)) else ...[Positioned(right:16,top:14,child:Icon(Icons.auto_awesome,color:Colors.white.withOpacity(.8),size:28)),const Center(child:Icon(Icons.photo_camera_back_rounded,size:58,color:Colors.white70))],Positioned(left:14,bottom:14,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.22),borderRadius:BorderRadius.circular(20)),child:const Text('KUAFÖRÜM  •  İLHAM VER',style:TextStyle(color:Colors.white,fontSize:9,letterSpacing:1.2,fontWeight:FontWeight.bold))))])),
-      const SizedBox(height:12),Text(caption,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),
-      const SizedBox(height:9),Row(children:[
-        InkWell(onTap:post==null?null:(){post!.liked=!post!.liked;post!.likes+=post!.liked?1:-1;demoPosts.value=[...demoPosts.value];},child:Row(children:[Icon(post?.liked==true?Icons.favorite:Icons.favorite_border,color:rose),const SizedBox(width:5),Text(post==null?likes:post!.likes.toString(),style:const TextStyle(color:muted))])),
-        const SizedBox(width:18),const Icon(Icons.mode_comment_outlined,color:muted),const SizedBox(width:5),const Text('Yorum yap',style:TextStyle(color:muted,fontSize:12)),const Spacer(),const Icon(Icons.bookmark_border,color:muted)
-      ])
-    ]),
-  );
-}
-
 class FollowingPage extends StatefulWidget {
   const FollowingPage({super.key});
   @override
@@ -3463,8 +3430,8 @@ class _EmployeeHomeState extends State<EmployeeHome> {
 }
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
 class SharePage extends StatefulWidget {
-  final String publisherName; final bool businessPost;
-  const SharePage({super.key,this.publisherName='Ayşe Demir',this.businessPost=false});
+  final bool businessPost;
+  const SharePage({super.key,this.businessPost=false});
   @override State<SharePage> createState()=>_SharePageState();
 }
 class _SharePageState extends State<SharePage> {
@@ -4845,21 +4812,3 @@ class _DiscoverControlState extends State<DiscoverControl> {
   );
 }
 
-class _PrimaryButton extends StatelessWidget {
-  final String label;
-  const _PrimaryButton(this.label);
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: wine,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      onPressed: () {},
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-    ),
-  );
-}
