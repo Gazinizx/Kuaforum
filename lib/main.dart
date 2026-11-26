@@ -117,7 +117,8 @@ class _KuaforumAppState extends State<KuaforumApp> {
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
     ),
-    home: const AuthGate(),
+    // Test APKs can open directly on the developer role picker; production remains on AuthGate.
+    home: bool.fromEnvironment('KUAFORUM_TEST_MODE') ? const RolePicker() : const AuthGate(),
   );
 }
 
