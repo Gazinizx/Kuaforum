@@ -1872,9 +1872,146 @@ class OwnerProfilePage extends StatelessWidget {
     ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Çalışanlar','Hizmetler','Çalışma Saatleri','İşletme Ayarları','Bildirimler'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>open(context,s)))),
   ]);
 }
-class EmployeeManagementPage extends StatelessWidget {
+class EmployeeManagementPage extends StatefulWidget {
   const EmployeeManagementPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Çalışanlar',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Çalışan Davet Et'),...['Ayşe Demir','Mehmet Yıldız','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),subtitle:const Text('Aktif çalışan'),trailing:const Icon(Icons.more_vert,color:muted)))]);
+  @override
+  State<EmployeeManagementPage> createState() => _EmployeeManagementPageState();
+}
+
+class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final employees = await client.from('employees')
+        .select('id,display_name,is_active,user_id')
+        .eq('business_id', business['id']).order('created_at');
+    return {'business_id': business['id'], 'employees': employees};
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> inviteEmployee(String businessId) async {
+    final name = TextEditingController();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Çalışan davet et'),
+        content: TextField(
+          controller: name,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Ad soyad', hintText: 'Örn. Ayşe Demir'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Davet kodu oluştur')),
+        ],
+      ),
+    );
+    if (accepted != true) { name.dispose(); return; }
+    try {
+      final code = await client.rpc('create_employee_invite', params: {
+        'p_business_id': businessId,
+        'p_display_name': name.text.trim(),
+      });
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Davet kodu hazır'),
+          content: SelectableText('Çalışana bu kodu gönder: $code'),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tamam'))],
+        ),
+      );
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Davet oluşturulamadı: $error'), backgroundColor: wine),
+      );
+    } finally {
+      name.dispose();
+    }
+  }
+
+  Future<void> setActive(String employeeId, bool active) async {
+    try {
+      await client.rpc('set_employee_active', params: {
+        'p_employee_id': employeeId,
+        'p_is_active': active,
+      });
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışan durumu değiştirilemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refreshData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Çalışanlar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Çalışanlar yüklenemedi', detail: snapshot.error.toString())
+          else ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              onPressed: () => inviteEmployee(snapshot.data!['business_id'] as String),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Çalışan Davet Et'),
+            ),
+            const SizedBox(height: 12),
+            if ((snapshot.data!['employees'] as List).isEmpty)
+              const _FeedMessage(icon: Icons.people_outline, title: 'Henüz çalışan yok', detail: 'Davet kodu oluşturarak ekibine çalışan ekleyebilirsin.')
+            else
+              ...(snapshot.data!['employees'] as List).map((raw) {
+                final employee = Map<String, dynamic>.from(raw as Map);
+                final active = employee['is_active'] == true;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  child: ListTile(
+                    leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                    title: Text(employee['display_name']?.toString() ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                    subtitle: Text(active ? (employee['user_id'] == null ? 'Davet bekliyor' : 'Aktif çalışan') : 'Pasif çalışan'),
+                    trailing: Switch(
+                      value: active,
+                      activeColor: wine,
+                      onChanged: (value) => setActive(employee['id'].toString(), value),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ],
+      ),
+    ),
+  );
 }
 class ServicesPage extends StatelessWidget {
   const ServicesPage({super.key});
