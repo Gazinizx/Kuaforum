@@ -2598,6 +2598,212 @@ class _SupportTicketChatPageState extends State<SupportTicketChatPage> {
   );
 }
 
+class EmployeeSchedulePage extends StatefulWidget {
+  const EmployeeSchedulePage({super.key});
+  @override State<EmployeeSchedulePage> createState() => _EmployeeSchedulePageState();
+}
+class _EmployeeSchedulePageState extends State<EmployeeSchedulePage> {
+  final client = Supabase.instance.client;
+  final labels = const ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  String? employeeId;
+  List<Map<String, dynamic>> days = [];
+  bool loading = true, saving = false;
+  @override void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final employee = await client.from('employees').select('id,business_id')
+        .eq('user_id', user.id).eq('is_active', true).maybeSingle();
+      if (employee == null) throw Exception('Aktif çalışan kaydı bulunamadı.');
+      employeeId = employee['id'] as String;
+      final results = await Future.wait([
+        client.from('employee_working_hours').select('weekday,opens_at,closes_at,is_closed').eq('employee_id', employeeId!),
+        client.from('business_hours').select('weekday,opens_at,closes_at,is_closed').eq('business_id', employee['business_id']),
+      ]);
+      final own = {for (final row in results[0]) row['weekday'] as int: row};
+      final business = {for (final row in results[1]) row['weekday'] as int: row};
+      days = List.generate(7, (index) {
+        final row = own[index] ?? business[index];
+        return {'weekday': index,
+          'opens_at': row?['opens_at']?.toString().substring(0,5) ?? '09:00',
+          'closes_at': row?['closes_at']?.toString().substring(0,5) ?? '18:00',
+          'is_closed': row?['is_closed'] as bool? ?? (index == 0)};
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çalışma saatleri yüklenemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => loading = false); }
+  }
+
+  Future<void> chooseTime(int day, String field) async {
+    final parts = (days[day][field] as String).split(':');
+    final selected = await showTimePicker(context: context,
+      initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
+    if (selected == null) return;
+    setState(() => days[day][field] = '${selected.hour.toString().padLeft(2,'0')}:${selected.minute.toString().padLeft(2,'0')}');
+  }
+
+  Future<void> save() async {
+    if (employeeId == null) return;
+    setState(() => saving = true);
+    try {
+      await client.from('employee_working_hours').upsert(
+        days.map((day) => {...day, 'employee_id': employeeId}).toList(),
+        onConflict: 'employee_id,weekday');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çalışma saatlerin kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saatler kaydedilemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => saving = false); }
+  }
+
+  @override Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Çalışma Saatlerim', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const Text('Randevu saatleri işletmenin açık olduğu zamanlarla birlikte bu programa göre hesaplanır.', style: TextStyle(color: muted)),
+      ...days.asMap().entries.map((entry) {
+        final index = entry.key, day = entry.value;
+        return Card(color: Colors.white, elevation: 0, child: Padding(padding: const EdgeInsets.all(10),
+          child: Column(children: [
+            SwitchListTile(contentPadding: EdgeInsets.zero,
+              title: Text(labels[index], style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+              subtitle: Text(day['is_closed'] == true ? 'Kapalı' : '${day['opens_at']} – ${day['closes_at']}', style: const TextStyle(color: muted)),
+              value: day['is_closed'] != true,
+              onChanged: (open) => setState(() => day['is_closed'] = !open), activeColor: wine),
+            if (day['is_closed'] != true)
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => chooseTime(index, 'opens_at'), child: Text('Açılış ${day['opens_at']}'))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: () => chooseTime(index, 'closes_at'), child: Text('Kapanış ${day['closes_at']}'))),
+              ]),
+          ])));
+      }),
+      ElevatedButton(onPressed: saving ? null : save, child: saving ? const CircularProgressIndicator() : const Text('Çalışma saatlerini kaydet')),
+    ]);
+  }
+}
+
+class EmployeeTimeOffPage extends StatefulWidget {
+  const EmployeeTimeOffPage({super.key});
+  @override State<EmployeeTimeOffPage> createState() => _EmployeeTimeOffPageState();
+}
+class _EmployeeTimeOffPageState extends State<EmployeeTimeOffPage> {
+  final client = Supabase.instance.client;
+  final reason = TextEditingController();
+  String? employeeId;
+  DateTime start = DateTime.now().add(const Duration(days: 1));
+  DateTime end = DateTime.now().add(const Duration(days: 1));
+  late Future<List<Map<String, dynamic>>> requests;
+  bool loading = true, sending = false;
+  @override void initState() { super.initState(); load(); }
+  @override void dispose() { reason.dispose(); super.dispose(); }
+
+  Future<void> load() async {
+    try {
+      final employee = await client.from('employees').select('id')
+        .eq('user_id', client.auth.currentUser!.id).eq('is_active', true).single();
+      employeeId = employee['id'] as String;
+      requests = client.from('employee_time_off').select('id,starts_at,ends_at,reason,status')
+        .eq('employee_id', employeeId!).order('created_at', ascending: false)
+        .then((rows) => List<Map<String, dynamic>>.from(rows));
+    } catch (error) { requests = Future.error(error); }
+    finally { if (mounted) setState(() => loading = false); }
+  }
+
+  Future<void> chooseDate(bool isStart) async {
+    final selected = await showDatePicker(context: context, initialDate: isStart ? start : end,
+      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+    if (selected == null) return;
+    setState(() { if (isStart) { start = selected; if (end.isBefore(start)) end = start; } else { end = selected; } });
+  }
+
+  Future<void> submit() async {
+    if (employeeId == null || end.isBefore(start)) return;
+    setState(() => sending = true);
+    try {
+      await client.from('employee_time_off').insert({
+        'employee_id': employeeId,
+        'starts_at': DateTime(start.year,start.month,start.day).toUtc().toIso8601String(),
+        'ends_at': DateTime(end.year,end.month,end.day,23,59,59).toUtc().toIso8601String(),
+        'reason': reason.text.trim(),
+      });
+      reason.clear(); await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İzin talebin işletme sahibine iletildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İzin talebi gönderilemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => sending = false); }
+  }
+
+  @override Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return FutureBuilder<List<Map<String, dynamic>>>(future: requests, builder: (context, snapshot) =>
+      ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('İzin Talebi', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+        OutlinedButton(onPressed: () => chooseDate(true), child: Text('Başlangıç: ${start.day}.${start.month}.${start.year}')),
+        OutlinedButton(onPressed: () => chooseDate(false), child: Text('Bitiş: ${end.day}.${end.month}.${end.year}')),
+        TextField(controller: reason, decoration: const InputDecoration(labelText: 'Açıklama (isteğe bağlı)')),
+        ElevatedButton(onPressed: sending ? null : submit, child: sending ? const CircularProgressIndicator() : const Text('İzin talebi gönder')),
+        const SectionTitle('İzin geçmişim'),
+        if (snapshot.hasError) Text('İzinler yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+        else ...(snapshot.data ?? []).map((row) => Card(color: Colors.white, elevation: 0, child: ListTile(
+          title: Text('${DateTime.parse(row['starts_at'] as String).toLocal().day} – ${DateTime.parse(row['ends_at'] as String).toLocal().day}', style: const TextStyle(color: ink)),
+          subtitle: Text(row['reason'] as String? ?? '', style: const TextStyle(color: muted)),
+          trailing: Text(switch (row['status']) { 'approved' => 'Onaylandı', 'rejected' => 'Reddedildi', _ => 'Bekliyor' }, style: const TextStyle(color: wine)),
+        ))),
+      ]));
+  }
+}
+
+class OwnerTimeOffPage extends StatefulWidget {
+  const OwnerTimeOffPage({super.key});
+  @override State<OwnerTimeOffPage> createState() => _OwnerTimeOffPageState();
+}
+class _OwnerTimeOffPageState extends State<OwnerTimeOffPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> requests;
+  @override void initState() { super.initState(); requests = load(); }
+  Future<List<Map<String, dynamic>>> load() async {
+    final business = await client.from('businesses').select('id').eq('owner_id', client.auth.currentUser!.id).single();
+    final employees = await client.from('employees').select('id').eq('business_id', business['id']);
+    final ids = employees.map((e) => e['id'] as String).toList();
+    if (ids.isEmpty) return [];
+    return List<Map<String, dynamic>>.from(await client.from('employee_time_off')
+      .select('id,employee_id,starts_at,ends_at,reason,status,employees(display_name)')
+      .inFilter('employee_id', ids).order('created_at', ascending: false));
+  }
+  Future<void> review(Map<String, dynamic> row, String status) async {
+    try {
+      await client.from('employee_time_off').update({'status': status, 'reviewed_by': client.auth.currentUser!.id}).eq('id', row['id']);
+      final next = load(); setState(() => requests = next); await next;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İzin talebi güncellenemedi: $error'), backgroundColor: wine));
+    }
+  }
+  @override Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: requests,
+    builder: (context, snapshot) => ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Çalışan İzin Talepleri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      if (snapshot.connectionState == ConnectionState.waiting) const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError) Text('İzin talepleri yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else if ((snapshot.data ?? []).isEmpty) const Text('Henüz izin talebi yok.', style: TextStyle(color: muted))
+      else ...(snapshot.data ?? []).map((row) {
+        final employee = row['employees'] is Map ? row['employees'] as Map : {};
+        return Card(color: Colors.white, elevation: 0, child: Padding(padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(fontWeight: FontWeight.w700, color: ink)),
+            Text('${DateTime.parse(row['starts_at'] as String).toLocal()} – ${DateTime.parse(row['ends_at'] as String).toLocal()}', style: const TextStyle(color: muted, fontSize: 12)),
+            Text(row['reason'] as String? ?? '', style: const TextStyle(color: muted)),
+            Text('Durum: ${row['status']}', style: const TextStyle(color: wine)),
+            if (row['status'] == 'pending') Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () => review(row, 'rejected'), child: const Text('Reddet'))),
+              const SizedBox(width: 8),
+              Expanded(child: ElevatedButton(onPressed: () => review(row, 'approved'), child: const Text('Onayla'))),
+            ]),
+          ])));
+      }),
+    ]));
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override State<ProfilePage> createState() => _ProfilePageState();
