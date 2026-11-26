@@ -649,9 +649,10 @@ class RoleShell extends StatefulWidget {
 }
 class _RoleShellState extends State<RoleShell> {
   int index = 0;
-  late final List<String> labels;
-  late final List<IconData> icons;
-  late final List<Widget> pages;
+  late List<String> labels;
+  late List<IconData> icons;
+  late List<Widget> pages;
+  bool adminNavLoading = false;
   String get heading => switch(widget.role) { AppRole.customer => 'Kuaförüm ♡', AppRole.employee => 'Çalışan Paneli', AppRole.owner => 'İşletme Paneli', AppRole.admin => 'Yönetim Merkezi' };
   @override void initState() {
     super.initState();
@@ -671,7 +672,39 @@ class _RoleShellState extends State<RoleShell> {
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek','Alt Yöneticiler']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent,Icons.admin_panel_settings];
         pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true),const AdminSubAdmins()];
+        adminNavLoading = true;
         break;
+    }
+    if (widget.role == AppRole.admin) _loadAdminNavigation();
+  }
+  Future<void> _loadAdminNavigation() async {
+    final client = Supabase.instance.client;
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) return;
+      final profile = await client.from('profiles').select('is_admin').eq('id', user.id).single();
+      if (profile['is_admin'] == true) return;
+      const keys = ['dashboard','businesses','users','discover','support'];
+      const names = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek'];
+      const glyphs = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
+      final widgets = <Widget>[const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true)];
+      final allowed = <int>[];
+      for (var i = 0; i < keys.length; i++) {
+        if (await client.rpc('has_admin_permission', params: {'p_permission': keys[i]}) == true) {
+          allowed.add(i);
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        labels = allowed.map((i) => names[i]).toList();
+        icons = allowed.map((i) => glyphs[i]).toList();
+        pages = allowed.map((i) => widgets[i]).toList();
+        index = 0;
+      });
+    } catch (_) {
+      if (mounted) setState(() { labels = []; icons = []; pages = []; });
+    } finally {
+      if (mounted) setState(() => adminNavLoading = false);
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
@@ -683,8 +716,12 @@ class _RoleShellState extends State<RoleShell> {
       ))),
       icon: const Icon(Icons.notifications_none_rounded),
     ), const SizedBox(width: 5)]),
-    body: IndexedStack(index:index, children:pages),
-    bottomNavigationBar: NavigationBar(
+    body: adminNavLoading
+      ? const Center(child: CircularProgressIndicator(color: wine))
+      : pages.isEmpty
+        ? const Center(child: Text('Bu hesap için yönetim yetkisi tanımlanmamış.'))
+        : IndexedStack(index:index, children:pages),
+    bottomNavigationBar: adminNavLoading || pages.isEmpty ? null : NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
       backgroundColor: Colors.white, indicatorColor: blush, height: 68,
       destinations: List.generate(labels.length,(i)=>NavigationDestination(icon:Icon(icons[i]), selectedIcon:Icon(icons[i],color:wine), label:labels[i])),
