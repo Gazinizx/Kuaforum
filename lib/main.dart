@@ -1675,7 +1675,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
       if (business == null) throw Exception('İşletme kaydınız bulunamadı.');
       final rows = await client.rpc('get_business_appointments', params: {
         'p_business_id': business['id'],
-        'p_mine_only': false,
+        'p_mine_only': widget.ownerMode,
       });
       return List<Map<String, dynamic>>.from(rows as List);
     }
@@ -3523,7 +3523,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   void open(BuildContext context, String section) {
     final page = switch (section) {
       'Randevu Yönetimi' => const OwnerAppointments(),
-      'Çalışan Randevuları' => const OwnerAppointments(),
+      'Çalışan Randevuları' => const OwnerEmployeeAppointments(),
       'Müşterilerim' => const CustomersPage(),
       'Ayarlar' => const SettingsPage(),
       _ => const SettingsPage(),
@@ -3951,8 +3951,17 @@ class OwnerAppointments extends StatelessWidget {
   const OwnerAppointments({super.key});
   @override
   Widget build(BuildContext context) => const AppointmentsPage(
-    title: 'Randevu Yönetimi',
+    title: 'Randevum',
     ownerMode: true,
+  );
+}
+
+class OwnerEmployeeAppointments extends StatelessWidget {
+  const OwnerEmployeeAppointments({super.key});
+  @override
+  Widget build(BuildContext context) => const AppointmentsPage(
+    title: 'Çalışan Randevuları',
+    ownerMode: false,
   );
 }
 class CustomersPage extends StatefulWidget {
