@@ -318,8 +318,8 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         setState(() => message = 'Bu hesabın uygulamaya erişimi kısıtlanmış.');
         return;
       }
-      final hasAdminAccess = profile['is_admin'] == true ||
-          await client.rpc('admin_has_any_permission') == true;
+      final myAdminPermissions = await client.rpc('get_my_admin_permissions') as List;
+      final hasAdminAccess = profile['is_admin'] == true || myAdminPermissions.isNotEmpty;
       if (!mounted) return;
       AppRole role;
       if (hasAdminAccess) {
