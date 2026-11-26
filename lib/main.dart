@@ -3373,7 +3373,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final save = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
       title: const Text('Telefon numarası'),
       content: TextField(controller: controller, keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(hintText: '05xx xxx xx xx')),
+        maxLength: 13, decoration: const InputDecoration(hintText: '05xx xxx xx xx', prefixIcon: Icon(Icons.phone))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
         ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
@@ -3382,7 +3382,26 @@ class _ProfilePageState extends State<ProfilePage> {
     if (save == true) {
       try {
         final normalized = controller.text.replaceAll(RegExp(r'[^0-9+]'), '');
-        if (!RegExp(r'^(?:\\+90|0)?5[0-9]{9}
+        final digits = normalized.startsWith('+90')
+            ? normalized.substring(3)
+            : normalized.startsWith('90') && normalized.length == 12
+                ? normalized.substring(2)
+                : normalized.startsWith('0')
+                    ? normalized.substring(1)
+                    : normalized;
+        if (!RegExp(r'^5[0-9]{9}$').hasMatch(digits)) {
+          throw Exception('05 ile başlayan 11 haneli geçerli bir cep telefonu gir.');
+        }
+        await client.from('profiles').update({'phone': '0$digits'})
+          .eq('id', client.auth.currentUser!.id);
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Telefon numaran güncellendi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Telefon güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
     controller.dispose();
   }
 
