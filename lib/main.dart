@@ -2834,8 +2834,9 @@ class _MyFollowingPageState extends State<MyFollowingPage> {
         return {'id': row['id'], 'target_id': businessId, 'is_business': true,
           'name': b['name'] ?? 'İşletme', 'avatar': b['logo_url']};
       }
-      final p = profileMap[userId] ?? {};
-      return {'id': row['id'], 'target_id': userId, 'is_business': false,
+      final targetUserId = userId!;
+      final p = profileMap[targetUserId] ?? {};
+      return {'id': row['id'], 'target_id': targetUserId, 'is_business': false,
         'name': p['full_name'] ?? 'Kullanıcı', 'avatar': p['avatar_url']};
     }).toList();
   }
