@@ -318,8 +318,11 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         setState(() => message = 'Bu hesabın uygulamaya erişimi kısıtlanmış.');
         return;
       }
+      final hasAdminAccess = profile['is_admin'] == true ||
+          await client.rpc('admin_has_any_permission') == true;
+      if (!mounted) return;
       AppRole role;
-      if (profile['is_admin'] == true) {
+      if (hasAdminAccess) {
         role = AppRole.admin;
       } else {
         final employees = await client.from('employees').select('id')
@@ -666,8 +669,8 @@ class _RoleShellState extends State<RoleShell> {
         pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
-        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
-        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true)];
+        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek','Alt Yöneticiler']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent,Icons.admin_panel_settings];
+        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true),const AdminSubAdmins()];
         break;
     }
   }
