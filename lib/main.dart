@@ -1986,7 +1986,80 @@ class _ProfilePageState extends State<ProfilePage> {
   );
 }
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
-class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
+class EmployeeHome extends StatefulWidget {
+  const EmployeeHome({super.key});
+  @override
+  State<EmployeeHome> createState() => _EmployeeHomeState();
+}
+
+class _EmployeeHomeState extends State<EmployeeHome> {
+  late Future<Map<String, dynamic>> data;
+  @override
+  void initState() { super.initState(); data = load(); }
+
+  Future<Map<String, dynamic>> load() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final employee = await client.from('employees')
+        .select('id,business_id,display_name')
+        .eq('user_id', user.id).eq('is_active', true).maybeSingle();
+    if (employee == null) throw Exception('Aktif çalışan kaydı bulunamadı.');
+    final rows = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_appointments',
+      params: {'p_business_id': employee['business_id'], 'p_mine_only': true},
+    ) as List);
+    final today = DateTime.now();
+    final todays = rows.where((row) {
+      final date = DateTime.parse(row['starts_at'] as String).toLocal();
+      return date.year == today.year && date.month == today.month && date.day == today.day;
+    }).toList();
+    rows.sort((a, b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    return {'employee': employee, 'appointments': rows, 'today': todays.length};
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Center(child: Text('Çalışan paneli yüklenemedi: ${snapshot.error ?? ''}',
+          style: const TextStyle(color: muted)));
+      }
+      final employee = snapshot.data!['employee'] as Map<String, dynamic>;
+      final appointments = snapshot.data!['appointments'] as List<Map<String, dynamic>>;
+      return PageBody(children: [
+        Text('Merhaba, ${employee['display_name'] ?? 'Çalışan'}',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+        const Text('Bugünkü çalışma planın', style: TextStyle(color: muted)),
+        const SizedBox(height: 16),
+        Row(children: [
+          _StatCard((snapshot.data!['today'] as int).toString(), 'Bugün Randevu'),
+          _StatCard(appointments.length.toString(), 'Toplam Randevu'),
+          _StatCard(appointments.where((a) => a['status'] == 'completed').length.toString(), 'Tamamlanan'),
+        ]),
+        const SizedBox(height: 16),
+        const HeroPanel(eyebrow: 'Portfolyonu büyüt', title: 'Çalışmalarını paylaş',
+          subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',
+          icon: Icons.camera_alt, button: 'Paylaşım yap →'),
+        const SectionTitle('Randevularım'),
+        if (appointments.isEmpty)
+          const Text('Henüz randevun bulunmuyor.', style: TextStyle(color: muted))
+        else
+          ...appointments.take(5).map((row) => AppointmentTile(
+            name: row['customer_name'] as String? ?? 'Müşteri',
+            service: row['service_name'] as String? ?? 'Hizmet',
+            time: DateTime.parse(row['starts_at'] as String).toLocal().toString().substring(0, 16),
+            status: row['status'] as String? ?? 'pending',
+          )),
+      ]);
+    },
+  );
+}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
 class SharePage extends StatefulWidget {
   final String publisherName; final bool businessPost;
@@ -2433,7 +2506,84 @@ class _ServicesPageState extends State<ServicesPage> {
   );
 }
 
-class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
+class OwnerHome extends StatefulWidget {
+  const OwnerHome({super.key});
+  @override
+  State<OwnerHome> createState() => _OwnerHomeState();
+}
+
+class _OwnerHomeState extends State<OwnerHome> {
+  late Future<Map<String, dynamic>> data;
+  @override
+  void initState() { super.initState(); data = load(); }
+
+  Future<Map<String, dynamic>> load() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id,name')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme bulunamadı.');
+    final rows = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_appointments',
+      params: {'p_business_id': business['id'], 'p_mine_only': false},
+    ) as List);
+    final customers = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_customers', params: {'p_business_id': business['id']},
+    ) as List);
+    final today = DateTime.now();
+    final todays = rows.where((row) {
+      final date = DateTime.parse(row['starts_at'] as String).toLocal();
+      return date.year == today.year && date.month == today.month && date.day == today.day;
+    }).toList();
+    rows.sort((a, b) => DateTime.parse(b['starts_at'] as String)
+        .compareTo(DateTime.parse(a['starts_at'] as String)));
+    return {'business': business, 'appointments': rows, 'today': todays.length,
+      'customers': customers.length};
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Center(child: Text('İşletme özeti yüklenemedi: ${snapshot.error ?? ''}',
+          style: const TextStyle(color: muted)));
+      }
+      final business = snapshot.data!['business'] as Map<String, dynamic>;
+      final appointments = snapshot.data!['appointments'] as List<Map<String, dynamic>>;
+      return PageBody(children: [
+        Text('${business['name'] ?? 'İşletme Yönetimi'}',
+          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 14),
+        HeroPanel(eyebrow: 'İşletme paneli', title: 'İşletmeni yönet',
+          subtitle: 'Randevularını, ekibini ve müşteri deneyimini tek yerden takip et.',
+          icon: Icons.storefront, button: 'Yönetim araçları'),
+        const SizedBox(height: 14),
+        Row(children: [
+          _StatCard((snapshot.data!['today'] as int).toString(), 'Bugünkü Randevu'),
+          _StatCard((snapshot.data!['customers'] as int).toString(), 'Müşteri'),
+          _StatCard(appointments.length.toString(), 'Toplam Randevu'),
+        ]),
+        const SectionTitle('Son Randevular', action: 'Tümünü Gör'),
+        if (appointments.isEmpty)
+          const Text('Henüz randevu bulunmuyor.', style: TextStyle(color: muted))
+        else
+          ...appointments.take(3).map((row) => AppointmentTile(
+            name: row['customer_name'] as String? ?? 'Müşteri',
+            service: row['service_name'] as String? ?? 'Hizmet',
+            time: DateTime.parse(row['starts_at'] as String).toLocal().toString().substring(0, 16),
+            status: row['status'] as String? ?? 'pending',
+          )),
+        const SectionTitle('Hızlı Yönetim'),
+        const QuickTiles(),
+      ]);
+    },
+  );
+}
 class OwnerAppointments extends StatelessWidget {
   const OwnerAppointments({super.key});
   @override
