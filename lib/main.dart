@@ -696,6 +696,11 @@ class _RoleShellState extends State<RoleShell> {
         return;
       }
       final profile = Map<String, dynamic>.from(statusRows.first as Map);
+      if (profile['is_blocked'] == true) {
+        await client.auth.signOut();
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
       if (profile['is_admin'] == true) return;
       const keys = ['dashboard','businesses','users','discover','support'];
       const names = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek'];
