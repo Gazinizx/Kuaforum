@@ -96,7 +96,7 @@ class KuaforumFeedRepository {
 
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name,owner_id,discover_paid,discover_enabled),employees(display_name),
+      'businesses(name,owner_id,discover_paid,discover_enabled,business_reviews(rating)),employees(display_name),'
       'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id),feed_comments(id)';
 
   String get _userId {
