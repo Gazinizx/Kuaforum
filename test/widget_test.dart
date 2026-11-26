@@ -114,4 +114,32 @@ void main() {
 
     expect(find.text('Yeni saç tasarımı'), findsOneWidget);
   });
+
+  testWidgets('all four demo roles open distinct local identities', (tester) async {
+    configureViewport(tester);
+    const cases = <(String, String)>[
+      ('customer', 'Elif Kaya'),
+      ('employee', 'Ayşe Yılmaz'),
+      ('owner', 'Derya Akın'),
+      ('admin', 'Kuaförüm Yönetim'),
+    ];
+    for (final item in cases) {
+      await tester.pumpWidget(MaterialApp(
+        home: DemoWorkspacePage(role: item.$1, section: 'Profil'),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text(item.$2), findsOneWidget);
+    }
+  });
+
+  testWidgets('admin demo includes messages and discover visibility control', (tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const MaterialApp(
+      home: DemoWorkspacePage(role: 'admin', section: 'Keşfet Yönetimi'),
+    ));
+
+    expect(find.text('Lale Hair Studio'), findsOneWidget);
+    expect(find.text('Keşfet görünürlüğü'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsOneWidget);
+  });
 }
