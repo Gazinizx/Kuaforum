@@ -2271,12 +2271,16 @@ class _MessagesPageState extends State<MessagesPage> {
             ...snapshot.data!.map((row) {
               final currentUserId = Supabase.instance.client.auth.currentUser?.id;
               final isCustomer = row['customer_id'] == currentUserId;
+              final isBusinessOwner = row['is_business_owner'] == true;
               final title = isCustomer
                   ? row['employee_name'] as String? ?? 'Çalışan'
                   : row['customer_name'] as String? ?? 'Müşteri';
               final avatarUrl = isCustomer
                   ? row['employee_avatar_url'] as String?
                   : row['customer_avatar_url'] as String?;
+              final subtitle = isBusinessOwner
+                  ? '${row['business_name']} • Çalışan: ${row['employee_name']}'
+                  : row['business_name'] as String? ?? 'Kuaförüm';
               final updated = DateTime.tryParse(row['updated_at'] as String? ?? '')?.toLocal();
               final time = updated == null
                   ? ''
@@ -2303,7 +2307,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   ),
                   title: Text(title, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
                   subtitle: Text(
-                    row['business_name'] as String? ?? 'Kuaförüm',
+                    subtitle,
                     style: const TextStyle(color: muted, fontSize: 11),
                   ),
                   trailing: Text(time, style: const TextStyle(color: muted, fontSize: 10)),
@@ -2311,7 +2315,7 @@ class _MessagesPageState extends State<MessagesPage> {
                     builder: (_) => ChatPage(
                       conversationId: row['id'] as String,
                       title: title,
-                      subtitle: row['business_name'] as String? ?? 'Kuaförüm',
+                      subtitle,
                     ),
                   )),
                 ),
@@ -2520,7 +2524,16 @@ class _UserProfileData {
   final Map<String, int> stats;
   final List<KuaforumFeedPost> posts;
   final bool canMessage;
-  const _UserProfileData(this.profile, this.stats, this.posts, this.canMessage);
+  final Map<String, dynamic> contact;
+  final String? membershipBusinessId;
+  const _UserProfileData(
+    this.profile,
+    this.stats,
+    this.posts,
+    this.canMessage,
+    this.contact,
+    this.membershipBusinessId,
+  );
 }
 
 class PublicUserProfilePage extends StatefulWidget {
@@ -2548,17 +2561,25 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
       widget.userId == Supabase.instance.client.auth.currentUser?.id;
 
   Future<_UserProfileData> load() async {
-    final values = await Future.wait([
+    final values = await Future.wait<dynamic>([
       repository.fetchPublicProfile(widget.userId),
       repository.fetchSocialStats(userId: widget.userId),
       repository.fetchProfilePosts(userId: widget.userId),
       repository.canMessageEmployee(widget.userId),
+      isOwnProfile
+          ? repository.fetchMyProfileContact()
+          : Future<Map<String, dynamic>>.value(<String, dynamic>{}),
+      isOwnProfile
+          ? repository.fetchMyBusinessMembership()
+          : Future<String?>.value(null),
     ]);
     return _UserProfileData(
       values[0] as Map<String, dynamic>,
       values[1] as Map<String, int>,
       values[2] as List<KuaforumFeedPost>,
       values[3] as bool,
+      values[4] as Map<String, dynamic>,
+      values[5] as String?,
     );
   }
 
@@ -2659,6 +2680,113 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
     ));
   }
 
+  Future<void> editMyProfile(Map<String, dynamic> contact) async {
+    final nameController = TextEditingController(
+      text: contact['full_name']?.toString() ?? '',
+    );
+    final phoneController = TextEditingController(
+      text: contact['phone']?.toString() ?? '',
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Profil bilgilerini düzenle'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              maxLength: 80,
+              decoration: const InputDecoration(labelText: 'Ad soyad'),
+            ),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              maxLength: 30,
+              decoration: const InputDecoration(labelText: 'Telefon'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    final name = nameController.text;
+    final phone = phoneController.text;
+    nameController.dispose();
+    phoneController.dispose();
+    if (confirmed != true || !mounted) return;
+    try {
+      await repository.updateMyProfile(fullName: name, phone: phone);
+      if (!mounted) return;
+      final next = load();
+      setState(() => data = next);
+      await next;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil bilgilerin güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Profil güncellenemedi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> leaveBusiness(String businessId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('İşletmeden ayrıl?'),
+        content: const Text(
+          'İşletme üyeliğin kaldırılacak. Yeniden katılmak için işletme kodu gerekir.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: wine),
+            child: const Text('Ayrıl'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await repository.leaveBusiness(businessId);
+      if (!mounted) return;
+      final next = load();
+      setState(() => data = next);
+      await next;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletme üyeliğinden ayrıldın.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeden ayrılamadın: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<_UserProfileData>(
     future: data,
@@ -2757,6 +2885,26 @@ class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
                 onTap: () => openList('following'),
               ),
             ]),
+            if (isOwnProfile) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => editMyProfile(value.contact),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: wine,
+                  side: const BorderSide(color: blush),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Bilgilerimi düzenle'),
+              ),
+              if (accountType == 'customer' && value.membershipBusinessId != null)
+                TextButton.icon(
+                  onPressed: () => leaveBusiness(value.membershipBusinessId!),
+                  style: TextButton.styleFrom(foregroundColor: wine),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Berberim’den ayrıl'),
+                ),
+            ],
             if (isOwnProfile) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
@@ -4945,6 +5093,183 @@ class _WorkHoursPageState extends State<WorkHoursPage> {
   );
 }
 
+class BusinessBreaksPage extends StatefulWidget {
+  final String businessId;
+  const BusinessBreaksPage({super.key, required this.businessId});
+
+  @override
+  State<BusinessBreaksPage> createState() => _BusinessBreaksPageState();
+}
+
+class _BusinessBreaksPageState extends State<BusinessBreaksPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<Map<String, dynamic>>> breaks;
+  static const weekdays = [
+    'Pazar', 'Pazartesi', 'Salı', 'Çarşamba',
+    'Perşembe', 'Cuma', 'Cumartesi',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    breaks = repository.fetchBusinessBreaks(widget.businessId);
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchBusinessBreaks(widget.businessId);
+    setState(() => breaks = next);
+    await next;
+  }
+
+  String formatTime(String value) => value.length >= 5 ? value.substring(0, 5) : value;
+
+  String toSqlTime(TimeOfDay value) =>
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
+
+  Future<void> addBreak() async {
+    var weekday = 1;
+    final selectedDay = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Mola günü'),
+          content: DropdownButtonFormField<int>(
+            value: weekday,
+            decoration: const InputDecoration(labelText: 'Gün'),
+            items: List.generate(7, (index) => DropdownMenuItem(
+              value: index,
+              child: Text(weekdays[index]),
+            )),
+            onChanged: (value) {
+              if (value != null) setDialogState(() => weekday = value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, weekday),
+              style: FilledButton.styleFrom(backgroundColor: wine),
+              child: const Text('Devam et'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedDay == null || !mounted) return;
+    final start = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 13, minute: 0),
+      helpText: 'Mola başlangıcı',
+    );
+    if (start == null || !mounted) return;
+    final end = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 14, minute: 0),
+      helpText: 'Mola bitişi',
+    );
+    if (end == null || !mounted) return;
+    try {
+      await repository.addBusinessBreak(
+        businessId: widget.businessId,
+        weekday: selectedDay,
+        startsAt: toSqlTime(start),
+        endsAt: toSqlTime(end),
+      );
+      if (mounted) await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mola kaydedilemedi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> removeBreak(String id) async {
+    try {
+      await repository.deleteBusinessBreak(id);
+      if (mounted) await refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mola silinemedi: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: breaks,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          const Text(
+            'Mola Saatleri',
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tanımladığın molalarda müşteriler randevu alamaz.',
+            style: TextStyle(color: muted),
+          ),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(
+              icon: Icons.schedule_outlined,
+              title: 'Molalar yüklenemedi',
+              detail: 'Bağlantını kontrol edip yeniden dene.',
+              action: 'Yeniden dene',
+              onPressed: refresh,
+            )
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(
+              icon: Icons.free_breakfast_outlined,
+              title: 'Henüz mola eklenmedi',
+              detail: 'İşletmenin haftalık mola saatlerini ekleyebilirsin.',
+            )
+          else
+            ...(snapshot.data ?? []).map((row) {
+              final day = row['weekday'] as int;
+              return Card(
+                color: Colors.white,
+                elevation: 0,
+                child: ListTile(
+                  leading: const Icon(Icons.free_breakfast_outlined, color: wine),
+                  title: Text(weekdays[day], style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    '${formatTime(row['starts_at'] as String)} – ${formatTime(row['ends_at'] as String)}',
+                    style: const TextStyle(color: muted),
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Molayı sil',
+                    onPressed: () => removeBreak(row['id'] as String),
+                    icon: const Icon(Icons.delete_outline, color: wine),
+                  ),
+                ),
+              );
+            }),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: snapshot.connectionState == ConnectionState.waiting ? null : addBreak,
+            style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 14)),
+            icon: const Icon(Icons.add),
+            label: const Text('Mola ekle'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -5172,6 +5497,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: const Text('Haftalık çalışma saatlerini düzenle'),
                 trailing: const Icon(Icons.chevron_right, color: muted),
                 onTap: () => openPage(const WorkHoursPage(), 'Çalışma Saatleri'),
+              ),
+              const Divider(height: 1, color: blush),
+              ListTile(
+                leading: const Icon(Icons.free_breakfast_outlined, color: wine),
+                title: const Text('Mola saatleri', style: TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: const Text('Haftalık mola aralıklarını tanımla'),
+                trailing: const Icon(Icons.chevron_right, color: muted),
+                onTap: businessId == null
+                    ? null
+                    : () => openPage(
+                        BusinessBreaksPage(businessId: businessId),
+                        'Mola Saatleri',
+                      ),
               ),
             ]),
           ),
