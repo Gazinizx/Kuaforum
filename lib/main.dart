@@ -2191,6 +2191,7 @@ class SettingsPage extends StatelessWidget {
     final page = switch (section) {
       'Çalışanlar' => const EmployeeManagementPage(),
       'Hizmetler' => const ServicesPage(),
+      'Çalışma Saatleri' => const WorkingHoursPage(),
       _ => null,
     };
     if (page == null) return;
@@ -2206,12 +2207,12 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => PageBody(children: [
     const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
     const SizedBox(height: 12),
-    ...['Çalışanlar','Hizmetler'].map((section) => Card(
+    ...['Çalışanlar','Hizmetler','Çalışma Saatleri'].map((section) => Card(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
-        leading: Icon(section == 'Çalışanlar' ? Icons.people_outline : Icons.content_cut, color: wine),
+        leading: Icon(section == 'Çalışanlar' ? Icons.people_outline : section == 'Hizmetler' ? Icons.content_cut : Icons.schedule, color: wine),
         title: Text(section, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
         trailing: const Icon(Icons.chevron_right, color: muted),
         onTap: () => open(context, section),
@@ -2219,6 +2220,140 @@ class SettingsPage extends StatelessWidget {
     )),
   ]);
 }
+class WorkingHoursPage extends StatefulWidget {
+  const WorkingHoursPage({super.key});
+  @override
+  State<WorkingHoursPage> createState() => _WorkingHoursPageState();
+}
+
+class _WorkingHoursPageState extends State<WorkingHoursPage> {
+  final client = Supabase.instance.client;
+  final labels = const ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  String? businessId;
+  List<Map<String, dynamic>> days = [];
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final business = await client.from('businesses').select('id')
+          .eq('owner_id', user.id).maybeSingle();
+      if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+      businessId = business['id'] as String;
+      final rows = await client.from('business_hours').select('weekday,opens_at,closes_at,is_closed')
+          .eq('business_id', businessId!);
+      final byDay = {for (final row in rows) row['weekday'] as int: row};
+      days = List.generate(7, (index) {
+        final row = byDay[index];
+        return {
+          'weekday': index,
+          'opens_at': row?['opens_at']?.toString().substring(0,5) ?? '09:00',
+          'closes_at': row?['closes_at']?.toString().substring(0,5) ?? '18:00',
+          'is_closed': row?['is_closed'] as bool? ?? (index == 0),
+        };
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışma saatleri yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> chooseTime(int day, String field) async {
+    final parts = (days[day][field] as String).split(':');
+    final initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    final selected = await showTimePicker(context: context, initialTime: initial);
+    if (selected == null) return;
+    setState(() => days[day][field] =
+      '${selected.hour.toString().padLeft(2,'0')}:${selected.minute.toString().padLeft(2,'0')}');
+  }
+
+  Future<void> save() async {
+    if (businessId == null) return;
+    setState(() => saving = true);
+    try {
+      await client.from('business_hours').upsert(
+        days.map((day) => {...day, 'business_id': businessId}).toList(),
+        onConflict: 'business_id,weekday',
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Çalışma saatleri kaydedildi.')),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kaydedilemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PageBody(children: [
+    const Text('Çalışma Saatleri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+    const SizedBox(height: 8),
+    const Text('İşletmenin haftalık açık olduğu saatleri belirle.', style: TextStyle(color: muted)),
+    const SizedBox(height: 12),
+    if (loading)
+      const Center(child: CircularProgressIndicator(color: wine))
+    else if (businessId == null)
+      const Text('İşletme bilgisi yüklenemedi.')
+    else ...[
+      ...List.generate(7, (index) {
+        final day = days[index];
+        final closed = day['is_closed'] as bool;
+        return Card(
+          color: Colors.white,
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 9),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              Row(children: [
+                Expanded(child: Text(labels[index], style: const TextStyle(fontWeight: FontWeight.bold, color: ink))),
+                const Text('Kapalı', style: TextStyle(color: muted, fontSize: 12)),
+                Switch(
+                  value: closed,
+                  activeColor: wine,
+                  onChanged: (value) => setState(() => day['is_closed'] = value),
+                ),
+              ]),
+              if (!closed)
+                Row(children: [
+                  Expanded(child: OutlinedButton(
+                    onPressed: () => chooseTime(index, 'opens_at'),
+                    child: Text('Açılış  ${day['opens_at']}'),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: OutlinedButton(
+                    onPressed: () => chooseTime(index, 'closes_at'),
+                    child: Text('Kapanış  ${day['closes_at']}'),
+                  )),
+                ]),
+            ]),
+          ),
+        );
+      }),
+      const SizedBox(height: 8),
+      SizedBox(width: double.infinity, child: ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+        onPressed: saving ? null : save,
+        child: Text(saving ? 'Kaydediliyor...' : 'Saatleri Kaydet'),
+      )),
+    ],
+  ]);
+}
+
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
 class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
