@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
+import 'data/kuaforum_messaging_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -343,6 +344,8 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   bool followingBusiness = false;
   bool followingAuthor = false;
   bool followStateLoaded = false;
+  bool isCustomer = false;
+  bool openingChat = false;
 
   @override
   void initState() {
@@ -354,12 +357,17 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
 
   Future<void> loadFollowState() async {
     try {
+      final profile = await Supabase.instance.client
+          .from('profiles').select('account_type')
+          .eq('id', Supabase.instance.client.auth.currentUser!.id).single();
+      final customer = profile['account_type'] == 'customer';
       final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
       final author = widget.post.isEmployeePost && !widget.post.isOwnPost
           ? await widget.repository.isFollowingUser(widget.post.authorUserId)
           : false;
       if (!mounted) return;
       setState(() {
+        isCustomer = customer;
         followingBusiness = business;
         followingAuthor = author;
         followStateLoaded = true;
@@ -400,6 +408,30 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
         setState(() => followingAuthor = wasFollowing);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çalışan takibi güncellenemedi.')));
       }
+    }
+  }
+
+  Future<void> openEmployeeChat() async {
+    if (openingChat) return;
+    setState(() => openingChat = true);
+    try {
+      final conversationId = await KuaforumMessagingRepository()
+          .startEmployeeConversation(widget.post.authorUserId);
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatPage(
+          conversationId: conversationId,
+          title: widget.post.authorName,
+          subtitle: widget.post.businessName,
+        ),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sohbet açılamadı: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => openingChat = false);
     }
   }
 
@@ -517,6 +549,22 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           style: const TextStyle(color: muted, fontSize: 10),
         ),
       ]),
+      if (isCustomer && widget.post.isEmployeePost && !widget.post.isOwnPost) ...[
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: openingChat ? null : openEmployeeChat,
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: Text(openingChat ? 'Sohbet açılıyor...' : 'Çalışana Mesaj Gönder'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: wine,
+              side: const BorderSide(color: blush),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+            ),
+          ),
+        ),
+      ],
     ]),
   );
 }
@@ -927,7 +975,240 @@ class _FollowingPageState extends State<FollowingPage> {
 
 class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
 class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
-class MessagesPage extends StatelessWidget {const MessagesPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Mesajlar',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kişi veya sohbet ara...'),const SizedBox(height:12),...['Zeynep Kaya','Luxe Beauty Salon','Merve Demir','Ayşe Yılmaz','Elif Demir'].map((n)=>ListTile(contentPadding:const EdgeInsets.symmetric(vertical:5),leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Merhaba, randevu için bilgi alabilir miyim?'),trailing:const Text('14:20',style:TextStyle(color:muted,fontSize:11))))]);}
+class MessagesPage extends StatefulWidget {
+  const MessagesPage({super.key});
+  @override
+  State<MessagesPage> createState() => _MessagesPageState();
+}
+
+class _MessagesPageState extends State<MessagesPage> {
+  final repository = KuaforumMessagingRepository();
+  late Future<List<Map<String, dynamic>>> conversations;
+
+  @override
+  void initState() {
+    super.initState();
+    conversations = repository.fetchConversations();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchConversations();
+    setState(() => conversations = next);
+    await next;
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: conversations,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Mesajlar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 5),
+          const Text('Çalışanlarla yaptığın sohbetler burada görünür.', style: TextStyle(color: muted)),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(children: [
+                const Icon(Icons.cloud_off_outlined, color: muted, size: 38),
+                const SizedBox(height: 8),
+                const Text('Mesajlar yüklenemedi.', style: TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                TextButton(onPressed: refresh, child: const Text('Tekrar dene')),
+              ]),
+            )
+          else if ((snapshot.data ?? []).isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 42, horizontal: 12),
+              child: Column(children: [
+                Icon(Icons.forum_outlined, color: rose, size: 46),
+                SizedBox(height: 12),
+                Text('Henüz sohbetin yok', style: TextStyle(color: ink, fontSize: 17, fontWeight: FontWeight.bold)),
+                SizedBox(height: 6),
+                Text('Keşfet bölümünde bir çalışanın paylaşımını açıp “Çalışana Mesaj Gönder” düğmesine dokunabilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.4)),
+              ]),
+            )
+          else
+            ...snapshot.data!.map((conversation) => Card(
+              color: Colors.white,
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 9),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: blush)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
+                leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                title: Text(conversation['peer_name'] as String? ?? 'Sohbet', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                subtitle: Text(
+                  '${conversation['business_name'] ?? 'İşletme'}  •  ${conversation['last_message'] ?? ''}',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: wine),
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ChatPage(
+                    conversationId: conversation['id'] as String,
+                    title: conversation['peer_name'] as String? ?? 'Sohbet',
+                    subtitle: conversation['business_name'] as String? ?? 'İşletme',
+                  ),
+                )).then((_) => refresh()),
+              ),
+            )),
+        ],
+      ),
+    ),
+  );
+}
+
+class ChatPage extends StatefulWidget {
+  final String conversationId;
+  final String title;
+  final String subtitle;
+
+  const ChatPage({
+    super.key,
+    required this.conversationId,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final repository = KuaforumMessagingRepository();
+  final controller = TextEditingController();
+  late final Stream<List<Map<String, dynamic>>> messageStream;
+  bool sending = false;
+  String? sendError;
+
+  @override
+  void initState() {
+    super.initState();
+    messageStream = Supabase.instance.client
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_id', widget.conversationId)
+        .order('created_at')
+        .map((rows) => rows.map((row) => Map<String, dynamic>.from(row)).toList());
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> send() async {
+    if (sending) return;
+    final body = controller.text.trim();
+    if (body.isEmpty) return;
+    setState(() { sending = true; sendError = null; });
+    try {
+      await repository.sendMessage(widget.conversationId, body);
+      controller.clear();
+    } catch (error) {
+      if (mounted) setState(() => sendError = 'Mesaj gönderilemedi: $error');
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(widget.title, style: const TextStyle(color: wine, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(widget.subtitle, style: const TextStyle(color: muted, fontSize: 11)),
+      ]),
+    ),
+    body: Column(children: [
+      Expanded(
+        child: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: messageStream,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return const Center(child: Text('Mesajlar alınamadı. İnternet bağlantını kontrol et.'));
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator(color: wine));
+            }
+            final rows = snapshot.data!;
+            if (rows.isEmpty) {
+              return const Center(child: Text('Sohbet başladı. İlk mesajı sen gönder ♡', style: TextStyle(color: muted)));
+            }
+            final userId = Supabase.instance.client.auth.currentUser?.id;
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                final mine = row['sender_id'] == userId;
+                return Align(
+                  alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+                    margin: const EdgeInsets.only(bottom: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: mine ? wine : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: mine ? null : Border.all(color: blush),
+                    ),
+                    child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+      if (sendError != null)
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text(sendError!, style: const TextStyle(color: wine, fontSize: 11))),
+      SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+          color: Colors.white,
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => send(),
+                decoration: InputDecoration(
+                  hintText: 'Mesajını yaz...',
+                  filled: true,
+                  fillColor: cream,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: sending ? null : send,
+              style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              icon: sending
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.send_rounded),
+            ),
+          ]),
+        ),
+      ),
+    ]),
+  );
+}
 class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
