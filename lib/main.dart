@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
 import 'employee_invite_claim_page.dart';
+import 'demo_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -208,22 +209,24 @@ class _RoleShellState extends State<RoleShell> {
     switch(widget.role) {
       case AppRole.customer:
         labels = ['Ana Sayfa','Keşfet','Takip','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
+        pages = _developerTestMode ? _demoPages('customer') : [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.employee:
         labels = ['Ana Sayfa','Randevular','Paylaşım','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
+        pages = _developerTestMode ? _demoPages('employee') : [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        pages = _developerTestMode ? _demoPages('owner') : [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
-        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
+        pages = _developerTestMode ? _demoPages('admin') : [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
         break;
     }
   }
+  List<Widget> _demoPages(String role) => labels.map((label) => DemoWorkspacePage(role: role, section: label)).toList();
+
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)),
