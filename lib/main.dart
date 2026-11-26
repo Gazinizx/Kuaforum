@@ -2013,9 +2013,145 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
     ),
   );
 }
-class ServicesPage extends StatelessWidget {
+class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Hizmetler',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Yeni Hizmet Ekle'),...['Saç Kesimi  •  ₺800','Saç Boyama  •  ₺1.800','Ombre  •  ₺2.500','Keratin Bakım  •  ₺1.400'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.content_cut,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.edit_outlined,color:muted))))]);
+  @override
+  State<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends State<ServicesPage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final services = await client.from('services')
+        .select('id,name,price,duration_minutes,is_active')
+        .eq('business_id', business['id']).order('created_at');
+    return {'business_id': business['id'], 'services': services};
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> editService(String businessId, {Map<String, dynamic>? service}) async {
+    final name = TextEditingController(text: service?['name']?.toString() ?? '');
+    final price = TextEditingController(text: service?['price']?.toString() ?? '');
+    final duration = TextEditingController(text: service?['duration_minutes']?.toString() ?? '30');
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(service == null ? 'Yeni hizmet' : 'Hizmeti düzenle'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Hizmet adı')),
+          TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Fiyat (₺)')),
+          TextField(controller: duration, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Süre (dakika)')),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (save != true) { name.dispose(); price.dispose(); duration.dispose(); return; }
+    final parsedPrice = double.tryParse(price.text.trim().replaceAll(',', '.'));
+    final parsedDuration = int.tryParse(duration.text.trim());
+    if (name.text.trim().isEmpty || parsedPrice == null || parsedPrice < 0 || parsedDuration == null || parsedDuration < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hizmet adı, geçerli fiyat ve en az 5 dakikalık süre girin.')));
+      name.dispose(); price.dispose(); duration.dispose(); return;
+    }
+    try {
+      final values = {'name': name.text.trim(), 'price': parsedPrice, 'duration_minutes': parsedDuration};
+      if (service == null) {
+        await client.from('services').insert({...values, 'business_id': businessId, 'is_active': true});
+      } else {
+        await client.from('services').update(values).eq('id', service['id']);
+      }
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hizmet kaydedilemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      name.dispose(); price.dispose(); duration.dispose();
+    }
+  }
+
+  Future<void> toggleService(String id, bool active) async {
+    try {
+      await client.from('services').update({'is_active': active}).eq('id', id);
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hizmet durumu değiştirilemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refreshData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Hizmetler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Hizmetler yüklenemedi', detail: snapshot.error.toString())
+          else ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              onPressed: () => editService(snapshot.data!['business_id'] as String),
+              icon: const Icon(Icons.add),
+              label: const Text('Yeni Hizmet Ekle'),
+            ),
+            const SizedBox(height: 12),
+            if ((snapshot.data!['services'] as List).isEmpty)
+              const _FeedMessage(icon: Icons.content_cut, title: 'Henüz hizmet eklenmemiş', detail: 'Müşterilerin randevu alabilmesi için hizmetlerini ekle.')
+            else
+              ...(snapshot.data!['services'] as List).map((raw) {
+                final service = Map<String, dynamic>.from(raw as Map);
+                final active = service['is_active'] == true;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  child: ListTile(
+                    leading: const Icon(Icons.content_cut, color: wine),
+                    title: Text(service['name']?.toString() ?? 'Hizmet', style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+                    subtitle: Text('₺${service['price']} • ${service['duration_minutes']} dakika • ${active ? 'Aktif' : 'Pasif'}'),
+                    onTap: () => editService(snapshot.data!['business_id'] as String, service: service),
+                    trailing: Switch(
+                      value: active,
+                      activeColor: wine,
+                      onChanged: (value) => toggleService(service['id'].toString(), value),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ],
+      ),
+    ),
+  );
 }
 
 class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
