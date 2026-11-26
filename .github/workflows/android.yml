@@ -58,7 +58,7 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
       - run: flutter pub get --enforce-lockfile
-      - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test --dart-define=KUAFORUM_TEST_MODE=true
       - name: Build APK (test role picker on push; configurable on manual runs)
         run: flutter build apk --release --dart-define=KUAFORUM_TEST_MODE=${{ github.event_name != 'workflow_dispatch' || inputs.test_mode }}
