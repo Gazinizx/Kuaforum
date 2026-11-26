@@ -2895,12 +2895,30 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
     builder: (context, snapshot) => RefreshIndicator(
       onRefresh: refresh,
       child: ListView(padding: const EdgeInsets.all(18), children: [
-        Text(widget.adminMode ? 'Destek Talepleri' : 'Yardım ve Destek',
-          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)]),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Row(children: [
+            Container(width: 48, height: 48,
+              decoration: BoxDecoration(color: Colors.white.withOpacity(.16), borderRadius: BorderRadius.circular(15)),
+              child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28)),
+            const SizedBox(width: 13),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.adminMode ? 'Destek Merkezi' : 'Yanındayız',
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(widget.adminMode ? 'Gelen talepleri yanıtla ve takip et.' : 'Soruların ve sorunların için bize ulaş.',
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ])),
+          ]),
+        ),
+        const SizedBox(height: 14),
         if (!widget.adminMode)
-          ElevatedButton.icon(onPressed: createTicket,
-            icon: const Icon(Icons.add), label: const Text('Yeni destek talebi')),
+          SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: createTicket, icon: const Icon(Icons.add), label: const Text('Yeni destek talebi'),
+            style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 14)))),
         if (snapshot.connectionState == ConnectionState.waiting)
           const Center(child: CircularProgressIndicator(color: wine))
         else if (snapshot.hasError)
