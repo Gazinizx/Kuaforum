@@ -631,6 +631,9 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
   Future<void> openBusiness(Map<String, dynamic> business) async {
     final userId = client.auth.currentUser?.id;
     if (userId == null) return;
+    final rawLogo = business['logo_url'] as String?;
+    business['logo_public_url'] = rawLogo == null || rawLogo.isEmpty ? null :
+      (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
     final businessId = business['id'] as String;
     final membership = await client.from('business_memberships')
       .select('id').eq('business_id', businessId).eq('customer_id', userId).maybeSingle();
@@ -692,7 +695,7 @@ class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
           : results.isEmpty
             ? const Center(child: Text('İşletme aramak için yukarıya yaz.', style: TextStyle(color: muted)))
             : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: results.map((business) {
-              final logo = business['logo_url'] as String?;
+              final logo = business['logo_public_url'] as String?;
               final closed = business['is_temporarily_closed'] == true;
               return Card(color: Colors.white, elevation: 0, child: ListTile(
                 leading: CircleAvatar(backgroundColor: blush,
@@ -4208,6 +4211,8 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
   bool loading = true;
   bool saving = false;
   bool temporarilyClosed = false;
+  bool uploadingLogo = false;
+  String? logoPath;
 
   @override
   void initState() { super.initState(); load(); }
@@ -4219,17 +4224,61 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
       final user = client.auth.currentUser;
       if (user == null) throw Exception('Oturum bulunamadı.');
       final row = await client.from('businesses')
-          .select('id,name,address,is_temporarily_closed').eq('owner_id', user.id).maybeSingle();
+          .select('id,name,address,is_temporarily_closed,logo_url').eq('owner_id', user.id).maybeSingle();
       if (row == null) throw Exception('İşletme bulunamadı.');
       businessId = row['id'] as String;
       name.text = row['name'] as String? ?? '';
       address.text = row['address'] as String? ?? '';
       temporarilyClosed = row['is_temporarily_closed'] as bool? ?? false;
+      logoPath = row['logo_url'] as String?;
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('İşletme bilgileri yüklenemedi: $error')));
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> uploadLogo() async {
+    final user = client.auth.currentUser;
+    if (user == null || businessId == null || uploadingLogo) return;
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery, imageQuality: 85, maxWidth: 1024, maxHeight: 1024,
+    );
+    if (image == null) return;
+    setState(() => uploadingLogo = true);
+    try {
+      final file = File(image.path);
+      if (await file.length() > 5 * 1024 * 1024) {
+        throw Exception('Logo 5 MB sınırını aşıyor.');
+      }
+      final ext = image.name.split('.').last.toLowerCase();
+      if (!['jpg','jpeg','png','webp'].contains(ext)) {
+        throw Exception('Yalnızca JPG, PNG veya WEBP yükleyebilirsin.');
+      }
+      final contentType = ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg';
+      final path = 'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.${ext == 'jpeg' ? 'jpg' : ext}';
+      await client.storage.from('salon-avatars').upload(path, file,
+        fileOptions: FileOptions(contentType: contentType, upsert: false));
+      await client.rpc('set_my_business_logo', params: {
+        'p_business_id': businessId, 'p_logo_path': path,
+      });
+      final oldPath = logoPath;
+      if (oldPath != null && oldPath.startsWith('businesses/$businessId/')) {
+        try { await client.storage.from('salon-avatars').remove([oldPath]); } catch (_) {}
+      }
+      if (mounted) {
+        setState(() => logoPath = path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletme fotoğrafı güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletme fotoğrafı yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => uploadingLogo = false);
     }
   }
 
@@ -4276,6 +4325,25 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
     return PageBody(children: [
       const Text('İşletme bilgileri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
       const SizedBox(height: 16),
+      Center(child: Column(children: [
+        CircleAvatar(
+          radius: 44,
+          backgroundColor: blush,
+          backgroundImage: logoPath == null ? null : NetworkImage(
+            logoPath!.startsWith('http') ? logoPath! : client.storage.from('salon-avatars').getPublicUrl(logoPath!),
+          ),
+          child: logoPath == null ? const Icon(Icons.storefront, size: 42, color: wine) : null,
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: uploadingLogo ? null : uploadLogo,
+          icon: uploadingLogo
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.camera_alt_outlined),
+          label: const Text('İşletme fotoğrafını değiştir'),
+        ),
+      ])),
+      const SizedBox(height: 14),
       TextField(controller: name, textCapitalization: TextCapitalization.words,
         decoration: const InputDecoration(labelText: 'İşletme adı')),
       const SizedBox(height: 12),
