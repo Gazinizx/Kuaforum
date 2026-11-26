@@ -548,13 +548,125 @@ class SalonCard extends StatelessWidget {
   final String name,detail; final String rating; const SalonCard({super.key,required this.name,required this.detail,this.rating='4.9'});
   @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20),border:Border.all(color:blush)),child:Row(children:[Container(width:88,height:88,decoration:BoxDecoration(borderRadius:BorderRadius.circular(15),gradient:const LinearGradient(colors:[Color(0xFFE8C1C9),Color(0xFFB66B7D)])),child:const Icon(Icons.spa_rounded,color:Colors.white,size:38)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.w800,color:ink,fontSize:15)),const SizedBox(height:5),Text(detail,style:const TextStyle(color:muted,fontSize:12)),const SizedBox(height:8),Row(children:[const Icon(Icons.star_rounded,color:Color(0xFFE5A93D),size:16),Text(' $rating  •  1.2 km',style:const TextStyle(fontSize:11,color:muted)),const Spacer(),const Icon(Icons.favorite_border,color:rose,size:19)])]))]));
 }
+class NearbyBusinessesSection extends StatefulWidget {
+  const NearbyBusinessesSection({super.key});
+  @override
+  State<NearbyBusinessesSection> createState() => _NearbyBusinessesSectionState();
+}
+
+class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
+  late Future<List<Map<String, dynamic>>> businesses;
+  @override
+  void initState() { super.initState(); businesses = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+      List<Map<String, dynamic>>.from(await Supabase.instance.client
+        .from('businesses')
+        .select('id,name,address,logo_url,is_temporarily_closed')
+        .eq('status', 'active')
+        .order('name')
+        .limit(5));
+
+  Future<void> openBusiness(Map<String, dynamic> business) async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return;
+    final businessId = business['id'] as String;
+    final membership = await client.from('business_memberships')
+        .select('id').eq('business_id', businessId)
+        .eq('customer_id', userId).maybeSingle();
+    if (membership == null) {
+      final code = TextEditingController();
+      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+        AlertDialog(
+          title: Text('${business['name']} işletmesine katıl'),
+          content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'İşletmenin verdiği katılım kodu')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl ve devam et')),
+          ],
+        ));
+      if (accepted != true || code.text.trim().isEmpty) { code.dispose(); return; }
+      try {
+        await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine));
+        code.dispose();
+        return;
+      }
+      code.dispose();
+    }
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(business['name'] as String? ?? 'Randevu al')),
+      body: BusinessBookingPage(
+        businessId: businessId,
+        businessName: business['name'] as String? ?? 'İşletme',
+      ),
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Padding(padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator(color: wine)));
+      }
+      if (snapshot.hasError) {
+        return const Text('İşletmeler yüklenemedi. Bağlantını kontrol et.',
+          style: TextStyle(color: muted));
+      }
+      final items = snapshot.data ?? [];
+      if (items.isEmpty) {
+        return const Text('Henüz onaylı işletme bulunmuyor.', style: TextStyle(color: muted));
+      }
+      return Column(children: items.map((business) {
+        final logo = business['logo_url'] as String?;
+        final closed = business['is_temporarily_closed'] == true;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: blush)),
+          child: Row(children: [
+            CircleAvatar(radius: 38, backgroundColor: blush,
+              backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+              child: logo == null || logo.isEmpty
+                ? const Icon(Icons.storefront, color: wine, size: 32) : null),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(business['name'] as String? ?? 'Kuaför',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: ink, fontSize: 15)),
+              const SizedBox(height: 5),
+              Text(business['address'] as String? ?? 'Adres belirtilmemiş',
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: muted, fontSize: 12)),
+              const SizedBox(height: 7),
+              Text(closed ? 'Geçici olarak kapalı' : 'Randevu için görüntüle',
+                style: TextStyle(color: closed ? rose : wine, fontSize: 11, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              SizedBox(height: 34, child: OutlinedButton(
+                onPressed: () => openBusiness(business),
+                child: const Text('Randevu al', style: TextStyle(fontSize: 11)),
+              )),
+            ])),
+          ]),
+        );
+      }).toList());
+    },
+  );
+}
+
 class CustomerHome extends StatelessWidget {
   const CustomerHome({super.key});
   @override Widget build(BuildContext context)=>PageBody(children:[
     const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
     const SizedBox(height:15),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
-    const SalonCard(name:'Luxe Beauty Salon',detail:'Melikgazi • Saç, bakım ve renklendirme'),
-    const SalonCard(name:'Rose Hair Studio',detail:'Talas • Kesim ve profesyonel bakım'),
+    const NearbyBusinessesSection(),
     const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
   ]);
 }
