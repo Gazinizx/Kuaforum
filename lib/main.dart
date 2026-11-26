@@ -544,7 +544,14 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(onPressed: (){}, icon: const Icon(Icons.notifications_none_rounded)), const SizedBox(width: 5)]),
+    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(
+      tooltip: 'Bildirimler',
+      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+        appBar: AppBar(title: Text('Bildirimler')),
+        body: NotificationsPage(),
+      ))),
+      icon: const Icon(Icons.notifications_none_rounded),
+    ), const SizedBox(width: 5)]),
     body: IndexedStack(index:index, children:pages),
     bottomNavigationBar: NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
@@ -2094,6 +2101,80 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
+class NotificationsPage extends StatefulWidget {
+  const NotificationsPage({super.key});
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> notifications;
+  @override
+  void initState() { super.initState(); notifications = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Oturum bulunamadı.');
+    return List<Map<String, dynamic>>.from(await client.from('notifications')
+      .select('id,title,body,created_at,read_at')
+      .eq('user_id', userId).order('created_at', ascending: false).limit(100));
+  }
+
+  Future<void> refresh() async { final next = load(); setState(() => notifications = next); await next; }
+
+  Future<void> markRead(String id) async {
+    await client.from('notifications').update({'read_at': DateTime.now().toUtc().toIso8601String()})
+      .eq('id', id);
+    await refresh();
+  }
+
+  Future<void> markAllRead(List<Map<String, dynamic>> rows) async {
+    final unread = rows.where((row) => row['read_at'] == null).map((row) => row['id'] as String).toList();
+    if (unread.isEmpty) return;
+    await client.from('notifications').update({'read_at': DateTime.now().toUtc().toIso8601String()})
+      .inFilter('id', unread);
+    await refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: notifications,
+    builder: (context, snapshot) => RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        Row(children: [
+          const Expanded(child: Text('Bildirimler', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink))),
+          if (snapshot.hasData)
+            TextButton(onPressed: () => markAllRead(snapshot.data!), child: const Text('Tümünü okundu işaretle')),
+        ]),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Bildirimler yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.notifications_none, title: 'Henüz bildirimin yok', detail: 'Randevu ve hesap hareketlerin burada görünecek.')
+        else
+          ...(snapshot.data ?? []).map((row) {
+            final unread = row['read_at'] == null;
+            return Card(
+              color: unread ? blush.withOpacity(.45) : Colors.white,
+              elevation: 0,
+              child: ListTile(
+                leading: Icon(unread ? Icons.notifications_active : Icons.notifications_none,
+                  color: unread ? wine : muted),
+                title: Text(row['title'] as String? ?? 'Bildirim',
+                  style: TextStyle(color: ink, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
+                subtitle: Text(row['body'] as String? ?? '', style: const TextStyle(color: muted)),
+                onTap: unread ? () => markRead(row['id'] as String) : null,
+              ),
+            );
+          }),
+      ]),
+    ),
+  );
+}
+
 class SupportTicketsPage extends StatefulWidget {
   final bool adminMode;
   const SupportTicketsPage({super.key, this.adminMode = false});
