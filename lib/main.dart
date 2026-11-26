@@ -1268,7 +1268,8 @@ class _FollowingPageState extends State<FollowingPage> {
 
 class AppointmentsPage extends StatefulWidget {
   final String title;
-  const AppointmentsPage({super.key, required this.title});
+  final bool ownerMode;
+  const AppointmentsPage({super.key, required this.title, this.ownerMode = false});
   @override
   State<AppointmentsPage> createState() => _AppointmentsPageState();
 }
@@ -1301,6 +1302,16 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         'service_name': (item['services'] as Map?)?['name'] ?? 'Hizmet',
         'employee_name': (item['employees'] as Map?)?['display_name'] ?? 'Çalışan',
       }).toList();
+    }
+    if (profile['account_type'] == 'business_owner') {
+      final business = await client.from('businesses').select('id')
+          .eq('owner_id', user.id).maybeSingle();
+      if (business == null) throw Exception('İşletme kaydınız bulunamadı.');
+      final rows = await client.rpc('get_business_appointments', params: {
+        'p_business_id': business['id'],
+        'p_mine_only': false,
+      });
+      return List<Map<String, dynamic>>.from(rows as List);
     }
     final employee = await client.from('employees')
         .select('id,business_id')
@@ -1871,7 +1882,14 @@ class ServicesPage extends StatelessWidget {
 }
 
 class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
-class OwnerAppointments extends StatelessWidget {const OwnerAppointments({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Randevu Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Tümü',true),_Chip('Bekleyen'),_Chip('Onaylanan'),_Chip('Tamamlanan')]),const SectionTitle('Benim Randevularım'),const AppointmentTile(name:'Gizem Yılmaz',service:'Saç Kesimi',time:'Bugün • 14:00',status:'Onaylandı'),const SectionTitle('Çalışan Randevuları'),const AppointmentTile(name:'Zeynep Kaya • Elif Demir',service:'Saç Boyama',time:'Bugün • 15:30',status:'Beklemede'),const AppointmentTile(name:'Merve Aksoy • Ayşe Demir',service:'Keratin Bakım',time:'Yarın • 11:00',status:'Onaylandı')]);}
+class OwnerAppointments extends StatelessWidget {
+  const OwnerAppointments({super.key});
+  @override
+  Widget build(BuildContext context) => const AppointmentsPage(
+    title: 'Randevu Yönetimi',
+    ownerMode: true,
+  );
+}
 class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
 class SettingsPage extends StatelessWidget {const SettingsPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ayarlar',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),...['İşletme Bilgileri','Çalışma Saatleri','Hizmetler','Çalışanlar','Çalışan Davet Et','Bildirim Ayarları','Güvenlik','Yardım ve Destek'].map((s)=>Card(color:Colors.white,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),child:ListTile(leading:const Icon(Icons.settings_outlined,color:wine),title:Text(s,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
 class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
