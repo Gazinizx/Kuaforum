@@ -8,7 +8,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - İşletme hesapları ana yönetici tarafından yönetilir.
 - İşletme sahibi çalışan hesabını ad, soyad, telefon, e-posta ve ilk şifreyle oluşturur; çalışana e-posta doğrulama bağlantısı gönderilir. Çalışan ilk girişinden sonra profilinden fotoğrafını yükleyebilir.
 - İşletme sahibi çalışanı devre dışı bırakabilir veya kaldırabilir. Çalışan kendi isteğiyle işletmeden ayrılıp müşteri hesabına dönebilir.
-- Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir.
+- Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir. QR katılım akışı kapsam dışıdır; işletme keşfi ve profilleri üzerinden bağlantı kurulur.
 - Müşteri işletme profilinde işletme bilgilerini, hizmetleri, çalışanları, paylaşımları ve değerlendirmeleri görebilir; işletmeyi takip edebilir, mesaj gönderebilir ve randevu oluşturabilir.
 - Randevu akışı hizmet, çalışan ve uygun saat seçimiyle çalışır. Çalışan seçimi isteğe bağlıdır.
 - İşletme sahibi kare kırpmalı işletme logosu dahil çalışanları, hizmetleri, çalışma saatlerini, randevu aralığını ve geçici kapanışı yönetebilir.
@@ -20,6 +20,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
+- Ana yönetici mevcut kullanıcıları e-posta ile alt yönetici yapabilir; Genel Bakış, İşletmeler, Kullanıcılar, Keşfet ve Destek yetkilerini ayrı ayrı tanımlar, düzenler ve kaldırır. Alt yöneticiler yalnızca izinli yönetim alanlarını görür; ilgili sunucu işlemleri ve destek erişimi de yetkiyle korunur.
 - Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
 - Yeni cihaz girişlerinde e-posta OTP doğrulaması uygulanır; cihaz kimliği yerel olarak saklanır ve güvenilen cihaz kaydı Supabase'in private şemasında tutulur. Supabase Auth > Email Templates > Magic Link şablonu, 6 haneli kod gönderecek şekilde `{{ .Token }}` kullanmalıdır; aksi halde ekrandaki kod doğrulaması çalışmaz.
 
@@ -27,7 +28,6 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 
 - Firebase/FCM anlık push teslimatı.
 - Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
-- Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
 - iOS/App Store hazırlığı ve son cihaz testleri.
