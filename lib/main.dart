@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
@@ -3273,19 +3274,33 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> uploadAvatar() async {
     final user = client.auth.currentUser;
     if (user == null || uploading) return;
-    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1024, maxHeight: 1024);
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 2048, maxHeight: 2048);
     if (image == null) return;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 88,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Profil Fotoğrafını Düzenle',
+          toolbarColor: wine,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Profil Fotoğrafını Düzenle',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
     setState(() => uploading = true);
     try {
-      final file = File(image.path);
+      final file = File(cropped.path);
       if (await file.length() > 5 * 1024 * 1024) throw Exception('Fotoğraf 5 MB sınırını aşıyor.');
-      final extension = image.name.split('.').last.toLowerCase();
-      final contentType = switch (extension) {
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        _ => 'image/jpeg',
-      };
-      final path = 'profiles/${user.id}/avatar.${extension == 'png' || extension == 'webp' ? extension : 'jpg'}';
+      const contentType = 'image/jpeg';
+      final path = 'profiles/${user.id}/avatar.jpg';
       await client.storage.from('salon-avatars').upload(path, file,
         fileOptions: FileOptions(upsert: true, contentType: contentType));
       final url = client.storage.from('salon-avatars').getPublicUrl(path);
@@ -4871,21 +4886,36 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
     final user = client.auth.currentUser;
     if (user == null || businessId == null || uploadingLogo) return;
     final image = await ImagePicker().pickImage(
-      source: ImageSource.gallery, imageQuality: 85, maxWidth: 1024, maxHeight: 1024,
+      source: ImageSource.gallery, imageQuality: 90, maxWidth: 2048, maxHeight: 2048,
     );
     if (image == null) return;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 88,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'İşletme Fotoğrafını Düzenle',
+          toolbarColor: wine,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'İşletme Fotoğrafını Düzenle',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
     setState(() => uploadingLogo = true);
     try {
-      final file = File(image.path);
+      final file = File(cropped.path);
       if (await file.length() > 5 * 1024 * 1024) {
         throw Exception('Logo 5 MB sınırını aşıyor.');
       }
-      final ext = image.name.split('.').last.toLowerCase();
-      if (!['jpg','jpeg','png','webp'].contains(ext)) {
-        throw Exception('Yalnızca JPG, PNG veya WEBP yükleyebilirsin.');
-      }
-      final contentType = ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg';
-      final path = 'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.${ext == 'jpeg' ? 'jpg' : ext}';
+      const contentType = 'image/jpeg';
+      final path = 'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.jpg';
       await client.storage.from('salon-avatars').upload(path, file,
         fileOptions: FileOptions(contentType: contentType, upsert: false));
       await client.rpc('set_my_business_logo', params: {
