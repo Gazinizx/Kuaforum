@@ -363,6 +363,18 @@ class KuaforumFeedRepository {
     });
   }
 
+  Future<void> updateComment(String commentId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Yorum boş olamaz.');
+    }
+    if (trimmed.length > 1000) {
+      throw const PostgrestException(message: 'Yorum en fazla 1000 karakter olabilir.');
+    }
+    await _client.from('feed_comments').update({'body': trimmed})
+        .eq('id', commentId).eq('user_id', _userId);
+  }
+
   Future<void> deleteComment(String commentId) async {
     await _client
         .from('feed_comments')
