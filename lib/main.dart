@@ -138,7 +138,7 @@ class RolePicker extends StatelessWidget {
       const Text('Kuaförüm', textAlign: TextAlign.center, style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800, color: wine, letterSpacing: -1.5)),
       const Text('Güzelliğin Yeni Adresi ♡', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontStyle: FontStyle.italic, color: ink)),
       const SizedBox(height: 34),
-      Container(
+      if (!_developerTestMode) Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: blush)),
         child: Row(children: [
@@ -216,15 +216,16 @@ class _RoleShellState extends State<RoleShell> {
         pages = _developerTestMode ? _demoPages('employee') : [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
-        labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
+        labels = ['Ana Sayfa','Keşfet','Takip','Randevular','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
         pages = _developerTestMode ? _demoPages('owner') : [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
-        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
+        labels = _developerTestMode ? ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Mesajlar'] : ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = _developerTestMode ? [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.chat_bubble_outline] : [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
         pages = _developerTestMode ? _demoPages('admin') : [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
         break;
     }
   }
+  String _demoRoleKey(AppRole role) => switch (role) { AppRole.customer => 'customer', AppRole.employee => 'employee', AppRole.owner => 'owner', AppRole.admin => 'admin' };
   List<Widget> _demoPages(String role) => labels.map((label) => DemoWorkspacePage(role: role, section: label)).toList();
 
   @override Widget build(BuildContext context) => Scaffold(
@@ -246,7 +247,7 @@ class _RoleShellState extends State<RoleShell> {
             ],
           ),
         IconButton(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _developerTestMode ? DemoWorkspacePage(role: _demoRoleKey(widget.role), section: 'Bildirimler') : const NotificationsPage())),
           icon: const Icon(Icons.notifications_none_rounded),
         ),
         const SizedBox(width: 5),
