@@ -96,7 +96,7 @@ class KuaforumFeedRepository {
 
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name,owner_id,discover_paid,discover_enabled,business_reviews(rating)),employees(display_name),'
+      'businesses(name,owner_id,business_reviews(rating)),employees(display_name),'
       'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id),feed_comments(id)';
 
   String get _userId {
@@ -112,11 +112,12 @@ class KuaforumFeedRepository {
         .order('created_at', ascending: false)
         .limit(limit * 3);
     final ranked = List<Map<String, dynamic>>.from(rows);
-    int boost(Map<String, dynamic> row) {
-      final business = row['businesses'];
-      return business is Map && business['discover_paid'] == true &&
-          business['discover_enabled'] == true ? 1 : 0;
-    }
+    final featuredRows = await _client.rpc('get_discover_featured_businesses') as List;
+    final featuredBusinessIds = featuredRows
+        .map((row) => (row as Map)['business_id'] as String)
+        .toSet();
+    int boost(Map<String, dynamic> row) =>
+        featuredBusinessIds.contains(row['business_id']) ? 1 : 0;
     int engagement(Map<String, dynamic> row) =>
         (row['feed_likes'] as List? ?? const []).length +
         (row['feed_comments'] as List? ?? const []).length;
