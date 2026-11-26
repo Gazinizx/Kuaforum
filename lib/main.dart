@@ -1526,12 +1526,14 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     if (profile['account_type'] == 'customer') {
       final rows = await client.from('appointments').select(
         'id,starts_at,ends_at,status,requires_business_approval,'
-        'businesses(name),services(name),employees(display_name)'
+        'businesses(id,name),services(name),employees(display_name),business_reviews(id)'
       ).eq('customer_id', user.id).order('starts_at', ascending: false);
       return List<Map<String, dynamic>>.from(rows).map((item) => {
         ...item,
         'appointment_id': item['id'],
+        'business_id': (item['businesses'] as Map?)?['id'],
         'business_name': (item['businesses'] as Map?)?['name'] ?? 'İşletme',
+        'reviewed': ((item['business_reviews'] as List?) ?? const []).isNotEmpty,
         'service_name': (item['services'] as Map?)?['name'] ?? 'Hizmet',
         'employee_name': (item['employees'] as Map?)?['display_name'] ?? 'Çalışan',
       }).toList();
@@ -1573,6 +1575,49 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     'no_show' => 'Gelmedi',
     _ => status,
   };
+
+  Future<void> rateAppointment(Map<String, dynamic> appointment) async {
+    int rating = 5;
+    final body = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('İşletmeyi değerlendir'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Hizmet deneyimin nasıldı?'),
+          const SizedBox(height: 12),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (index) =>
+            IconButton(
+              onPressed: () => setDialogState(() => rating = index + 1),
+              icon: Icon(index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: const Color(0xFFE5A93D), size: 30),
+            ))),
+          TextField(controller: body, maxLength: 1000, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Yorumun (isteğe bağlı)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Gönder')),
+        ],
+      )));
+    if (accepted == true) {
+      try {
+        await client.from('business_reviews').insert({
+          'business_id': appointment['business_id'],
+          'customer_id': client.auth.currentUser!.id,
+          'appointment_id': appointment['appointment_id'],
+          'rating': rating,
+          'body': body.text.trim(),
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Değerlendirmen kaydedildi.')));
+        await refreshAppointments();
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Değerlendirme gönderilemedi: $error'), backgroundColor: wine));
+      }
+    }
+    body.dispose();
+  }
 
   Future<void> changeStatus(Map<String, dynamic> appointment, String status) async {
     try {
@@ -1659,6 +1704,18 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       ])),
                       Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.bold)),
                     ]),
+                    if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] != true) ...[
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: OutlinedButton.icon(
+                        onPressed: () => rateAppointment(item),
+                        icon: const Icon(Icons.star_outline_rounded),
+                        label: const Text('Değerlendir'),
+                      )),
+                    ] else if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] == true) ...[
+                      const SizedBox(height: 8),
+                      const Align(alignment: Alignment.centerRight,
+                        child: Text('Değerlendirildi', style: TextStyle(color: muted, fontSize: 12))),
+                    ],
                     if ((status == 'confirmed' || status == 'pending') && item.containsKey('business_name')) ...[
                       const SizedBox(height: 8),
                       Align(alignment: Alignment.centerRight, child: TextButton(
