@@ -27,7 +27,8 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 ## Tamamlanması gerekenler
 
 - Firebase/FCM anlık push teslimatı.
-- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma, sızdırılmış parola korumasını açma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
+- Supabase Auth e-posta şablonunu OTP kodu gönderecek şekilde yapılandırma ve yeni cihaz doğrulamasını gerçek e-posta ile cihazda test etme.
+- Supabase sızdırılmış parola koruması yalnızca Pro ve üzeri planda sunulduğundan ücretsiz plan kapsamında açılmayacak; güvenlik danışmanındaki bu uyarı bilinen ücretsiz-plan kısıtıdır.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
 - iOS/App Store hazırlığı ve son cihaz testleri.
