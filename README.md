@@ -11,7 +11,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir.
 - Müşteri işletme profilinde işletme bilgilerini, hizmetleri, çalışanları, paylaşımları ve değerlendirmeleri görebilir; işletmeyi takip edebilir, mesaj gönderebilir ve randevu oluşturabilir.
 - Randevu akışı hizmet, çalışan ve uygun saat seçimiyle çalışır. Çalışan seçimi isteğe bağlıdır.
-- İşletme sahibi çalışanları, hizmetleri, çalışma saatlerini, randevu aralığını ve geçici kapanışı yönetebilir.
+- İşletme sahibi kare kırpmalı işletme logosu dahil çalışanları, hizmetleri, çalışma saatlerini, randevu aralığını ve geçici kapanışı yönetebilir.
 - Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi inceler.
 - Müşteri randevusunu iptal edebilir; üç iptal/gelmeme ihlalinde işletme bazlı otomatik kara liste uygulanır.
 - Tamamlanan randevu sonrası müşteri işletmeyi puanlayıp yorumlayabilir.
@@ -20,7 +20,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
 - Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
-- Profilde telefon düzenleme, şifre değiştirme, profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
+- Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
 
 ## Tamamlanması gerekenler
 
@@ -29,7 +29,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Ana yönetici tarafından alt yönetici ekleme ve ayrıntılı yetki matrisi.
 - Türkçe/İngilizce dil seçimi ve açık/koyu tema.
 - Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
-- Profil fotoğrafı için kare kırpma/önizleme arayüzü.
+- Profil ve işletme fotoğraflarında kare kırpma/önizleme arayüzü.
 - iOS/App Store hazırlığı ve son cihaz testleri.
 
 ## Android derlemesi
