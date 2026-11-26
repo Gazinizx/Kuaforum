@@ -5565,10 +5565,10 @@ class _AdminHomeState extends State<AdminHome> {
   Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
     future: stats,
     builder: (context, snapshot) => PageBody(children: [
-      const Text('Ana Yönetici', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const Text('Genel Bakış', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
       const SizedBox(height: 14),
       const HeroPanel(eyebrow: 'Platform kontrolü', title: 'Kuaförüm ekosistemini yönet',
-        subtitle: 'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',
+        subtitle: 'Kuaförüm platformunun genel durumunu görüntüle.',
         icon: Icons.admin_panel_settings, button: 'Platformu yönet'),
       const SizedBox(height: 14),
       if (snapshot.connectionState == ConnectionState.waiting)
