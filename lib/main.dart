@@ -2929,7 +2929,7 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
           ...(snapshot.data ?? []).map((ticket) {
             final status = ticket['status'] as String? ?? 'pending';
             final updated = DateTime.tryParse(ticket['updated_at']?.toString() ?? '')?.toLocal();
-            final date = updated == null ? '' : '\${updated.day.toString().padLeft(2, '0')}.\${updated.month.toString().padLeft(2, '0')}.\${updated.year}';
+            final date = updated == null ? '' : updated.day.toString().padLeft(2, '0') + '.' + updated.month.toString().padLeft(2, '0') + '.' + updated.year.toString();
             return Container(
               margin: const EdgeInsets.only(bottom: 11),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
