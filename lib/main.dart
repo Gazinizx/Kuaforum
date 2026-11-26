@@ -1394,9 +1394,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
             Text(widget.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
             const SizedBox(height: 14),
             Wrap(spacing: 8, children: [
-              _Chip('Aktif', filter == 'Aktif', onTap: () => setState(() => filter = 'Aktif')),
-              _Chip('Bekleyen', filter == 'Bekleyen', onTap: () => setState(() => filter = 'Bekleyen')),
-              _Chip('Geçmiş', filter == 'Geçmiş', onTap: () => setState(() => filter = 'Geçmiş')),
+              _Chip('Aktif', active: filter == 'Aktif', onTap: () => setState(() => filter = 'Aktif')),
+              _Chip('Bekleyen', active: filter == 'Bekleyen', onTap: () => setState(() => filter = 'Bekleyen')),
+              _Chip('Geçmiş', active: filter == 'Geçmiş', onTap: () => setState(() => filter = 'Geçmiş')),
             ]),
             const SizedBox(height: 16),
             if (snapshot.connectionState == ConnectionState.waiting)
