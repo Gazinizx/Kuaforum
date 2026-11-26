@@ -2367,7 +2367,7 @@ class _MessagesPageState extends State<MessagesPage> {
                     builder: (_) => ChatPage(
                       conversationId: row['id'] as String,
                       title: title,
-                      subtitle,
+                      subtitle: subtitle,
                     ),
                   )),
                 ),
