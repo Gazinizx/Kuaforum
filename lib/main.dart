@@ -144,6 +144,25 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     }
   }
 
+  Future<void> resetPassword() async {
+    final mail = email.text.trim();
+    if (mail.isEmpty || !mail.contains('@')) {
+      setState(() => message = 'Şifre sıfırlama bağlantısı için e-posta adresini gir.');
+      return;
+    }
+    setState(() { busy = true; message = ''; });
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(mail);
+      if (mounted) setState(() => message = 'Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
+    } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } catch (_) {
+      if (mounted) setState(() => message = 'Şifre sıfırlama e-postası gönderilemedi.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _openAccount(String userId) async {
     final client = Supabase.instance.client;
     try {
@@ -341,6 +360,14 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (!isRegister)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: busy ? null : resetPassword,
+                          child: const Text('Şifremi unuttum', style: TextStyle(color: wine)),
+                        ),
+                      ),
                     TextButton(
                       onPressed: busy ? null : () => setState(() { isRegister = !isRegister; message = ''; }),
                       child: Text(isRegister ? 'Zaten hesabın var mı? Giriş yap' : 'Hesabın yok mu? Kayıt ol',
@@ -2400,6 +2427,47 @@ class _ProfilePageState extends State<ProfilePage> {
     controller.dispose();
   }
 
+  Future<void> changePassword() async {
+    final current = TextEditingController();
+    final next = TextEditingController();
+    final confirm = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Şifre değiştir'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: current, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Mevcut şifre')),
+          TextField(controller: next, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Yeni şifre')),
+          TextField(controller: confirm, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Yeni şifre tekrar')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Değiştir')),
+        ],
+      ));
+    if (accepted == true) {
+      try {
+        if (next.text.length < 8 || next.text != confirm.text) {
+          throw Exception('Yeni şifre en az 8 karakter olmalı ve iki alan eşleşmeli.');
+        }
+        final userEmail = client.auth.currentUser?.email;
+        if (userEmail == null) throw Exception('Hesap e-postası bulunamadı.');
+        await client.auth.signInWithPassword(email: userEmail, password: current.text);
+        await client.auth.updateUser(UserAttributes(password: next.text));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Şifren başarıyla değiştirildi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Şifre değiştirilemedi: $error'), backgroundColor: wine));
+      }
+    }
+    current.dispose();
+    next.dispose();
+    confirm.dispose();
+  }
+
   Future<void> uploadAvatar() async {
     final user = client.auth.currentUser;
     if (user == null || uploading) return;
@@ -2469,6 +2537,7 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 20),
         ...[
           ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
+          ('Şifre değiştir', Icons.lock_outline, changePassword),
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
           ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
           ('Çıkış Yap', Icons.logout, logout),
