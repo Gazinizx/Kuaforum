@@ -4115,6 +4115,21 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
   }
 }
 
+class _HomeActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _HomeActionTile({required this.icon, required this.label, required this.onTap});
+  @override Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: Material(color: Colors.white, borderRadius: BorderRadius.circular(16),
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16),
+        child: Container(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(border: Border.all(color: blush), borderRadius: BorderRadius.circular(16)),
+          child: Column(children: [Icon(icon, color: wine), const SizedBox(height: 7),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: ink, fontSize: 11, fontWeight: FontWeight.w700))])))));
+}
+
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatefulWidget {
   const EmployeeHome({super.key});
@@ -4826,7 +4841,11 @@ class _OwnerHomeState extends State<OwnerHome> {
             status: row['status'] as String? ?? 'pending',
           )),
         const SectionTitle('Hızlı Yönetim'),
-        const QuickTiles(),
+        Row(children: [
+          Expanded(child: _HomeActionTile(icon: Icons.calendar_month, label: 'Randevular', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerAppointments())))),
+          Expanded(child: _HomeActionTile(icon: Icons.people_alt_outlined, label: 'Müşteriler', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomersPage())))),
+          Expanded(child: _HomeActionTile(icon: Icons.settings_outlined, label: 'Ayarlar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())))),
+        ]),
       ]);
     },
   );
