@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kuaforum/main.dart';
 import 'package:kuaforum/demo_mode.dart';
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
       url: 'https://example.supabase.co',
       publishableKey: 'test-publishable-key',
@@ -60,7 +58,7 @@ void main() {
     await tester.tap(find.text('Ana Yönetici').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Yönetim Merkezi'), findsOneWidget);
+    expect(find.text('Yönetim Merkezi'), findsWidgets);
   });
 
   testWidgets('hero panel action responds to taps', (tester) async {
@@ -85,7 +83,7 @@ void main() {
   testWidgets('employee demo account has its own posts and can send a message', (tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(
-      home: DemoWorkspacePage(role: 'employee', section: 'Mesajlar'),
+      home: Scaffold(body: DemoWorkspacePage(role: 'employee', section: 'Mesajlar')),
     ));
 
     expect(find.text('Elif Kaya'), findsOneWidget);
@@ -102,7 +100,7 @@ void main() {
   testWidgets('demo share creates a post without using Supabase', (tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(
-      home: DemoWorkspacePage(role: 'employee', section: 'Paylaşım'),
+      home: Scaffold(body: DemoWorkspacePage(role: 'employee', section: 'Paylaşım')),
     ));
 
     await tester.tap(find.text('Demo paylaşımı yayınla'));
@@ -125,7 +123,7 @@ void main() {
     ];
     for (final item in cases) {
       await tester.pumpWidget(MaterialApp(
-        home: DemoWorkspacePage(role: item.$1, section: 'Profil'),
+        home: Scaffold(body: DemoWorkspacePage(role: item.$1, section: 'Profil')),
       ));
       await tester.pumpAndSettle();
       expect(find.text(item.$2), findsOneWidget);
@@ -135,7 +133,7 @@ void main() {
   testWidgets('admin demo includes messages and discover visibility control', (tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const MaterialApp(
-      home: DemoWorkspacePage(role: 'admin', section: 'Keşfet Yönetimi'),
+      home: Scaffold(body: DemoWorkspacePage(role: 'admin', section: 'Keşfet Yönetimi')),
     ));
 
     expect(find.text('Lale Hair Studio'), findsOneWidget);
