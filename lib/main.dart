@@ -3119,6 +3119,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
   String? businessId;
   bool loading = true;
   bool saving = false;
+  bool temporarilyClosed = false;
 
   @override
   void initState() { super.initState(); load(); }
@@ -3130,16 +3131,35 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
       final user = client.auth.currentUser;
       if (user == null) throw Exception('Oturum bulunamadı.');
       final row = await client.from('businesses')
-          .select('id,name,address').eq('owner_id', user.id).maybeSingle();
+          .select('id,name,address,is_temporarily_closed').eq('owner_id', user.id).maybeSingle();
       if (row == null) throw Exception('İşletme bulunamadı.');
       businessId = row['id'] as String;
       name.text = row['name'] as String? ?? '';
       address.text = row['address'] as String? ?? '';
+      temporarilyClosed = row['is_temporarily_closed'] as bool? ?? false;
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('İşletme bilgileri yüklenemedi: $error')));
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> setTemporaryClosed(bool value) async {
+    if (businessId == null) return;
+    setState(() => temporarilyClosed = value);
+    try {
+      await client.rpc('set_business_temporarily_closed', params: {
+        'p_business_id': businessId, 'p_closed': value,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(value ? 'İşletme geçici olarak kapatıldı.' : 'İşletme yeniden açıldı.')));
+    } catch (error) {
+      if (mounted) {
+        setState(() => temporarilyClosed = !value);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletme durumu değiştirilemedi: $error'), backgroundColor: wine));
+      }
     }
   }
 
@@ -3173,6 +3193,15 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
       const SizedBox(height: 12),
       TextField(controller: address, maxLines: 2,
         decoration: const InputDecoration(labelText: 'Adres')),
+      const SizedBox(height: 10),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: temporarilyClosed,
+        onChanged: setTemporaryClosed,
+        activeColor: wine,
+        title: const Text('İşletmeyi geçici olarak kapat', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+        subtitle: const Text('Kapalıyken yeni randevu alınamaz. Mevcut randevular korunur.', style: TextStyle(color: muted)),
+      ),
       const SizedBox(height: 18),
       ElevatedButton(onPressed: saving ? null : save,
         child: saving ? const CircularProgressIndicator() : const Text('Değişiklikleri kaydet')),
