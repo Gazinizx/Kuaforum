@@ -18,7 +18,7 @@ Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaş�
 - Keşfet ve Takip akışları gerçek Supabase verisini kullanır; paylaşım, beğeni, yorum, kaydetme, takip ve silme işlemleri veritabanına bağlıdır. Keşfet aramasından aktif işletmeler ve çalışanlar ayrı ayrı aranabilir.
 - Mesajlaşma, kişi bazlı mesaj gizleme, işletme sohbeti ve paylaşım yapan çalışanla özel sohbet desteklenir.
 - Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
-- Destek talepleri müşteri ve ana yönetici arasında iki yönlü mesajlaşma ve durum takibi sağlar.
+- Destek talepleri müşteri ile ana yönetici veya Destek yetkili alt yöneticileri arasında iki yönlü mesajlaşma ve durum takibi sağlar.
 - Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
 - Ana yönetici mevcut kullanıcıları e-posta ile alt yönetici yapabilir; Genel Bakış, İşletmeler, Kullanıcılar, Keşfet ve Destek yetkilerini ayrı ayrı tanımlar, düzenler ve kaldırır. Alt yöneticiler yalnızca izinli yönetim alanlarını görür; ilgili sunucu işlemleri ve destek erişimi de yetkiyle korunur.
 - Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
