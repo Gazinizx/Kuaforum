@@ -546,7 +546,7 @@ class _RoleShellState extends State<RoleShell> {
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(
       tooltip: 'Bildirimler',
-      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
         appBar: AppBar(title: Text('Bildirimler')),
         body: NotificationsPage(),
       ))),
@@ -3115,14 +3115,14 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.schedule, color: wine),
             title: const Text('Çalışma saatlerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
             trailing: const Icon(Icons.chevron_right, color: muted),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
               appBar: AppBar(title: Text('Çalışma Saatlerim')), body: EmployeeSchedulePage()))),
           )),
           Card(color: Colors.white, elevation: 0, child: ListTile(
             leading: const Icon(Icons.event_busy, color: wine),
             title: const Text('İzin talebi', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
             trailing: const Icon(Icons.chevron_right, color: muted),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
               appBar: AppBar(title: Text('İzin Talebi')), body: EmployeeTimeOffPage()))),
           )),
         ],
@@ -3131,7 +3131,7 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.favorite_border, color: wine),
             title: const Text('Takip ettiklerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
             trailing: const Icon(Icons.chevron_right, color: muted),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
               appBar: AppBar(title: Text('Takip Ettiklerim')), body: MyFollowingPage()))),
           )),
           const SectionTitle('İşletmelerim'),
