@@ -2678,9 +2678,9 @@ class _ActiveSessionsPageState extends State<ActiveSessionsPage> {
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
                 subtitle: Text(
-                  "Son etkinlik: ${formatDate(session['last_active_at'])}\\n"
+                  "Son etkinlik: ${formatDate(session['last_active_at'])}\n"
                   "Başlangıç: ${formatDate(session['created_at'])}"
-                  "${ip == null || ip.isEmpty ? '' : '\\nIP: $ip'}",
+                  "${ip == null || ip.isEmpty ? '' : '\nIP: $ip'}",
                   style: const TextStyle(color: muted, fontSize: 11),
                 ),
                 trailing: current
