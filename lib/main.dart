@@ -2645,14 +2645,58 @@ class _AdminUsersState extends State<AdminUsers> {
     },
   );
 }
-class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
+class DiscoverControl extends StatefulWidget {
+  const DiscoverControl({super.key});
+  @override State<DiscoverControl> createState() => _DiscoverControlState();
+}
 class _DiscoverControlState extends State<DiscoverControl> {
-  final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
-  @override Widget build(BuildContext context)=>PageBody(children:[    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
-    const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),
-    const SectionTitle('Erişim yönetimi'),
-    ...enabled.keys.map((n)=>SwitchListTile(value:enabled[n]!,onChanged:(v)=>setState(()=>enabled[n]=v),activeThumbColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü'))),
-  ]);
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> businesses;
+  @override
+  void initState() { super.initState(); businesses = load(); }
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_businesses') as List);
+  Future<void> refreshData() async { final next = load(); setState(() => businesses = next); await next; }
+  Future<void> update(String id, bool enabled) async {
+    try {
+      await client.rpc('admin_set_discover_visibility', params: {'p_business_id': id, 'p_enabled': enabled});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Keşfet erişimi güncellenemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      final eligible = (snapshot.data ?? []).where((b) => b['status'] == 'active' && b['discover_paid'] == true).toList();
+      return RefreshIndicator(onRefresh: refreshData, child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('Keşfet Görünürlüğü', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 8),
+          const Text('Üst sıralarda gösterim hakkı olan aktif işletmelerin görünürlüğünü buradan yönet.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Erişim bilgileri yüklenemedi', detail: snapshot.error.toString())
+          else if (eligible.isEmpty)
+            const _FeedMessage(icon: Icons.explore_outlined, title: 'Uygun işletme yok', detail: 'Üst sıra görünürlüğü hakkı tanımlanmış aktif işletme bulunmuyor.')
+          else
+            ...eligible.map((business) => SwitchListTile(
+              value: business['discover_enabled'] == true,
+              onChanged: (value) => update(business['id'].toString(), value),
+              activeThumbColor: wine,
+              secondary: const Icon(Icons.store, color: wine),
+              title: Text(business['name']?.toString() ?? 'İşletme', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+              subtitle: Text(business['discover_enabled'] == true ? 'Keşfet üst sıralarında açık' : 'Keşfet üst sıralarında kapalı'),
+            )),
+        ],
+      ));
+    },
+  );
 }
 
 class _PrimaryButton extends StatelessWidget {
