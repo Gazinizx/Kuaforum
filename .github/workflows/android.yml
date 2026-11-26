@@ -1,6 +1,12 @@
 name: Android APK
 on:
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Open the APK directly on the quick role picker'
+        required: true
+        type: boolean
+        default: true
 concurrency:
   group: android-apk-${{ github.ref }}
   cancel-in-progress: true
@@ -37,7 +43,8 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release
+      - name: Build APK (quick role picker for test builds)
+        run: flutter build apk --release --dart-define=KUAFORUM_TEST_MODE=${{ inputs.test_mode }}
       - uses: actions/upload-artifact@v4
         with:
           name: kuaforum-release-apk
