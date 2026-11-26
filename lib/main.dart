@@ -571,7 +571,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           const SizedBox(height: 16),
           const SearchBarBox(hint: 'Saç modeli, salon veya çalışan ara...'),
           const SizedBox(height: 12),
-          const Wrap(spacing: 8, children: [_Chip('Tümü', true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
+          const Wrap(spacing: 8, children: [_Chip('Tümü', active: true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
           const SectionTitle('Keşfet akışı'),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
@@ -1197,7 +1197,7 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
   );
 }
 
-class _Chip extends StatelessWidget {final String text;final bool active;final VoidCallback? onTap;const _Chip(this.text,[this.active=false],{this.onTap});@override Widget build(BuildContext context)=>ActionChip(onPressed:onTap,label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
+class _Chip extends StatelessWidget {final String text;final bool active;final VoidCallback? onTap;const _Chip(this.text,{this.active=false,this.onTap});@override Widget build(BuildContext context)=>ActionChip(onPressed:onTap,label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
 class PostCard extends StatelessWidget {
   final String name,caption,likes; final DemoPost? post;
   const PostCard({super.key,required this.name,required this.caption,required this.likes,this.post});
@@ -1470,6 +1470,31 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     },
   );
 }
+class AppointmentTile extends StatelessWidget {
+  final String name, service, time, status;
+  const AppointmentTile({super.key, required this.name, required this.service, required this.time, required this.status});
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+    child: Row(children: [
+      const CircleAvatar(radius: 24, backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+        Text(service, style: const TextStyle(color: muted, fontSize: 12)),
+        Text(time, style: const TextStyle(color: ink, fontSize: 12)),
+      ])),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(color: const Color(0xFFE3F3E8), borderRadius: BorderRadius.circular(12)),
+        child: Text(status, style: const TextStyle(color: Color(0xFF32734B), fontSize: 10, fontWeight: FontWeight.bold)),
+      ),
+    ]),
+  );
+}
+
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
   @override
