@@ -235,18 +235,10 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
           alignment: message.startsWith('Merhaba') || message.startsWith('Tabii') || message.startsWith('Elbette') || message.startsWith('Kontrol') || message.startsWith('Başvurunuz') ? Alignment.centerLeft : Alignment.centerRight,
           child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 260), decoration: BoxDecoration(color: _demoBlush.withOpacity(.65), borderRadius: BorderRadius.circular(12)), child: Text(message, style: const TextStyle(color: _demoInk))),
         )),
-        _sendRow((value) => setState(() { chat.messages.add(value); chat.preview = value; })),
+        _DemoSendMessage(onSend: (value) => setState(() { chat.messages.add(value); chat.preview = value; })),
       ],
     ))),
   ]);
-
-  Widget _sendRow(ValueChanged<String> send) {
-    final controller = TextEditingController();
-    return Padding(padding: const EdgeInsets.fromLTRB(8, 6, 8, 12), child: Row(children: [
-      Expanded(child: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Mesaj yaz...', isDense: true))),
-      IconButton(onPressed: () { final value = controller.text.trim(); if (value.isNotEmpty) { send(value); controller.clear(); } }, icon: const Icon(Icons.send_rounded, color: _demoWine)),
-    ]));
-  }
 
   Widget _share() => _page([
     _header('Yeni paylaşım', 'Çalışmalarını demo akışında paylaş.'),
@@ -269,8 +261,7 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
   ]);
 
   Future<void> _compose() async {
-    final text = composer.text.trim();
-    if (text.isEmpty) {
+    if (composer.text.trim().isEmpty) {
       final controller = TextEditingController();
       final value = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
         title: const Text('Yeni demo paylaşımı'),
@@ -286,7 +277,7 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
     }
     final identity = store.identity(widget.role);
     setState(() {
-      store.feed(widget.role).insert(0, DemoPost(author: identity.name, business: widget.role == 'owner' ? 'Lale Hair Studio' : 'Lale Hair Studio', caption: composer.text.trim(), time: 'Şimdi'));
+      store.feed(widget.role).insert(0, DemoPost(author: identity.name, business: 'Lale Hair Studio', caption: composer.text.trim(), time: 'Şimdi'));
       composer.clear();
     });
     _notice('Demo paylaşımın yayınlandı.');
@@ -381,4 +372,40 @@ class _DemoWorkspacePageState extends State<DemoWorkspacePage> {
   void _notice(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: _demoWine));
   }
+}
+
+
+class _DemoSendMessage extends StatefulWidget {
+  const _DemoSendMessage({required this.onSend});
+  final ValueChanged<String> onSend;
+
+  @override
+  State<_DemoSendMessage> createState() => _DemoSendMessageState();
+}
+
+class _DemoSendMessageState extends State<_DemoSendMessage> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+    child: Row(children: [
+      Expanded(child: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Mesaj yaz...', isDense: true))),
+      IconButton(
+        onPressed: () {
+          final value = controller.text.trim();
+          if (value.isEmpty) return;
+          widget.onSend(value);
+          controller.clear();
+        },
+        icon: const Icon(Icons.send_rounded, color: _demoWine),
+      ),
+    ]),
+  );
 }
