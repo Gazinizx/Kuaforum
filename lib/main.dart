@@ -1,11 +1,7 @@
 import 'package:flutter/services.dart';
-import 'dart:io';
-import 'dart:convert';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
@@ -87,112 +83,6 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     super.dispose();
   }
 
-  Future<String> _deviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    const key = 'kuaforum_trusted_device_id';
-    final existing = prefs.getString(key);
-    if (existing != null && existing.length >= 24) return existing;
-    final random = math.Random.secure();
-    final generated = base64UrlEncode(
-      List<int>.generate(32, (_) => random.nextInt(256)),
-    ).replaceAll('=', '');
-    await prefs.setString(key, generated);
-    return generated;
-  }
-
-  Future<String?> _askForEmailCode(String emailAddress, String title) async {
-    final token = TextEditingController();
-    final entered = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('$emailAddress adresine gönderilen 6 haneli kodu gir.'),
-          const SizedBox(height: 14),
-          TextField(
-            controller: token,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              labelText: 'E-posta doğrulama kodu',
-              counterText: '',
-            ),
-          ),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Daha sonra'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Doğrula'),
-          ),
-        ],
-      ),
-    );
-    final code = token.text.trim();
-    token.dispose();
-    return entered == true ? code : null;
-  }
-
-  Future<bool> _ensureTrustedDevice(User user) async {
-    final userEmail = user.email?.trim();
-    if (userEmail == null || userEmail.isEmpty) {
-      if (mounted) setState(() => message = 'Hesabında doğrulama e-postası bulunamadı.');
-      return false;
-    }
-    final client = Supabase.instance.client;
-    final deviceId = await _deviceId();
-    final trusted = await client.rpc('is_trusted_device', params: {
-      'p_device_id': deviceId,
-    }) as bool;
-    if (trusted) return true;
-
-    try {
-      await client.auth.signInWithOtp(
-        email: userEmail,
-        shouldCreateUser: false,
-      );
-    } catch (error) {
-      await client.auth.signOut();
-      rethrow;
-    }
-    if (!mounted) {
-      await client.auth.signOut();
-      return false;
-    }
-    final code = await _askForEmailCode(userEmail, 'Yeni cihaz doğrulaması');
-    if (code == null) {
-      await client.auth.signOut();
-      if (mounted) setState(() => message = 'Yeni cihaz doğrulanmadı. Giriş tamamlanmadı.');
-      return false;
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      await client.auth.signOut();
-      if (mounted) setState(() => message = 'Doğrulama kodu 6 haneli olmalı. Tekrar giriş yap.');
-      return false;
-    }
-    final verified = await client.auth.verifyOTP(
-      type: OtpType.email,
-      email: userEmail,
-      token: code,
-    );
-    if (verified.user?.id != user.id) {
-      await client.auth.signOut();
-      if (mounted) setState(() => message = 'Doğrulanan hesap eşleşmedi. Tekrar giriş yap.');
-      return false;
-    }
-    await client.rpc('trust_current_device', params: {
-      'p_device_id': deviceId,
-      'p_device_name': Platform.isAndroid ? 'Android cihaz' : Platform.isIOS ? 'iPhone / iPad' : 'Mobil cihaz',
-    });
-    return true;
-  }
-
   Future<void> submit() async {
     final mail = email.text.trim();
     if (isRegister && (firstName.text.trim().isEmpty || lastName.text.trim().isEmpty || phone.text.trim().isEmpty)) {
@@ -225,36 +115,15 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
           },
         );
         if (result.session == null) {
-          final pendingUser = result.user;
-          if (pendingUser == null) throw AuthException('Kayıt başlatılamadı.');
-          final signupCode = await _askForEmailCode(mail, 'E-posta adresini doğrula');
-          if (signupCode == null) return;
-          if (!RegExp(r'^\d{6}$').hasMatch(signupCode)) {
-            setState(() => message = 'Doğrulama kodu 6 haneli olmalı.');
-            return;
-          }
-          final verified = await auth.verifyOTP(
-            type: OtpType.signup,
-            email: mail,
-            token: signupCode,
-          );
-          if (verified.user == null || verified.user!.id != pendingUser.id) {
-            throw AuthException('E-posta doğrulaması tamamlanamadı.');
-          }
-          final deviceId = await _deviceId();
-          await Supabase.instance.client.rpc('trust_current_device', params: {
-            'p_device_id': deviceId,
-            'p_device_name': Platform.isAndroid ? 'Android cihaz' : Platform.isIOS ? 'iPhone / iPad' : 'Mobil cihaz',
-          });
-          await _openAccount(verified.user!.id, checkDevice: false);
+          if (result.user == null) throw AuthException('Kayıt başlatılamadı.');
+          setState(() => message =
+              'Hesabın oluşturuldu. E-posta onayı istenirse gelen bağlantıyı açıp giriş yap.');
         } else if (result.user != null) {
-          if (!await _ensureTrustedDevice(result.user!)) return;
-          await _openAccount(result.user!.id, checkDevice: false);
+          await _openAccount(result.user!.id);
         }
       } else {
         final result = await auth.signInWithPassword(email: mail, password: password.text);
         if (result.user == null) throw AuthException('Giriş yapılamadı.');
-        if (!await _ensureTrustedDevice(result.user!)) return;
         final code = inviteCode.text.trim();
         if (code.isNotEmpty) {
           try {
@@ -264,7 +133,7 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
             rethrow;
           }
         }
-        await _openAccount(result.user!.id, checkDevice: false);
+        await _openAccount(result.user!.id);
       }
     } on AuthException catch (error) {
       if (mounted) setState(() => message = error.message);
@@ -296,13 +165,9 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     }
   }
 
-  Future<void> _openAccount(String userId, {bool checkDevice = true}) async {
+  Future<void> _openAccount(String userId) async {
     final client = Supabase.instance.client;
     try {
-      if (checkDevice) {
-        final user = client.auth.currentUser;
-        if (user == null || !await _ensureTrustedDevice(user)) return;
-      }
       if (client.auth.currentUser?.id != userId) {
         await client.auth.signOut();
         if (mounted) setState(() => message = 'Oturum doğrulanamadı. Yeniden giriş yap.');
