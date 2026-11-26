@@ -5,7 +5,11 @@ import 'package:kuaforum/main.dart';
 import 'package:kuaforum/data/kuaforum_feed_repository.dart';
 
 class _FakeFeedRepository extends KuaforumFeedRepository {
-  _FakeFeedRepository() : super(client: SupabaseClient('https://example.supabase.co', 'test-key'));
+  _FakeFeedRepository() : super(client: SupabaseClient(
+    'https://example.supabase.co',
+    'test-key',
+    authOptions: const AuthClientOptions(autoRefreshToken: false),
+  ));
   final List<Map<String, dynamic>> data = [{
     'id':'comment-1','user_id':'another-user','author_name':'Ayşe Yılmaz',
     'body':'Çok güzel olmuş!','created_at':DateTime.now().toIso8601String(),
