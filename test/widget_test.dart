@@ -34,12 +34,12 @@ void main() {
     )));
     await tester.pumpAndSettle();
     expect(find.text('Yorumlar'),findsOneWidget);
-    expect(find.text('Çok güzel olmuş!'),findsOneWidget);
+    expect(find.byWidgetPredicate((widget) => widget is RichText && widget.text.toPlainText().contains('Çok güzel olmuş!')),findsOneWidget);
     await tester.enterText(find.byType(TextField),'Yeni test yorumu');
     await tester.tap(find.text('Paylaş'));
     await tester.pumpAndSettle();
     expect(repository.data.any((item)=>item['body']=='Yeni test yorumu'),isTrue);
-    expect(find.text('Yeni test yorumu'),findsOneWidget);
+    expect(find.byWidgetPredicate((widget) => widget is RichText && widget.text.toPlainText().contains('Yeni test yorumu')),findsOneWidget);
   });
 
   testWidgets('hero panel action responds to taps',(tester) async {
