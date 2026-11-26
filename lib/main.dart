@@ -10,7 +10,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'data/kuaforum_feed_repository.dart';
 import 'employee_invite_claim_page.dart';
-import 'demo_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,8 +19,6 @@ Future<void> main() async {
   );
   runApp(const KuaforumApp());
 }
-
-const bool _developerTestMode = bool.fromEnvironment('KUAFORUM_TEST_MODE', defaultValue: false);
 
 const wine = Color(0xFF8E2947);
 const rose = Color(0xFFC65B79);
@@ -122,78 +119,11 @@ class _KuaforumAppState extends State<KuaforumApp> {
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
     ),
-    // Test APKs open the role picker; production builds use the normal authenticated flow.
-    home: _developerTestMode ? const RolePicker() : const AuthGate(),
+    home: const AuthGate(),
   );
 }
 
 enum AppRole { customer, employee, owner, admin }
-
-class RolePicker extends StatelessWidget {
-  const RolePicker({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(child: ListView(padding: const EdgeInsets.all(22), children: [
-      const SizedBox(height: 18),
-      Center(child: Container(width: 88, height: 88, decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(28)), child: const Icon(Icons.spa_rounded, size: 52, color: wine))),
-      const SizedBox(height: 14),
-      const Text('Kuaförüm', textAlign: TextAlign.center, style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800, color: wine, letterSpacing: -1.5)),
-      const Text('Güzelliğin Yeni Adresi ♡', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontStyle: FontStyle.italic, color: ink)),
-      const SizedBox(height: 34),
-      if (!_developerTestMode) Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: blush)),
-        child: Row(children: [
-          Container(width: 46, height: 46, decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.vpn_key_rounded, color: wine)),
-          const SizedBox(width: 12),
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Çalışan davet kodun mu var?', style: TextStyle(color: ink, fontWeight: FontWeight.w800)),
-            SizedBox(height: 3),
-            Text('Kodunu kullanarak işletmene katıl.', style: TextStyle(color: muted, fontSize: 12)),
-          ])),
-          IconButton(
-            tooltip: 'Davet kodunu kullan',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => EmployeeInviteClaimPage(
-                onClaimed: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const RoleShell(role: AppRole.employee)),
-                  (_) => false,
-                ),
-              ),
-            )),
-            icon: const Icon(Icons.arrow_forward_ios_rounded, color: wine, size: 18),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 28),
-      const Text('Devam etmek için rolünü seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ink)),
-      const SizedBox(height: 14),
-      _role(context, AppRole.customer, 'Müşteri', 'Salonları keşfet, stilini bul ve randevunu oluştur.', Icons.favorite_rounded),
-      _role(context, AppRole.employee, 'Çalışan', 'Çalışmalarını paylaş, randevularını ve mesajlarını yönet.', Icons.content_cut_rounded),
-      _role(context, AppRole.owner, 'İşletme Sahibi', 'Salonunu, ekibini, müşterilerini ve randevularını yönet.', Icons.storefront_rounded),
-      _role(context, AppRole.admin, 'Ana Yönetici', 'Platformu, işletmeleri ve keşfet görünürlüğünü yönet.', Icons.admin_panel_settings_rounded),
-      const SizedBox(height: 18),
-      const Text('Geliştirici test ekranı • Yerel demo hesapları • Üretimde normal giriş', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
-    ])),
-  );
-  void _openRole(BuildContext context, AppRole role) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => RoleShell(role: role)),
-    );
-  }
-  Widget _role(BuildContext context, AppRole role, String title, String subtitle, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => _openRole(context, role),
-      child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: blush), boxShadow: [BoxShadow(color: wine.withOpacity(.05), blurRadius: 16, offset: const Offset(0, 5))]), child: Row(children: [
-        Container(width: 48, height: 48, decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(15)), child: Icon(icon, color: wine, size: 25)),
-        const SizedBox(width: 13), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: ink)), const SizedBox(height: 3), Text(subtitle, style: const TextStyle(color: muted, fontSize: 12))])),
-        const Icon(Icons.chevron_right_rounded, color: wine),
-      ])),
-    ),
-  );
-}
 
 class RoleShell extends StatefulWidget {
   final AppRole role;
@@ -211,36 +141,27 @@ class _RoleShellState extends State<RoleShell> {
     switch(widget.role) {
       case AppRole.customer:
         labels = ['Ana Sayfa','Keşfet','Takip','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = _developerTestMode ? _demoPages('customer') : [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
+        pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.employee:
         labels = ['Ana Sayfa','Randevular','Paylaşım','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = _developerTestMode ? _demoPages('employee') : [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
+        pages = [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
-        labels = _developerTestMode ? ['Ana Sayfa','Keşfet','Takip','Randevular','Paylaş','Mesajlar','Profil'] : ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = _developerTestMode ? [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline] : [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = _developerTestMode ? _demoPages('owner') : [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
+        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
-        labels = _developerTestMode ? ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Mesajlar'] : ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = _developerTestMode ? [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.chat_bubble_outline] : [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
-        pages = _developerTestMode ? _demoPages('admin') : [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
+        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
+        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
         break;
     }
   }
-  String _demoRoleKey(AppRole role) => switch (role) { AppRole.customer => 'customer', AppRole.employee => 'employee', AppRole.owner => 'owner', AppRole.admin => 'admin' };
-  List<Widget> _demoPages(String role) => labels.map((label) => DemoWorkspacePage(role: role, section: label)).toList();
 
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)),
       actions: [
-        if (_developerTestMode)
-          PopupMenuButton<AppRole>(
-            tooltip: 'Rol değiştir',
-            icon: const Icon(Icons.swap_horiz_rounded),
-            onSelected: (role) => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => RoleShell(role: role)),
-            ),
             itemBuilder: (_) => const [
               PopupMenuItem(value: AppRole.customer, child: Text('Müşteri')),
               PopupMenuItem(value: AppRole.employee, child: Text('Çalışan')),
@@ -249,7 +170,7 @@ class _RoleShellState extends State<RoleShell> {
             ],
           ),
         IconButton(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _developerTestMode ? DemoWorkspacePage(role: _demoRoleKey(widget.role), section: 'Bildirimler') : const NotificationsPage())),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())),
           icon: const Icon(Icons.notifications_none_rounded),
         ),
         const SizedBox(width: 5),
@@ -1359,13 +1280,7 @@ class _InlineFeedVideoState extends State<InlineFeedVideo> {
 class FeedCommentsSheet extends StatefulWidget {
   final String postId;
   final KuaforumFeedRepository repository;
-
-  const FeedCommentsSheet({
-    super.key,
-    required this.postId,
-    required this.repository,
-  });
-
+  const FeedCommentsSheet({super.key, required this.postId, required this.repository});
   @override
   State<FeedCommentsSheet> createState() => _FeedCommentsSheetState();
 }
@@ -1376,170 +1291,180 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
   bool sending = false;
 
   @override
-  void initState() {
-    super.initState();
-    comments = widget.repository.fetchComments(widget.postId);
-  }
-
+  void initState() { super.initState(); _loadComments(); }
+  void _loadComments() { comments = widget.repository.fetchComments(widget.postId); }
   @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
+  void dispose() { controller.dispose(); super.dispose(); }
+
+  String _monthName(int month) => const ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'][month - 1];
+  String _timeLabel(DateTime? date) {
+    if (date == null) return '';
+    final d = DateTime.now().difference(date);
+    if (d.inMinutes < 1) return 'şimdi';
+    if (d.inHours < 1) return '${d.inMinutes} dk';
+    if (d.inDays < 1) return '${d.inHours} sa';
+    if (d.inDays < 7) return '${d.inDays} gün';
+    return '${date.day} ${_monthName(date.month)}';
+  }
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'K';
+    return parts.take(2).map((p) => p.substring(0, 1).toUpperCase()).join();
   }
 
   Future<void> sendComment() async {
     if (sending) return;
-    final text = controller.text.trim();
-    if (text.isEmpty) return;
+    final body = controller.text.trim();
+    if (body.isEmpty) return;
     setState(() => sending = true);
     try {
-      await widget.repository.addComment(widget.postId, text);
+      await widget.repository.addComment(widget.postId, body);
       if (!mounted) return;
       controller.clear();
-      setState(() => comments = widget.repository.fetchComments(widget.postId));
+      FocusScope.of(context).unfocus();
+      setState(_loadComments);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Yorum gönderilemedi: $error'), backgroundColor: wine),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Yorum gönderilemedi: $error'), backgroundColor: wine,
+      ));
     } finally {
       if (mounted) setState(() => sending = false);
     }
   }
 
+  Future<void> _deleteComment(String id) async {
+    try {
+      await widget.repository.deleteComment(id);
+      if (mounted) setState(_loadComments);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Yorum silinemedi: $error'), backgroundColor: wine,
+      ));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => AnimatedPadding(
+    duration: const Duration(milliseconds: 180),
+    curve: Curves.easeOut,
     padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
     child: Container(
-      height: MediaQuery.of(context).size.height * .76,
+      height: MediaQuery.of(context).size.height * .84,
       decoration: const BoxDecoration(
-        color: cream,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(children: [
-          const SizedBox(height: 11),
-          Container(width: 42, height: 4, decoration: BoxDecoration(
-            color: blush, borderRadius: BorderRadius.circular(8),
-          )),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-            child: Row(children: [
-              const Expanded(child: Text('Yorumlar', style: TextStyle(
-                color: ink, fontSize: 19, fontWeight: FontWeight.w800,
-              ))),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: muted),
-              ),
-            ]),
-          ),
-          const Divider(height: 1, color: blush),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: comments,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: wine));
-                }
-                if (snapshot.hasError) {
-                  return const Center(child: Text(
-                    'Yorumlar yüklenemedi. Tekrar deneyebilirsin.',
-                    style: TextStyle(color: muted),
-                  ));
-                }
-                final items = snapshot.data ?? [];
-                if (items.isEmpty) {
-                  return const Center(child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.chat_bubble_outline, size: 38, color: rose),
-                      SizedBox(height: 9),
-                      Text('Henüz yorum yok', style: TextStyle(
-                        color: ink, fontWeight: FontWeight.bold,
-                      )),
-                      SizedBox(height: 4),
-                      Text('İlk yorumu sen yaz ♡', style: TextStyle(color: muted)),
-                    ],
-                  ));
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(color: blush, height: 18),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final date = DateTime.tryParse(item['created_at'] as String? ?? '')?.toLocal();
-                    final dateText = date == null
-                        ? ''
-                        : '${date.day}.${date.month}.${date.year}';
-                    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const CircleAvatar(
-                        radius: 18,
-                        backgroundColor: blush,
-                        child: Icon(Icons.person, size: 19, color: wine),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Expanded(child: Text(
-                              item['author_name'] as String? ?? 'Kuaförüm kullanıcısı',
-                              style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
-                            )),
-                            Text(dateText, style: const TextStyle(color: muted, fontSize: 10)),
-                          ]),
-                          const SizedBox(height: 4),
-                          Text(item['body'] as String? ?? '',
-                            style: const TextStyle(color: ink, height: 1.35)),
-                        ],
-                      )),
-                    ]);
-                  },
-                );
+      child: SafeArea(top: false, child: Column(children: [
+        const SizedBox(height: 10),
+        Container(width: 38, height: 4, decoration: BoxDecoration(
+          color: Colors.black26, borderRadius: BorderRadius.circular(8),
+        )),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 13, 12, 12),
+          child: Row(children: [
+            const Expanded(child: Text('Yorumlar', textAlign: TextAlign.center,
+              style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800))),
+            IconButton(visualDensity: VisualDensity.compact,
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, color: muted)),
+          ]),
+        ),
+        const Divider(height: 1, color: Color(0xFFEFE9EA)),
+        Expanded(child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: comments,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: wine));
+            }
+            if (snapshot.hasError) return Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Yorumlar yüklenemedi.', style: TextStyle(color: muted)),
+                TextButton(onPressed: () => setState(_loadComments), child: const Text('Tekrar dene')),
+              ],
+            ));
+            final items = snapshot.data ?? [];
+            if (items.isEmpty) return const Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.mode_comment_outlined, size: 38, color: rose),
+                SizedBox(height: 10),
+                Text('Henüz yorum yok', style: TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                SizedBox(height: 4),
+                Text('İlk yorumu sen yap ♡', style: TextStyle(color: muted)),
+              ],
+            ));
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 18),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final author = item['author_name'] as String? ?? 'Kuaförüm kullanıcısı';
+                final body = item['body'] as String? ?? '';
+                final date = DateTime.tryParse(item['created_at'] as String? ?? '')?.toLocal();
+                final id = item['id']?.toString();
+                final mine = item['user_id'] == Supabase.instance.client.auth.currentUser?.id;
+                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  CircleAvatar(radius: 19, backgroundColor: blush, child: Text(
+                    _initials(author), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.w800),
+                  )),
+                  const SizedBox(width: 11),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    RichText(text: TextSpan(
+                      style: const TextStyle(color: ink, fontSize: 13, height: 1.4),
+                      children: [
+                        TextSpan(text: author, style: const TextStyle(fontWeight: FontWeight.w800)),
+                        const TextSpan(text: '  '),
+                        TextSpan(text: body),
+                      ],
+                    )),
+                    const SizedBox(height: 5),
+                    Text(_timeLabel(date), style: const TextStyle(color: muted, fontSize: 11)),
+                  ])),
+                  if (mine && id != null) PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 42, minHeight: 36),
+                    icon: const Icon(Icons.more_horiz, color: muted, size: 19),
+                    onSelected: (v) { if (v == 'delete') _deleteComment(id); },
+                    itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Yorumu sil'))],
+                  ),
+                ]);
               },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                maxLength: 1000,
-                decoration: InputDecoration(
-                  hintText: 'Güzel bir yorum yaz...',
-                  counterText: '',
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: blush),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: blush),
-                  ),
-                ),
-              )),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: sending ? null : sendComment,
-                style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
-                icon: sending
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white,
-                      ))
-                    : const Icon(Icons.send_rounded),
+            );
+          },
+        )),
+        const Divider(height: 1, color: Color(0xFFEFE9EA)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          child: Row(children: [
+            const CircleAvatar(radius: 17, backgroundColor: blush,
+              child: Icon(Icons.person, size: 18, color: wine)),
+            const SizedBox(width: 9),
+            Expanded(child: TextField(
+              controller: controller, minLines: 1, maxLines: 4, maxLength: 1000,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'Yorum ekle...', counterText: '', filled: true,
+                fillColor: const Color(0xFFF7F5F5),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
               ),
-            ]),
-          ),
-        ]),
-      ),
+              onSubmitted: (_) => sendComment(),
+            )),
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: sending ? null : sendComment,
+              style: TextButton.styleFrom(foregroundColor: wine, padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: sending
+                ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ),
+      ])),
     ),
   );
 }
@@ -6539,14 +6464,6 @@ class _AuthGateState extends State<AuthGate> {
                 const SizedBox(height: 16),
                 const Text('Çalışan hesabın varsa işletmenden aldığın davet kodunu kullanabilirsin.',
                   textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 12)),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 22),
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RolePicker())),
-                    icon: const Icon(Icons.developer_mode_rounded),
-                    label: const Text('Geliştirici test ekranı'),
-                  ),
-                ],
               ],
             ),
           ),
