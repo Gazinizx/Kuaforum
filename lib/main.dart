@@ -3256,6 +3256,7 @@ class BusinessProfilePage extends StatefulWidget {
 class _BusinessProfilePageState extends State<BusinessProfilePage> {
   final client = Supabase.instance.client;
   final feedRepository = KuaforumFeedRepository();
+  final messagingRepository = KuaforumMessagingRepository();
   late Future<Map<String, dynamic>> data;
   bool following = false;
   bool followBusy = false;
@@ -3329,6 +3330,22 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       }
     } finally {
       if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  Future<void> messageBusiness(String businessName) async {
+    try {
+      final conversationId = await messagingRepository.startBusinessConversation(widget.businessId);
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(
+        conversationId: conversationId,
+        title: businessName,
+        subtitle: 'İşletme',
+      )));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeye mesaj gönderilemedi: $error'), backgroundColor: wine),
+      );
     }
   }
 
@@ -3426,6 +3443,12 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
               onPressed: followBusy ? null : toggleFollow,
               icon: Icon(following ? Icons.favorite : Icons.favorite_border),
               label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
+            ),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              onPressed: () => messageBusiness(business['name'] as String? ?? 'İşletme'),
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('İşletmeye mesaj gönder'),
             ),
             const SectionTitle('Hizmetler'),
             if (services.isEmpty) const Text('Henüz hizmet eklenmemiş.', style: TextStyle(color: muted))
