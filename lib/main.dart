@@ -2804,6 +2804,85 @@ class _OwnerTimeOffPageState extends State<OwnerTimeOffPage> {
     ]));
 }
 
+class MyFollowingPage extends StatefulWidget {
+  const MyFollowingPage({super.key});
+  @override State<MyFollowingPage> createState() => _MyFollowingPageState();
+}
+class _MyFollowingPageState extends State<MyFollowingPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> following;
+  @override void initState() { super.initState(); following = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final userId = client.auth.currentUser!.id;
+    final rows = await client.from('feed_follows')
+      .select('id,followed_user_id,followed_business_id')
+      .eq('follower_user_id', userId).order('created_at', ascending: false);
+    final userIds = rows.map((r) => r['followed_user_id'] as String?).whereType<String>().toSet().toList();
+    final businessIds = rows.map((r) => r['followed_business_id'] as String?).whereType<String>().toSet().toList();
+    final profiles = userIds.isEmpty ? [] : await client.from('public_profiles')
+      .select('id,full_name,avatar_url').inFilter('id', userIds);
+    final businesses = businessIds.isEmpty ? [] : await client.from('businesses')
+      .select('id,name,logo_url').inFilter('id', businessIds);
+    final profileMap = {for (final p in profiles) p['id'] as String: p};
+    final businessMap = {for (final b in businesses) b['id'] as String: b};
+    return rows.map((row) {
+      final businessId = row['followed_business_id'] as String?;
+      final userId = row['followed_user_id'] as String?;
+      if (businessId != null) {
+        final b = businessMap[businessId] ?? {};
+        return {'id': row['id'], 'target_id': businessId, 'is_business': true,
+          'name': b['name'] ?? 'İşletme', 'avatar': b['logo_url']};
+      }
+      final p = profileMap[userId] ?? {};
+      return {'id': row['id'], 'target_id': userId, 'is_business': false,
+        'name': p['full_name'] ?? 'Kullanıcı', 'avatar': p['avatar_url']};
+    }).toList();
+  }
+
+  Future<void> unfollow(Map<String, dynamic> item) async {
+    try {
+      final userId = client.auth.currentUser!.id;
+      if (item['is_business'] == true) {
+        await client.from('feed_follows').delete().eq('follower_user_id', userId)
+          .eq('followed_business_id', item['target_id']);
+      } else {
+        await client.from('feed_follows').delete().eq('follower_user_id', userId)
+          .eq('followed_user_id', item['target_id']);
+      }
+      final next = load(); setState(() => following = next); await next;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Takip kaldırılamadı: $error'), backgroundColor: wine));
+    }
+  }
+
+  @override Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: following,
+    builder: (context, snapshot) => ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Takip Ettiklerim', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        Text('Takip listesi yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else if ((snapshot.data ?? []).isEmpty)
+        const Text('Henüz takip ettiğin işletme veya çalışan yok.', style: TextStyle(color: muted))
+      else
+        ...(snapshot.data ?? []).map((item) {
+          final avatar = item['avatar'] as String?;
+          return Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: CircleAvatar(backgroundColor: blush,
+              backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar == null || avatar.isEmpty ? Icon(item['is_business'] == true ? Icons.storefront : Icons.person, color: wine) : null),
+            title: Text(item['name'] as String, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            subtitle: Text(item['is_business'] == true ? 'İşletme' : 'Çalışan', style: const TextStyle(color: muted)),
+            trailing: TextButton(onPressed: () => unfollow(item), child: const Text('Takibi bırak')),
+          ));
+        }),
+    ]),
+  );
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override State<ProfilePage> createState() => _ProfilePageState();
@@ -3040,6 +3119,13 @@ class _ProfilePageState extends State<ProfilePage> {
           )),
         ],
         if (snapshot.data!['account_type'] == 'customer') ...[
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.favorite_border, color: wine),
+            title: const Text('Takip ettiklerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(
+              appBar: AppBar(title: Text('Takip Ettiklerim')), body: MyFollowingPage()))),
+          )),
           const SectionTitle('İşletmelerim'),
           ...(snapshot.data!['memberships'] as List<Map<String, dynamic>>).map((membership) {
             final business = membership['businesses'] is Map
