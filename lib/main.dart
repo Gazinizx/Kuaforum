@@ -5622,6 +5622,7 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
       await client.rpc('admin_set_subadmin', params: {
         'p_email': address, 'p_permissions': permissions.toList(),
       });
+      if (!mounted) return;
       email.clear(); permissions.clear();
       await load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -5648,6 +5649,7 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
       await client.rpc('admin_set_subadmin', params: {
         'p_email': admin['email'], 'p_permissions': <String>[],
       });
+      if (!mounted) return;
       await load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Alt yönetici yetkileri kaldırıldı.')));
@@ -5681,6 +5683,7 @@ class _AdminSubAdminsState extends State<AdminSubAdmins> {
           }, child: const Text('Kaydet')),
         ],
       )));
+    if (!mounted) return;
     email.clear(); permissions.clear();
   }
   @override Widget build(BuildContext context) => ListView(
