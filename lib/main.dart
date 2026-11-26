@@ -303,6 +303,11 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         final user = client.auth.currentUser;
         if (user == null || !await _ensureTrustedDevice(user)) return;
       }
+      if (client.auth.currentUser?.id != userId) {
+        await client.auth.signOut();
+        if (mounted) setState(() => message = 'Oturum doğrulanamadı. Yeniden giriş yap.');
+        return;
+      }
       final statusRows = await client.rpc('get_my_account_status') as List;
       final profile = statusRows.isEmpty
           ? null
