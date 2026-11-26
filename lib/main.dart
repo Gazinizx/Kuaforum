@@ -4951,7 +4951,7 @@ class _OwnerHomeState extends State<OwnerHome> {
           subtitle: 'Randevularını, ekibini ve müşteri deneyimini tek yerden takip et.',
           icon: Icons.storefront, button: 'Yönetim araçları',
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-            Scaffold(appBar: AppBar(title: const Text('İşletme Ayarları')), body: const SettingsPage()))),
+            Scaffold(appBar: AppBar(title: const Text('İşletme Ayarları')), body: const SettingsPage())))),
         const SizedBox(height: 14),
         Row(children: [
           _StatCard((snapshot.data!['today'] as int).toString(), 'Bugünkü Randevu'),
