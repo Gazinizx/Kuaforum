@@ -710,6 +710,38 @@ class KuaforumFeedRepository {
     return _client.storage.from('salon-avatars').getPublicUrl(objectPath);
   }
 
+  Future<Map<String, dynamic>> fetchMyProfileContact() async {
+    final rows = await _client.rpc('get_my_profile_contact') as List;
+    if (rows.isEmpty) {
+      throw const PostgrestException(message: 'Profil bilgileri bulunamadı.');
+    }
+    return Map<String, dynamic>.from(rows.first as Map);
+  }
+
+  Future<void> updateMyProfile({
+    required String fullName,
+    required String phone,
+  }) async {
+    final name = fullName.trim();
+    final number = phone.trim();
+    if (name.length < 2 || name.length > 80) {
+      throw const PostgrestException(message: 'Ad soyad 2-80 karakter arasında olmalı.');
+    }
+    if (number.length > 30) {
+      throw const PostgrestException(message: 'Telefon numarası çok uzun.');
+    }
+    await _client.from('profiles').update({
+      'full_name': name,
+      'phone': number.isEmpty ? null : number,
+    }).eq('id', _userId);
+  }
+
+  Future<void> leaveBusiness(String businessId) async {
+    await _client.rpc('leave_business', params: {
+      'p_business_id': businessId,
+    });
+  }
+
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
     final rows = await _client
         .from('notifications')
@@ -902,6 +934,39 @@ class KuaforumFeedRepository {
       'p_business_id': businessId,
       'p_interval_minutes': minutes,
     });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessBreaks(
+    String businessId,
+  ) async {
+    final rows = await _client
+        .from('business_breaks')
+        .select('id,weekday,starts_at,ends_at')
+        .eq('business_id', businessId)
+        .order('weekday')
+        .order('starts_at');
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> addBusinessBreak({
+    required String businessId,
+    required int weekday,
+    required String startsAt,
+    required String endsAt,
+  }) async {
+    if (startsAt.compareTo(endsAt) >= 0) {
+      throw const PostgrestException(message: 'Mola bitişi başlangıçtan sonra olmalı.');
+    }
+    await _client.from('business_breaks').insert({
+      'business_id': businessId,
+      'weekday': weekday,
+      'starts_at': startsAt,
+      'ends_at': endsAt,
+    });
+  }
+
+  Future<void> deleteBusinessBreak(String id) async {
+    await _client.from('business_breaks').delete().eq('id', id);
   }
 
   Future<List<Map<String, dynamic>>> fetchBusinessHours(
@@ -1100,7 +1165,7 @@ class KuaforumFeedRepository {
         .from('conversations')
         .select(
           'id,business_id,employee_id,customer_id,updated_at,'
-          'businesses(name),customer:profiles!conversations_customer_id_fkey(full_name,avatar_url)',
+          'businesses(name,owner_id),customer:profiles!conversations_customer_id_fkey(full_name,avatar_url)',
         )
         .order('updated_at', ascending: false);
 
@@ -1128,9 +1193,13 @@ class KuaforumFeedRepository {
       final business = row['businesses'];
       final customerId = row['customer_id'] as String;
       final employeeUserId = employee['user_id'] as String?;
-      // Business owners may see the conversation row for management, but this
-      // customer-to-employee inbox is visible only to its two participants.
-      if (customerId != currentUserId && employeeUserId != currentUserId) {
+      final businessOwnerId = business is Map<String, dynamic>
+          ? business['owner_id'] as String?
+          : null;
+      final isBusinessOwner = businessOwnerId == currentUserId;
+      if (customerId != currentUserId &&
+          employeeUserId != currentUserId &&
+          !isBusinessOwner) {
         continue;
       }
       final customerAvatarPath = customer is Map<String, dynamic>
@@ -1145,6 +1214,7 @@ class KuaforumFeedRepository {
         'business_name': business is Map<String, dynamic>
             ? business['name'] as String? ?? 'Kuaförüm'
             : 'Kuaförüm',
+        'is_business_owner': isBusinessOwner,
         'customer_name': customer is Map<String, dynamic>
             ? customer['full_name'] as String? ?? 'Müşteri'
             : 'Müşteri',
