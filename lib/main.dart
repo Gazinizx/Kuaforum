@@ -35,9 +35,256 @@ class KuaforumApp extends StatelessWidget {
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
     ),
-    home: const RolePicker(),
+    home: const LoginEntryPage(),
   );
 }
+
+
+class LoginEntryPage extends StatefulWidget {
+  const LoginEntryPage({super.key});
+  @override
+  State<LoginEntryPage> createState() => _LoginEntryPageState();
+}
+
+class _LoginEntryPageState extends State<LoginEntryPage> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+  bool isRegister = false;
+  bool busy = false;
+  bool obscurePassword = true;
+  String accountType = 'customer';
+  String message = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null && mounted) _openAccount(user.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    final mail = email.text.trim();
+    if (mail.isEmpty || !mail.contains('@')) {
+      setState(() => message = 'Geçerli bir e-posta adresi gir.');
+      return;
+    }
+    if (password.text.isEmpty || (isRegister && password.text.length < 8)) {
+      setState(() => message = isRegister
+          ? 'Şifre en az 8 karakter olmalı.'
+          : 'Şifreni gir.');
+      return;
+    }
+    setState(() { busy = true; message = ''; });
+    try {
+      final auth = Supabase.instance.client.auth;
+      if (isRegister) {
+        final result = await auth.signUp(
+          email: mail,
+          password: password.text,
+          data: {'account_type': accountType},
+        );
+        if (result.session == null) {
+          setState(() => message = 'Doğrulama bağlantısı e-posta adresine gönderildi. E-postanı kontrol et.');
+        } else if (result.user != null) {
+          await _openAccount(result.user!.id);
+        }
+      } else {
+        final result = await auth.signInWithPassword(email: mail, password: password.text);
+        if (result.user == null) throw AuthException('Giriş yapılamadı.');
+        await _openAccount(result.user!.id);
+      }
+    } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } catch (error) {
+      if (mounted) setState(() => message = 'İşlem tamamlanamadı. Bilgilerini ve bağlantını kontrol et.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _openAccount(String userId) async {
+    final client = Supabase.instance.client;
+    try {
+      final profile = await client.from('profiles')
+          .select('account_type,is_admin,is_blocked')
+          .eq('id', userId)
+          .maybeSingle();
+      if (!mounted) return;
+      if (profile == null) {
+        await client.auth.signOut();
+        setState(() => message = 'Hesap profili bulunamadı. Destek ekibiyle iletişime geç.');
+        return;
+      }
+      if (profile['is_blocked'] == true) {
+        await client.auth.signOut();
+        setState(() => message = 'Bu hesabın uygulamaya erişimi kısıtlanmış.');
+        return;
+      }
+      AppRole role;
+      if (profile['is_admin'] == true) {
+        role = AppRole.admin;
+      } else {
+        final employees = await client.from('employees').select('id')
+            .eq('user_id', userId).eq('is_active', true).limit(1);
+        if (!mounted) return;
+        if (employees.isNotEmpty) {
+          role = AppRole.employee;
+        } else if (profile['account_type'] == 'business_owner') {
+          role = AppRole.owner;
+        } else {
+          role = AppRole.customer;
+        }
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => RoleShell(role: role)),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => message = 'Hesap bilgileri yüklenemedi. Tekrar dene.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 12),
+                Center(child: Container(
+                  width: 82, height: 82,
+                  decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(26)),
+                  child: const Icon(Icons.content_cut_rounded, size: 45, color: wine),
+                )),
+                const SizedBox(height: 15),
+                const Text('Kuaförüm', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: wine, letterSpacing: -1.2)),
+                const Text('Güzelliğin Yeni Adresi ♡', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: muted, fontStyle: FontStyle.italic)),
+                const SizedBox(height: 34),
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: blush),
+                    boxShadow: [BoxShadow(color: wine.withOpacity(.07), blurRadius: 24, offset: const Offset(0, 9))],
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Text(isRegister ? 'Hesabını oluştur' : 'Tekrar hoş geldin',
+                      style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+                    const SizedBox(height: 6),
+                    Text(isRegister ? 'Kuaförüm ailesine katıl.' : 'Devam etmek için hesabına giriş yap.',
+                      style: const TextStyle(color: muted, fontSize: 13)),
+                    if (isRegister) ...[
+                      const SizedBox(height: 20),
+                      const Text('HESAP TÜRÜ', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 8),
+                      SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(value: 'customer', label: Text('Müşteri')),
+                          ButtonSegment(value: 'business_owner', label: Text('İşletme')),
+                        ],
+                        selected: {accountType},
+                        onSelectionChanged: (value) => setState(() => accountType = value.first),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    const Text('E-POSTA ADRESİ', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                    const SizedBox(height: 7),
+                    TextField(
+                      controller: email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: InputDecoration(
+                        hintText: 'ornek@email.com',
+                        prefixIcon: const Icon(Icons.mail_outline_rounded, color: wine),
+                        filled: true, fillColor: cream,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('ŞİFRE', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                    const SizedBox(height: 7),
+                    TextField(
+                      controller: password,
+                      obscureText: obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: InputDecoration(
+                        hintText: 'Şifreni gir',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: wine),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                          icon: Icon(obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        ),
+                        filled: true, fillColor: cream,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      onSubmitted: (_) => busy ? null : submit(),
+                    ),
+                    if (isRegister && accountType == 'business_owner')
+                      const Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: Text('İşletme hesabı, başvuru ve yönetici onayı sonrasında aktif edilir.',
+                          style: TextStyle(color: muted, fontSize: 11)),
+                      ),
+                    if (message.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(color: blush.withOpacity(.55), borderRadius: BorderRadius.circular(12)),
+                        child: Text(message, style: const TextStyle(color: wine, fontSize: 12, height: 1.4)),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: busy ? null : submit,
+                        style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                        child: busy
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Text(isRegister ? 'Hesap oluştur' : 'Giriş yap', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: busy ? null : () => setState(() { isRegister = !isRegister; message = ''; }),
+                      child: Text(isRegister ? 'Zaten hesabın var mı? Giriş yap' : 'Hesabın yok mu? Kayıt ol',
+                        style: const TextStyle(color: wine, fontWeight: FontWeight.w700)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 22),
+                const Text('GÜVENLİ • KOLAY • KİŞİSEL', textAlign: TextAlign.center,
+                  style: TextStyle(color: muted, fontSize: 10, letterSpacing: 1.7, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 
 enum AppRole { customer, employee, owner, admin }
 
