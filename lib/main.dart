@@ -983,7 +983,10 @@ class MessagesPage extends StatefulWidget {
 
 class _MessagesPageState extends State<MessagesPage> {
   final repository = KuaforumMessagingRepository();
+  final searchController = TextEditingController();
   late Future<List<Map<String, dynamic>>> conversations;
+  Future<List<Map<String, dynamic>>>? businessResults;
+  bool openingBusinessChat = false;
 
   @override
   void initState() {
@@ -991,10 +994,52 @@ class _MessagesPageState extends State<MessagesPage> {
     conversations = repository.fetchConversations();
   }
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> refresh() async {
     final next = repository.fetchConversations();
     setState(() => conversations = next);
     await next;
+  }
+
+  Future<void> searchBusinesses() async {
+    final query = searchController.text.trim();
+    if (query.isEmpty) return;
+    setState(() => businessResults = repository.searchBusinesses(query));
+  }
+
+  Future<void> openBusinessChat(Map<String, dynamic> business) async {
+    if (openingBusinessChat) return;
+    setState(() => openingBusinessChat = true);
+    try {
+      final id = await repository.startBusinessConversation(business['id'] as String);
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatPage(
+          conversationId: id,
+          title: business['name'] as String? ?? 'İşletme',
+          subtitle: 'İşletme',
+        ),
+      ));
+      if (mounted) {
+        setState(() {
+          conversations = repository.fetchConversations();
+          businessResults = null;
+          searchController.clear();
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeyle sohbet başlatılamadı: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => openingBusinessChat = false);
+    }
   }
 
   @override
@@ -1009,8 +1054,64 @@ class _MessagesPageState extends State<MessagesPage> {
         children: [
           const Text('Mesajlar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
           const SizedBox(height: 5),
-          const Text('Çalışanlarla yaptığın sohbetler burada görünür.', style: TextStyle(color: muted)),
-          const SizedBox(height: 12),
+          const Text('İşletmelere veya çalışanlara doğrudan mesaj gönderebilirsin.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          const Text('İşletmeye mesaj gönder', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: TextField(
+              controller: searchController,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => searchBusinesses(),
+              decoration: InputDecoration(
+                hintText: 'İşletme adı ara...',
+                prefixIcon: const Icon(Icons.search, color: wine),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: blush)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: blush)),
+              ),
+            )),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: searchBusinesses,
+              style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              icon: const Icon(Icons.search),
+            ),
+          ]),
+          if (businessResults != null)
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: businessResults,
+              builder: (context, result) {
+                if (result.connectionState == ConnectionState.waiting) {
+                  return const Padding(padding: EdgeInsets.all(14), child: Center(child: CircularProgressIndicator(color: wine)));
+                }
+                if (result.hasError) {
+                  return const Padding(padding: EdgeInsets.all(12), child: Text('İşletmeler aranamadı. Tekrar dene.', style: TextStyle(color: wine)));
+                }
+                final items = result.data ?? [];
+                if (items.isEmpty) {
+                  return const Padding(padding: EdgeInsets.all(12), child: Text('Bu isimle aktif işletme bulunamadı.', style: TextStyle(color: muted)));
+                }
+                return Column(children: items.map((business) => Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(top: 7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: blush)),
+                  child: ListTile(
+                    leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.storefront_outlined, color: wine)),
+                    title: Text(business['name'] as String? ?? 'İşletme', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                    subtitle: Text(business['address'] as String? ?? 'Doğrudan işletmeyle sohbet et', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.chat_bubble_outline, color: wine),
+                    onTap: openingBusinessChat ? null : () => openBusinessChat(business),
+                  ),
+                )).toList());
+              },
+            ),
+          const SizedBox(height: 20),
+          const Text('Sohbetlerin', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator(color: wine)))
           else if (snapshot.hasError)
@@ -1025,13 +1126,13 @@ class _MessagesPageState extends State<MessagesPage> {
             )
           else if ((snapshot.data ?? []).isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 42, horizontal: 12),
+              padding: EdgeInsets.symmetric(vertical: 24, horizontal: 12),
               child: Column(children: [
-                Icon(Icons.forum_outlined, color: rose, size: 46),
-                SizedBox(height: 12),
-                Text('Henüz sohbetin yok', style: TextStyle(color: ink, fontSize: 17, fontWeight: FontWeight.bold)),
+                Icon(Icons.forum_outlined, color: rose, size: 42),
+                SizedBox(height: 10),
+                Text('Henüz sohbetin yok', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.bold)),
                 SizedBox(height: 6),
-                Text('Keşfet bölümünde bir çalışanın paylaşımını açıp “Çalışana Mesaj Gönder” düğmesine dokunabilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.4)),
+                Text('Yukarıdan işletme arayarak doğrudan sohbet başlatabilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.4)),
               ]),
             )
           else
@@ -1042,7 +1143,10 @@ class _MessagesPageState extends State<MessagesPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: blush)),
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-                leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                leading: CircleAvatar(
+                  backgroundColor: blush,
+                  child: Icon(conversation['employee_id'] == null ? Icons.storefront_outlined : Icons.person, color: wine),
+                ),
                 title: Text(conversation['peer_name'] as String? ?? 'Sohbet', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
                 subtitle: Text(
                   '${conversation['business_name'] ?? 'İşletme'}  •  ${conversation['last_message'] ?? ''}',
