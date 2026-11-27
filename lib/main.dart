@@ -48,6 +48,62 @@ class KuaforumApp extends StatelessWidget {
         foregroundColor: ink,
         elevation: 0,
         centerTitle: false,
+        titleTextStyle: TextStyle(color: ink, fontSize: 19, fontWeight: FontWeight.w800),
+        iconTheme: IconThemeData(color: ink),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+        hintStyle: const TextStyle(color: muted, fontSize: 13),
+        labelStyle: const TextStyle(color: muted, fontSize: 13),
+        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: blush)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: blush)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: wine, width: 1.5)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: Color(0xFFB3261E))),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.5)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(
+        minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        backgroundColor: wine, foregroundColor: Colors.white, disabledBackgroundColor: blush, disabledForegroundColor: muted,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0,
+      )),
+      filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        backgroundColor: wine, foregroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      )),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 46), padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        foregroundColor: wine, side: const BorderSide(color: blush),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      )),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(
+        foregroundColor: wine, textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      )),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white, selectedColor: blush, side: const BorderSide(color: blush),
+        labelStyle: const TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(color: wine, fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white, indicatorColor: blush, height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+          color: states.contains(WidgetState.selected) ? wine : muted,
+          fontSize: 10, fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
+        )),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(backgroundColor: cream, surfaceTintColor: Colors.transparent, showDragHandle: false),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating, backgroundColor: ink,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     builder: (context, child) {
@@ -55,7 +111,7 @@ class KuaforumApp extends StatelessWidget {
       // Preserve moderate accessibility scaling while preventing one word per line
       // and oversized empty states/buttons across the app.
       final media = MediaQuery.of(context);
-      final scale = (media.textScaler.scale(14) / 14).clamp(1.0, 1.3).toDouble();
+      final scale = (media.textScaler.scale(14) / 14).clamp(0.9, 1.3).toDouble();
       return MediaQuery(
         data: media.copyWith(textScaler: TextScaler.linear(scale)),
         child: DefaultTextStyle.merge(
@@ -646,12 +702,19 @@ class PageBody extends StatelessWidget {
 class SectionTitle extends StatelessWidget {
   final String title; final String? action; final VoidCallback? onTap;
   const SectionTitle(this.title,{super.key,this.action,this.onTap});
-  @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:22,bottom:12),child:Row(children:[
-    Expanded(child:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:ink))),
-    if(action!=null) InkWell(onTap:onTap,borderRadius:BorderRadius.circular(10),child:Padding(
-      padding:const EdgeInsets.symmetric(vertical:6,horizontal:4),
-      child:Text(action!,style:const TextStyle(color:rose,fontWeight:FontWeight.bold,fontSize:12))))
-  ]));
+  @override Widget build(BuildContext context)=>Padding(
+    padding: const EdgeInsets.only(top: 22, bottom: 12),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: ink))),
+      if (action != null) ...[
+        const SizedBox(width: 8),
+        InkWell(onTap: onTap, borderRadius: BorderRadius.circular(10),
+          child: Padding(padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+            child: Text(action!, maxLines: 1, style: const TextStyle(color: rose, fontWeight: FontWeight.bold, fontSize: 12)))),
+      ],
+    ]),
+  );
 }
 class HeroPanel extends StatelessWidget {
   final String eyebrow,title,subtitle; final IconData icon; final String button;
@@ -676,7 +739,8 @@ class SearchBarBox extends StatelessWidget {
       child: Row(children: [
         const Icon(Icons.search, color: muted),
         const SizedBox(width: 9),
-        Text(hint, style: const TextStyle(color: muted, fontSize: 13)),
+        Expanded(child: Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: muted, fontSize: 13))),
       ]),
     ),
   );
@@ -1025,18 +1089,22 @@ class _FeedMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 12),
-    child: Column(children: [
-      Icon(icon, color: rose, size: 42),
-      const SizedBox(height: 12),
-      Text(title, textAlign: TextAlign.center, style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16)),
-      const SizedBox(height: 6),
-      Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.4)),
-      if (action != null) ...[
+    padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 12),
+    child: Center(child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 340),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: rose, size: 40),
         const SizedBox(height: 12),
-        OutlinedButton(onPressed: onPressed, child: Text(action!)),
-      ],
-    ]),
+        Text(title, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16, height: 1.25)),
+        const SizedBox(height: 6),
+        Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.45)),
+        if (action != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: onPressed, child: Text(action!)),
+        ],
+      ]),
+    )),
   );
 }
 
