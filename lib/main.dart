@@ -4389,7 +4389,11 @@ class EmployeeHome extends StatefulWidget {
 class _EmployeeHomeState extends State<EmployeeHome> {
   late Future<Map<String, dynamic>> data;
   @override
-  void initState() { super.initState(); data = load(); }
+  void initState() {
+    super.initState();
+    selectedFilter = widget.blacklistOnly ? 1 : 0;
+    data = load();
+  }
 
   Future<Map<String, dynamic>> load() async {
     final client = Supabase.instance.client;
@@ -4593,6 +4597,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
     final page = switch (section) {
       'Çalışan Randevuları' => const OwnerEmployeeAppointments(),
       'Müşterilerim' => const CustomersPage(),
+      'Müşteri Kara Listesi' => const CustomersPage(blacklistOnly: true),
       'Ayarlar' => const SettingsPage(),
       _ => const SettingsPage(),
     };
@@ -4655,7 +4660,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
         ]),
         const SizedBox(height: 18),
         const SectionTitle('İşletme Yönetimi'),
-        ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Ayarlar'].map((section) =>
+        ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Müşteri Kara Listesi', 'Ayarlar'].map((section) =>
           Container(
             margin: const EdgeInsets.only(bottom: 9),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17),
@@ -4667,6 +4672,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
                   'Randevu Yönetimi' => Icons.calendar_month_rounded,
                   'Çalışan Randevuları' => Icons.event_available_rounded,
                   'Müşterilerim' => Icons.people_alt_rounded,
+          'Müşteri Kara Listesi' => Icons.block_rounded,
                   _ => Icons.tune_rounded,
                 }, color: wine)),
               title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
@@ -5424,7 +5430,8 @@ class OwnerEmployeeAppointments extends StatelessWidget {
   );
 }
 class CustomersPage extends StatefulWidget {
-  const CustomersPage({super.key});
+  final bool blacklistOnly;
+  const CustomersPage({super.key, this.blacklistOnly = false});
   @override
   State<CustomersPage> createState() => _CustomersPageState();
 }
