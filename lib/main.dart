@@ -4812,7 +4812,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
             TextField(controller: password, obscureText: true,
               decoration: const InputDecoration(labelText: 'İlk giriş şifresi (en az 8 karakter)')),
             const SizedBox(height: 8),
-            const Text('Çalışana e-posta doğrulama bağlantısı gönderilir. Hesabı doğruladıktan sonra belirlediğin şifreyle giriş yapabilir.',
+            const Text('Çalışan hesabı otomatik onaylanır. Çalışan, belirlediğin e-posta ve şifreyle hemen giriş yapabilir.',
               style: TextStyle(color: muted, fontSize: 12)),
           ]),
         ),
@@ -4844,7 +4844,7 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Çalışan hesabı oluşturuldu. E-posta doğrulaması bekleniyor.')),
+        const SnackBar(content: Text('Çalışan hesabı oluşturuldu ve kullanıma hazır.')),
       );
       await refreshData();
     } catch (error) {
