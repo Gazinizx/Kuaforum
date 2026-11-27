@@ -5013,15 +5013,26 @@ class _ServicesPageState extends State<ServicesPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: [
-          const Text('Hizmetler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
-          const SizedBox(height: 12),
+          Container(padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF8E2947), Color(0xFFC65B79)]),
+              borderRadius: BorderRadius.circular(22)),
+            child: const Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Hizmet kataloğun', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                SizedBox(height: 5),
+                Text('Müşterilerin randevu alırken göreceği işlemler.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ])),
+              Icon(Icons.content_cut_rounded, color: Colors.white, size: 34),
+            ])),
+          const SizedBox(height: 16),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Center(child: CircularProgressIndicator(color: wine))
           else if (snapshot.hasError)
             _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Hizmetler yüklenemedi', detail: snapshot.error.toString())
           else ...[
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(50)),
               onPressed: () => editService(snapshot.data!['business_id'] as String),
               icon: const Icon(Icons.add),
               label: const Text('Yeni Hizmet Ekle'),
@@ -5717,7 +5728,6 @@ class _CustomerInfoPill extends StatelessWidget {
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
-
   void open(BuildContext context, String section) {
     final page = switch (section) {
       'İşletme Profili' => const BusinessDetailsPage(),
@@ -5725,59 +5735,58 @@ class SettingsPage extends StatelessWidget {
       'Hizmetler' => const ServicesPage(),
       'Çalışma Saatleri' => const WorkingHoursPage(),
       'Randevu Aralığı' => const AppointmentIntervalPage(),
-      'Çalışan İzinleri' => const OwnerTimeOffPage(),
+      'Paylaşım Oluştur' => const SharePage(businessPost: true),
       _ => null,
     };
     if (page == null) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: Text(section,
-          style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
-        body: page,
-      ),
-    ));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(section, style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+      body: page,
+    )));
   }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     const sections = [
-      ('İşletme Profili', 'Salon adı, adres, fotoğraf ve geçici kapatma', Icons.storefront_outlined),
-      ('Çalışanlar', 'Ekibine çalışan ekle, hesaplarını ve durumlarını yönet', Icons.people_alt_outlined),
-      ('Hizmetler', 'Hizmet adlarını, ücretlerini ve sürelerini düzenle', Icons.content_cut_rounded),
-      ('Çalışma Saatleri', 'Haftanın günlerine göre açılış ve kapanış saatleri', Icons.schedule_rounded),
-      ('Randevu Aralığı', 'Yeni randevuların kaç dakikada bir başlayacağını belirle', Icons.timelapse_rounded),
-      ('Çalışan İzinleri', 'Çalışanların izin taleplerini incele ve yanıtla', Icons.event_busy_outlined),
+      ('İşletme Profili', 'Salon adı, adres, fotoğraf ve açık/kapalı durumu', Icons.storefront_outlined),
+      ('Çalışanlar', 'Ekibini ve çalışan hesaplarını yönet', Icons.people_alt_outlined),
+      ('Hizmetler', 'Hizmet, ücret ve işlem sürelerini düzenle', Icons.content_cut_rounded),
+      ('Çalışma Saatleri', 'Haftalık çalışma günlerini ve saatlerini belirle', Icons.schedule_rounded),
+      ('Randevu Aralığı', 'Randevu başlangıçları arasındaki dakika süresini ayarla', Icons.timelapse_rounded),
+      ('Paylaşım Oluştur', 'Salonundan fotoğraf ve video paylaş', Icons.add_a_photo_outlined),
     ];
-    return PageBody(children: [
-      const Text('İşletme Ayarları',
-        style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-      const SizedBox(height: 5),
-      const Text('Salonunu ve ekibini tek yerden yönet.',
-        style: TextStyle(color: muted, fontSize: 12)),
-      const SizedBox(height: 15),
-      ...sections.map((section) => Card(
-        color: Colors.white,
-        elevation: 0,
+    return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, 28), children: [
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF8E2947), Color(0xFFC65B79)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(24)),
+        child: const Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('İşletmeni yönet', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
+            SizedBox(height: 6),
+            Text('Salon bilgilerini, ekibini ve çalışma düzenini tek yerden güncelle.',
+              style: TextStyle(color: Colors.white70, height: 1.4, fontSize: 12)),
+          ])),
+          SizedBox(width: 12), Icon(Icons.tune_rounded, color: Colors.white, size: 36),
+        ]),
+      ),
+      const SizedBox(height: 22),
+      const Text('İŞLETME AYARLARI', style: TextStyle(color: muted, fontSize: 11,
+        fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+      const SizedBox(height: 10),
+      ...sections.map((section) => Container(
         margin: const EdgeInsets.only(bottom: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(17),
-          side: const BorderSide(color: blush),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: blush)),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          leading: Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(13)),
-            child: Icon(section.$3, color: wine, size: 21),
-          ),
-          title: Text(section.$1,
-            style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(section.$2,
-              style: const TextStyle(color: muted, fontSize: 11)),
-          ),
-          trailing: const Icon(Icons.chevron_right_rounded, color: muted),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+          leading: Container(width: 46, height: 46,
+            decoration: BoxDecoration(color: cream, borderRadius: BorderRadius.circular(15)),
+            child: Icon(section.$3, color: wine, size: 23)),
+          title: Text(section.$1, style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 14)),
+          subtitle: Padding(padding: const EdgeInsets.only(top: 4),
+            child: Text(section.$2, style: const TextStyle(color: muted, fontSize: 11, height: 1.35))),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 15, color: muted),
           onTap: () => open(context, section.$1),
         ),
       )),
@@ -5939,9 +5948,20 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator(color: wine));
-    return PageBody(children: [
-      const Text('İşletme bilgileri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
-      const SizedBox(height: 16),
+    return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, 28), children: [
+      Container(padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF8E2947), Color(0xFFC65B79)]),
+          borderRadius: BorderRadius.circular(22)),
+        child: const Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Salon kimliğin', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+            SizedBox(height: 5),
+            Text('Müşterilerin işletmeni burada tanır.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ])),
+          Icon(Icons.storefront_rounded, color: Colors.white, size: 34),
+        ])),
+      const SizedBox(height: 18),
       Center(child: Column(children: [
         CircleAvatar(
           radius: 44,
@@ -5984,74 +6004,88 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
 
 class AppointmentIntervalPage extends StatefulWidget {
   const AppointmentIntervalPage({super.key});
-  @override
-  State<AppointmentIntervalPage> createState() => _AppointmentIntervalPageState();
+  @override State<AppointmentIntervalPage> createState() => _AppointmentIntervalPageState();
 }
-
 class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
   final client = Supabase.instance.client;
+  final minutesController = TextEditingController(text: '30');
   String? businessId;
-  int selected = 30;
-  bool loading = true;
-  bool saving = false;
-  static const intervals = [10, 15, 20, 30, 45, 60];
-
-  @override
-  void initState() { super.initState(); load(); }
-
+  bool loading = true, saving = false;
+  @override void initState() { super.initState(); load(); }
+  @override void dispose() { minutesController.dispose(); super.dispose(); }
   Future<void> load() async {
     try {
       final user = client.auth.currentUser;
       if (user == null) throw Exception('Oturum bulunamadı.');
-      final row = await client.from('businesses')
-          .select('id,appointment_interval_minutes')
-          .eq('owner_id', user.id).maybeSingle();
+      final row = await client.from('businesses').select('id,appointment_interval_minutes')
+        .eq('owner_id', user.id).maybeSingle();
       if (row == null) throw Exception('İşletme bulunamadı.');
       businessId = row['id'] as String;
-      selected = (row['appointment_interval_minutes'] as num?)?.toInt() ?? 30;
+      minutesController.text = ((row['appointment_interval_minutes'] as num?)?.toInt() ?? 30).toString();
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Randevu aralığı yüklenemedi: $error')));
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Randevu aralığı yüklenemedi: $error')));
+    } finally { if (mounted) setState(() => loading = false); }
   }
-
   Future<void> save() async {
-    if (businessId == null) return;
+    final minutes = int.tryParse(minutesController.text.trim());
+    if (minutes == null || minutes < 5 || minutes > 240) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Randevu aralığı 5 ile 240 dakika arasında olmalı.')));
+      return;
+    }
+    if (businessId == null || saving) return;
     setState(() => saving = true);
     try {
       await client.rpc('update_appointment_interval', params: {
-        'p_business_id': businessId, 'p_interval_minutes': selected,
+        'p_business_id': businessId, 'p_interval_minutes': minutes,
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Randevu aralığı kaydedildi.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Randevu aralığı kaydedildi.')));
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Randevu aralığı kaydedilemedi: $error'), backgroundColor: wine));
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Randevu aralığı kaydedilemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => saving = false); }
   }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator(color: wine));
-    return PageBody(children: [
-      const Text('Randevu Aralığı', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
-      const SizedBox(height: 8),
-      const Text('Yeni randevu saatlerinin kaç dakikada bir açılacağını belirle.', style: TextStyle(color: muted)),
-      const SizedBox(height: 18),
-      Wrap(spacing: 10, runSpacing: 10, children: intervals.map((minutes) =>
-        ChoiceChip(label: Text('$minutes dakika'), selected: selected == minutes,
-          onSelected: (_) => setState(() => selected = minutes),
-          selectedColor: blush)).toList()),
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF8E2947), Color(0xFFC65B79)]),
+          borderRadius: BorderRadius.circular(22)),
+        child: const Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Randevu düzeni', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+            SizedBox(height: 6),
+            Text('Randevu başlangıç saatleri arasındaki süreyi kendin belirle.',
+              style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4)),
+          ])),
+          Icon(Icons.schedule_rounded, color: Colors.white, size: 34),
+        ]),
+      ),
       const SizedBox(height: 20),
-      ElevatedButton(onPressed: saving ? null : save,
-        child: saving ? const CircularProgressIndicator() : const Text('Kaydet')),
+      const Text('DAKİKA ARALIĞI', style: TextStyle(color: muted, fontSize: 11,
+        fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+      const SizedBox(height: 9),
+      TextField(controller: minutesController, keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(labelText: 'Kaç dakikada bir randevu açılsın?',
+          hintText: 'Örn. 25', suffixText: 'dakika',
+          prefixIcon: Icon(Icons.timelapse_rounded, color: wine))),
+      const SizedBox(height: 9),
+      const Text('5–240 dakika arasında istediğin tam sayıyı girebilirsin.',
+        style: TextStyle(color: muted, fontSize: 12)),
+      const SizedBox(height: 22),
+      FilledButton.icon(onPressed: saving ? null : save,
+        icon: saving ? const SizedBox(width: 18, height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : const Icon(Icons.check_rounded),
+        label: Text(saving ? 'Kaydediliyor...' : 'Aralığı Kaydet'),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52))),
     ]);
   }
 }
+
 class WorkingHoursPage extends StatefulWidget {
   const WorkingHoursPage({super.key});
   @override
