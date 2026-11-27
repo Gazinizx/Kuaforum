@@ -716,6 +716,15 @@ class _RoleShellState extends State<RoleShell> {
       : pages.isEmpty
         ? const Center(child: Text('Bu hesap için yönetim yetkisi tanımlanmamış.'))
         : IndexedStack(index:index, children:pages),
+    floatingActionButton: widget.role == AppRole.customer && index == 1
+      ? FloatingActionButton(
+          backgroundColor: wine,
+          foregroundColor: Colors.white,
+          tooltip: 'Paylaşım yap',
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SharePage())),
+          child: const Icon(Icons.add_a_photo_outlined),
+        )
+      : null,
     bottomNavigationBar: adminNavLoading || pages.isEmpty ? null : NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
       backgroundColor: Colors.white, indicatorColor: blush, height: 68,
