@@ -5324,10 +5324,55 @@ class _OwnerHomeState extends State<OwnerHome> {
 }
 class OwnerAppointments extends StatelessWidget {
   const OwnerAppointments({super.key});
+
   @override
-  Widget build(BuildContext context) => const AppointmentsPage(
-    title: 'Randevum',
-    ownerMode: true,
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 2,
+    child: Scaffold(
+      backgroundColor: cream,
+      appBar: AppBar(
+        title: const Text('Randevular'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(54),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            decoration: BoxDecoration(
+              color: blush.withOpacity(.65),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: TabBar(
+              dividerColor: Colors.transparent,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: wine,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: wine.withOpacity(.16),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              labelColor: Colors.white,
+              unselectedLabelColor: muted,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              tabs: const [
+                Tab(height: 44, text: 'Randevum'),
+                Tab(height: 44, text: 'Çalışan Randevuları'),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: const TabBarView(
+        children: [
+          AppointmentsPage(title: 'Randevum', ownerMode: true),
+          AppointmentsPage(title: 'Çalışan Randevuları', ownerMode: false),
+        ],
+      ),
+    ),
   );
 }
 
