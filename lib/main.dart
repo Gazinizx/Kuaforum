@@ -5040,16 +5040,15 @@ class _ServicesPageState extends State<ServicesPage> {
   );
 }
 
+
 class OwnerHome extends StatefulWidget {
   const OwnerHome({super.key});
-  @override
-  State<OwnerHome> createState() => _OwnerHomeState();
+  @override State<OwnerHome> createState() => _OwnerHomeState();
 }
 
 class _OwnerHomeState extends State<OwnerHome> {
   late Future<Map<String, dynamic>> data;
-  @override
-  void initState() { super.initState(); data = load(); }
+  @override void initState() { super.initState(); data = load(); }
 
   Future<Map<String, dynamic>> load() async {
     final client = Supabase.instance.client;
@@ -5065,64 +5064,255 @@ class _OwnerHomeState extends State<OwnerHome> {
     final customers = List<Map<String, dynamic>>.from(await client.rpc(
       'get_business_customers', params: {'p_business_id': business['id']},
     ) as List);
-    final today = DateTime.now();
-    final todays = rows.where((row) {
-      final date = DateTime.parse(row['starts_at'] as String).toLocal();
-      return date.year == today.year && date.month == today.month && date.day == today.day;
-    }).toList();
-    rows.sort((a, b) => DateTime.parse(b['starts_at'] as String)
-        .compareTo(DateTime.parse(a['starts_at'] as String)));
-    return {'business': business, 'appointments': rows, 'today': todays.length,
-      'customers': customers.length};
+    final now = DateTime.now();
+    final today = rows.where((row) {
+      final d = DateTime.parse(row['starts_at'] as String).toLocal();
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList()..sort((a,b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    final upcoming = rows.where((row) {
+      final d = DateTime.parse(row['starts_at'] as String).toLocal();
+      return d.isAfter(now) && !['cancelled','completed','rejected'].contains(row['status']);
+    }).toList()..sort((a,b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    final week = List<int>.generate(7, (i) {
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6-i));
+      return rows.where((row) {
+        final d = DateTime.parse(row['starts_at'] as String).toLocal();
+        return d.year == day.year && d.month == day.month && d.day == day.day &&
+            row['status'] != 'cancelled';
+      }).length;
+    });
+    return {'business':business,'appointments':rows,'today':today,'upcoming':upcoming,
+      'customers':customers.length,'pending':rows.where((r)=>r['status']=='pending').length,'week':week};
   }
 
-  @override
-  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
-    future: data,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator(color: wine));
-      }
-      if (snapshot.hasError || snapshot.data == null) {
-        return Center(child: Text('İşletme özeti yüklenemedi: ${snapshot.error ?? ''}',
-          style: const TextStyle(color: muted)));
-      }
-      final business = snapshot.data!['business'] as Map<String, dynamic>;
-      final appointments = snapshot.data!['appointments'] as List<Map<String, dynamic>>;
-      return PageBody(children: [
-        Text('${business['name'] ?? 'İşletme Yönetimi'}',
-          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-        const SizedBox(height: 14),
-        HeroPanel(eyebrow: 'İşletme paneli', title: 'İşletmeni yönet',
-          subtitle: 'Randevularını, ekibini ve müşteri deneyimini tek yerden takip et.',
-          icon: Icons.storefront, button: 'Yönetim araçları',
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-            Scaffold(appBar: AppBar(title: const Text('İşletme Ayarları')), body: const SettingsPage())))),
-        const SizedBox(height: 14),
-        Row(children: [
-          _StatCard((snapshot.data!['today'] as int).toString(), 'Bugünkü Randevu'),
-          _StatCard((snapshot.data!['customers'] as int).toString(), 'Müşteri'),
-          _StatCard(appointments.length.toString(), 'Toplam Randevu'),
-        ]),
-        SectionTitle('Son Randevular', action: 'Tümünü Gör', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerAppointments()))),
-        if (appointments.isEmpty)
-          const Text('Henüz randevu bulunmuyor.', style: TextStyle(color: muted))
-        else
-          ...appointments.take(3).map((row) => AppointmentTile(
-            name: row['customer_name'] as String? ?? 'Müşteri',
-            service: row['service_name'] as String? ?? 'Hizmet',
-            time: DateTime.parse(row['starts_at'] as String).toLocal().toString().substring(0, 16),
-            status: row['status'] as String? ?? 'pending',
-          )),
-        const SectionTitle('Hızlı Yönetim'),
-        Row(children: [
-          Expanded(child: _HomeActionTile(icon: Icons.calendar_month, label: 'Randevular', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerAppointments())))),
-          Expanded(child: _HomeActionTile(icon: Icons.people_alt_outlined, label: 'Müşteriler', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomersPage())))),
-          Expanded(child: _HomeActionTile(icon: Icons.settings_outlined, label: 'Ayarlar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())))),
-        ]),
-      ]);
+  Future<void> refreshData() async { final next = load(); setState(() => data = next); await next; }
+  String timeOf(dynamic value) {
+    final d = DateTime.parse(value as String).toLocal();
+    return '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
+  }
+  String dateOf(dynamic value) {
+    final d = DateTime.parse(value as String).toLocal();
+    const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    return '${d.day} ${months[d.month-1]}';
+  }
+
+  @override Widget build(BuildContext context) => FutureBuilder<Map<String,dynamic>>(
+    future:data,
+    builder:(context,snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting)
+        return const Center(child:CircularProgressIndicator(color:wine));
+      if (snapshot.hasError || snapshot.data == null)
+        return Center(child:Padding(padding:const EdgeInsets.all(24),child:_FeedMessage(
+          icon:Icons.cloud_off_outlined,title:'İşletme özeti yüklenemedi',
+          detail:'Bağlantını kontrol edip yeniden deneyebilirsin.')));
+      final result=snapshot.data!;
+      final business=result['business'] as Map<String,dynamic>;
+      final today=result['today'] as List<Map<String,dynamic>>;
+      final upcoming=result['upcoming'] as List<Map<String,dynamic>>;
+      final week=result['week'] as List<int>;
+      final next=upcoming.isEmpty?null:upcoming.first;
+      final maxWeek=week.fold<int>(1,(a,b)=>a>b?a:b);
+      const days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+      final todayDate=DateTime.now();
+      return RefreshIndicator(
+        color:const Color(0xFFE8C28C),onRefresh:refreshData,
+        child:ListView(
+          physics:const AlwaysScrollableScrollPhysics(),
+          padding:const EdgeInsets.fromLTRB(16,8,16,28),
+          children:[
+            Container(
+              padding:const EdgeInsets.fromLTRB(20,22,20,22),
+              decoration:BoxDecoration(
+                gradient:const LinearGradient(colors:[Color(0xFF210D17),Color(0xFF4A1C2C),Color(0xFF702B40)],
+                  begin:Alignment.topLeft,end:Alignment.bottomRight),
+                borderRadius:BorderRadius.circular(28),
+                boxShadow:[BoxShadow(color:const Color(0xFF4A1C2C).withOpacity(.2),blurRadius:22,offset:const Offset(0,10))]),
+              child:Stack(children:[
+                Positioned(right:-28,top:-40,child:Container(width:170,height:170,
+                  decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(
+                    color:const Color(0xFFE8C28C).withOpacity(.18),width:22)))),
+                Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Row(children:[
+                    Container(width:48,height:48,decoration:BoxDecoration(shape:BoxShape.circle,
+                      color:Colors.white.withOpacity(.08),border:Border.all(color:const Color(0xFFE8C28C))),
+                      child:const Icon(Icons.spa_rounded,color:Color(0xFFE8C28C),size:27)),
+                    const SizedBox(width:12),
+                    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                      const Text('Kuaförüm',style:TextStyle(color:Color(0xFFF6DDB8),fontSize:23,fontWeight:FontWeight.w800)),
+                      Text(business['name']?.toString()??'İşletme Paneli',maxLines:1,overflow:TextOverflow.ellipsis,
+                        style:const TextStyle(color:Colors.white70,fontSize:12))])),
+                    IconButton(tooltip:'Bildirimler',onPressed:()=>Navigator.push(context,MaterialPageRoute(
+                      builder:(_)=>Scaffold(appBar:AppBar(title:const Text('Bildirimler')),body:NotificationsPage()))),
+                      icon:const Icon(Icons.notifications_none_rounded,color:Color(0xFFF6DDB8),size:26)),
+                  ]),
+                  const SizedBox(height:27),
+                  const Text('Salonunuzda bugün\nher şey yolunda mı?',
+                    style:TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),
+                  const SizedBox(height:7),
+                  Text('Gününüzün genel görünümüne göz atın.',
+                    style:TextStyle(color:Colors.white.withOpacity(.72),fontSize:13)),
+                  const SizedBox(height:18),
+                  Row(children:[
+                    const Icon(Icons.calendar_today_rounded,size:14,color:Color(0xFFE8C28C)),
+                    const SizedBox(width:7),
+                    Text('${todayDate.day}.${todayDate.month}.${todayDate.year}',
+                      style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:12,fontWeight:FontWeight.w700)),
+                    const Spacer(),
+                    const Text('GÜNLÜK ÖZET',style:TextStyle(color:Color(0xFFE8C28C),fontSize:9,letterSpacing:1.3,fontWeight:FontWeight.w800)),
+                  ]),
+                ]),
+              ]),
+            ),
+            const SizedBox(height:15),
+            Row(children:[
+              Expanded(child:metric(today.length.toString(),'Bugünkü randevu',Icons.calendar_month_rounded, const Color(0xFF8E2947))),
+              const SizedBox(width:9),
+              Expanded(child:metric(result['customers'].toString(),'Müşteri',Icons.people_alt_rounded,const Color(0xFFB18454))),
+            ]),
+            const SizedBox(height:9),
+            Row(children:[
+              Expanded(child:metric(result['pending'].toString(),'Onay bekleyen',Icons.hourglass_top_rounded,const Color(0xFFB18454))),
+              const SizedBox(width:9),
+              Expanded(child:metric((result['appointments'] as List).length.toString(),'Toplam randevu',Icons.auto_awesome_rounded,const Color(0xFF8E2947))),
+            ]),
+            const SizedBox(height:17),
+            if(next!=null) Container(
+              padding:const EdgeInsets.all(16),
+              decoration:BoxDecoration(color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(22),
+                border:Border.all(color:const Color(0xFFEADBCB)),boxShadow:[BoxShadow(
+                  color:const Color(0xFF4A1C2C).withOpacity(.06),blurRadius:15,offset:const Offset(0,5))]),
+              child:Row(children:[
+                Container(width:62,height:74,decoration:BoxDecoration(
+                  gradient:const LinearGradient(colors:[Color(0xFF741F3D),Color(0xFF3B1425)]),
+                  borderRadius:BorderRadius.circular(16)),
+                  child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+                    Text(dateOf(next['starts_at']).split(' ').first,style:const TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w800)),
+                    Text(dateOf(next['starts_at']).split(' ').last,style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:12,fontWeight:FontWeight.w700))])),
+                const SizedBox(width:12),
+                Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  const Text('SIRADAKİ RANDEVU',style:TextStyle(color:Color(0xFF9B765F),fontSize:9,letterSpacing:1,fontWeight:FontWeight.w800)),
+                  const SizedBox(height:4),
+                  Text(timeOf(next['starts_at']),style:const TextStyle(color:Color(0xFF321A25),fontSize:24,fontWeight:FontWeight.w800)),
+                  Text(next['customer_name']?.toString()??'Müşteri',maxLines:1,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(color:Color(0xFF321A25),fontWeight:FontWeight.w700,fontSize:13)),
+                  Text(next['service_name']?.toString()??'Hizmet',maxLines:1,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(color:Color(0xFF927B82),fontSize:11)),
+                ])),
+                const Icon(Icons.arrow_forward_ios_rounded,color:Color(0xFF8E2947),size:17),
+              ]),
+            ) else Container(padding:const EdgeInsets.all(17),decoration:BoxDecoration(
+              color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(20),
+              border:Border.all(color:const Color(0xFFEADBCB))),
+              child:const Row(children:[Icon(Icons.event_available_rounded,color:Color(0xFF9B765F),size:27),
+                SizedBox(width:11),Expanded(child:Text('Sıradaki randevunuz burada görünecek.',
+                  style:TextStyle(color:Color(0xFF6F5961),fontSize:13)))])),
+            const SizedBox(height:21),
+            Row(children:[
+              const Expanded(child:Text('Hızlı işlemler',style:TextStyle(color:Color(0xFF321A25),fontSize:19,fontWeight:FontWeight.w800))),
+              TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const SettingsPage())),
+                child:const Text('Yönetim araçları')),
+            ]),
+            Row(children:[
+              Expanded(child:action(Icons.calendar_month_rounded,'Randevular',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const OwnerAppointments())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.people_alt_rounded,'Müşteriler',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CustomersPage())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.chat_bubble_rounded,'Mesajlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const MessagesPage())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.tune_rounded,'Ayarlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const SettingsPage())))),
+            ]),
+            const SizedBox(height:21),
+            Container(padding:const EdgeInsets.fromLTRB(16,16,16,13),
+              decoration:BoxDecoration(color:const Color(0xFF321722),borderRadius:BorderRadius.circular(22),
+                border:Border.all(color:const Color(0xFF754354).withOpacity(.55))),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Row(children:[
+                  const Icon(Icons.insights_rounded,color:Color(0xFFE8C28C),size:19),
+                  const SizedBox(width:8),
+                  const Expanded(child:Text('Son 7 günün randevuları',style:TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w700))),
+                  Text('${week.fold<int>(0,(a,b)=>a+b)} randevu',style:const TextStyle(color:Color(0xFFE8C28C),fontSize:11,fontWeight:FontWeight.w700)),
+                ]),
+                const SizedBox(height:17),
+                SizedBox(height:92,child:Row(crossAxisAlignment:CrossAxisAlignment.end,children:
+                  List.generate(7,(i){
+                    final d=DateTime.now().subtract(Duration(days:6-i));
+                    final h=12.0+(week[i]/maxWeek)*54;
+                    return Expanded(child:Padding(padding:const EdgeInsets.symmetric(horizontal:4),
+                      child:Column(mainAxisAlignment:MainAxisAlignment.end,children:[
+                        Text(week[i].toString(),style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:10,fontWeight:FontWeight.w700)),
+                        const SizedBox(height:5),
+                        Container(height:h,decoration:BoxDecoration(
+                          gradient:const LinearGradient(colors:[Color(0xFFE8C28C),Color(0xFFB47758)],begin:Alignment.topCenter,end:Alignment.bottomCenter),
+                          borderRadius:BorderRadius.circular(8))),
+                        const SizedBox(height:7),
+                        Text(days[d.weekday-1],style:const TextStyle(color:Colors.white70,fontSize:9)),
+                      ])));
+                  }))),
+              ])),
+            const SizedBox(height:20),
+            Row(children:[
+              const Expanded(child:Text('Bugünün randevuları',style:TextStyle(color:Color(0xFF321A25),fontSize:18,fontWeight:FontWeight.w800))),
+              TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const OwnerAppointments())),
+                child:const Text('Tümünü gör')),
+            ]),
+            if(today.isEmpty) const Text('Bugün için henüz randevu bulunmuyor.',style:TextStyle(color:muted,fontSize:13))
+            else ...today.take(3).map((row)=>Container(
+              margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(13),
+              decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(17),
+                border:Border.all(color:const Color(0xFFEADBCB))),
+              child:Row(children:[
+                Container(width:4,height:46,decoration:BoxDecoration(color:const Color(0xFFB18454),borderRadius:BorderRadius.circular(4))),
+                const SizedBox(width:10),
+                SizedBox(width:46,child:Text(timeOf(row['starts_at']),style:const TextStyle(
+                  color:Color(0xFF6E2038),fontWeight:FontWeight.w800,fontSize:13))),
+                Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(row['customer_name']?.toString()??'Müşteri',style:const TextStyle(color:ink,fontWeight:FontWeight.w700,fontSize:13)),
+                  Text(row['service_name']?.toString()??'Hizmet',style:const TextStyle(color:muted,fontSize:11)),
+                ])),
+                statusPill(row['status']?.toString()??'pending'),
+              ]))),
+          ],
+        ),
+      );
     },
   );
+
+  Widget metric(String value,String label,IconData icon,Color color)=>Container(
+    padding:const EdgeInsets.symmetric(horizontal:11,vertical:14),
+    decoration:BoxDecoration(color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(18),
+      border:Border.all(color:const Color(0xFFEADBCB))),
+    child:Row(children:[
+      Container(width:34,height:34,decoration:BoxDecoration(color:color.withOpacity(.1),borderRadius:BorderRadius.circular(11)),
+        child:Icon(icon,color:color,size:18)),
+      const SizedBox(width:8),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(value,style:const TextStyle(color:Color(0xFF321A25),fontSize:20,fontWeight:FontWeight.w800)),
+        Text(label,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10,height:1.15)),
+      ])),
+    ]),
+  );
+
+  Widget action(IconData icon,String label,VoidCallback onTap)=>Material(
+    color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(16),
+    child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),
+      child:Container(constraints:const BoxConstraints(minHeight:82),
+        padding:const EdgeInsets.symmetric(horizontal:4,vertical:11),
+        decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFEADBCB))),
+        child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Icon(icon,color:const Color(0xFF8E2947),size:22),const SizedBox(height:7),
+          Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:ink,fontSize:10,fontWeight:FontWeight.w700)),
+        ]))),
+  );
+
+  Widget statusPill(String status) {
+    final label=switch(status){'approved'=>'Onaylandı','completed'=>'Tamamlandı','cancelled'=>'İptal','rejected'=>'Reddedildi',_=>'Bekliyor'};
+    final color=switch(status){'approved'||'completed'=>const Color(0xFF26734D),'cancelled'||'rejected'=>const Color(0xFF9B4B50),_=>const Color(0xFF9B6B2E)};
+    return Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:6),
+      decoration:BoxDecoration(color:color.withOpacity(.1),borderRadius:BorderRadius.circular(18)),
+      child:Text(label,style:TextStyle(color:color,fontSize:9,fontWeight:FontWeight.w800)));
+  }
 }
 class OwnerAppointments extends StatelessWidget {
   const OwnerAppointments({super.key});
