@@ -6209,11 +6209,10 @@ class AppointmentIntervalPage extends StatefulWidget {
 }
 class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
   final client = Supabase.instance.client;
-  final minutesController = TextEditingController(text: '30');
+  int selectedMinutes = 30;
   String? businessId;
   bool loading = true, saving = false;
   @override void initState() { super.initState(); load(); }
-  @override void dispose() { minutesController.dispose(); super.dispose(); }
   Future<void> load() async {
     try {
       final user = client.auth.currentUser;
@@ -6222,18 +6221,13 @@ class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
         .eq('owner_id', user.id).maybeSingle();
       if (row == null) throw Exception('İşletme bulunamadı.');
       businessId = row['id'] as String;
-      minutesController.text = ((row['appointment_interval_minutes'] as num?)?.toInt() ?? 30).toString();
+      selectedMinutes = ((row['appointment_interval_minutes'] as num?)?.toInt() ?? 30);
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Randevu aralığı yüklenemedi: $error')));
     } finally { if (mounted) setState(() => loading = false); }
   }
   Future<void> save() async {
-    final minutes = int.tryParse(minutesController.text.trim());
-    if (minutes == null || minutes < 5 || minutes > 240) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Randevu aralığı 5 ile 240 dakika arasında olmalı.')));
-      return;
-    }
+    final minutes = selectedMinutes;
     if (businessId == null || saving) return;
     setState(() => saving = true);
     try {
@@ -6268,13 +6262,23 @@ class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
       const Text('DAKİKA ARALIĞI', style: TextStyle(color: muted, fontSize: 11,
         fontWeight: FontWeight.w900, letterSpacing: 1.1)),
       const SizedBox(height: 9),
-      TextField(controller: minutesController, keyboardType: TextInputType.number,
-        textInputAction: TextInputAction.done,
-        decoration: const InputDecoration(labelText: 'Kaç dakikada bir randevu açılsın?',
-          hintText: 'Örn. 25', suffixText: 'dakika',
-          prefixIcon: Icon(Icons.timelapse_rounded, color: wine))),
+      DropdownButtonFormField<int>(
+        value: selectedMinutes,
+        decoration: const InputDecoration(
+          labelText: 'Kaç dakikada bir randevu açılsın?',
+          suffixText: 'dakika',
+          prefixIcon: Icon(Icons.timelapse_rounded, color: wine),
+        ),
+        items: const [10, 15, 20, 30, 45, 60]
+            .map((value) => DropdownMenuItem<int>(
+              value: value, child: Text('$value dakika'),
+            )).toList(),
+        onChanged: saving ? null : (value) {
+          if (value != null) setState(() => selectedMinutes = value);
+        },
+      ),
       const SizedBox(height: 9),
-      const Text('5–240 dakika arasında istediğin tam sayıyı girebilirsin.',
+      const Text('İşletmenin randevu sisteminde desteklenen aralıklardan birini seç.',
         style: TextStyle(color: muted, fontSize: 12)),
       const SizedBox(height: 22),
       FilledButton.icon(onPressed: saving ? null : save,
