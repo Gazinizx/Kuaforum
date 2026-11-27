@@ -4656,12 +4656,24 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
         const SizedBox(height: 18),
         const SectionTitle('İşletme Yönetimi'),
         ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Ayarlar'].map((section) =>
-          Card(color: Colors.white, elevation: 0, child: ListTile(
-            leading: const Icon(Icons.circle_outlined, color: wine),
-            title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
-            trailing: const Icon(Icons.chevron_right, color: muted),
-            onTap: () => open(context, section),
-          ))),
+          Container(
+            margin: const EdgeInsets.only(bottom: 9),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: blush)),
+            child: ListTile(
+              leading: Container(width: 42, height: 42,
+                decoration: BoxDecoration(color: cream, borderRadius: BorderRadius.circular(13)),
+                child: Icon(switch (section) {
+                  'Randevu Yönetimi' => Icons.calendar_month_rounded,
+                  'Çalışan Randevuları' => Icons.event_available_rounded,
+                  'Müşterilerim' => Icons.people_alt_rounded,
+                  _ => Icons.tune_rounded,
+                }, color: wine)),
+              title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: muted),
+              onTap: () => open(context, section),
+            ),
+          )),
         Card(color: Colors.white, elevation: 0, child: ListTile(
           leading: const Icon(Icons.devices_outlined, color: wine),
           title: const Text('Aktif Cihazlar', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
@@ -5519,12 +5531,22 @@ class _CustomersPageState extends State<CustomersPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            const Text('Müşteri Yönetimi', style: TextStyle(
-              fontSize: 23, fontWeight: FontWeight.w900, color: ink,
-            )),
-            const SizedBox(height: 5),
-            const Text('Müşterilerini ve işletme bazlı kara listeyi yönet.',
-              style: TextStyle(color: muted, fontSize: 12)),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF8E2947), Color(0xFFC65B79)]),
+                borderRadius: BorderRadius.circular(22)),
+              child: const Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Müşteri ilişkileri', style: TextStyle(
+                    color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 5),
+                  Text('Müşterilerini görüntüle, kara listeyi yönet.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35)),
+                ])),
+                Icon(Icons.groups_rounded, color: Colors.white, size: 34),
+              ]),
+            ),
             const SizedBox(height: 16),
             Row(children: [
               Expanded(child: _CustomerMetric(
