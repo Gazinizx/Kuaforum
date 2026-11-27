@@ -5743,7 +5743,7 @@ class _CustomersPageState extends State<CustomersPage> {
       final blockedCount = all.where((c) => c['is_blacklisted'] == true).length;
       final customers = all.where((c) {
         final blocked = c['is_blacklisted'] == true;
-        final matchesFilter = widget.blacklistOnly || selectedFilter == 0 || blocked;
+        final matchesFilter = widget.blacklistOnly ? blocked : (selectedFilter == 0 || blocked);
         final value = '${c['full_name'] ?? ''} ${c['phone'] ?? ''}'.toLowerCase();
         return matchesFilter && value.contains(query.toLowerCase());
       }).toList()
