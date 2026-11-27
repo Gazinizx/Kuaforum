@@ -644,8 +644,8 @@ class _RoleShellState extends State<RoleShell> {
         pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.employee:
-        labels = ['Ana Sayfa','Randevular','Paylaşım','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.calendar_month,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const EmployeeHome(),const AppointmentsPage(title:'Randevularım'),const SharePage(),const MessagesPage(),const ProfilePage()];
+        labels = ['Ana Sayfa','Keşfet','Takip','Paylaşım','Randevular','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.calendar_month,Icons.chat_bubble_outline,Icons.person_outline];
+        pages = [const EmployeeHome(),const DiscoverPage(),const FollowingPage(),const SharePage(),const AppointmentsPage(title:'Randevularım'),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
@@ -1156,7 +1156,6 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   bool followingBusiness = false;
   bool followingAuthor = false;
   bool followStateLoaded = false;
-  bool isCustomer = false;
   bool openingChat = false;
   late bool saved;
   bool deleted = false;
@@ -1175,14 +1174,12 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
       final profile = await Supabase.instance.client
           .from('profiles').select('account_type')
           .eq('id', Supabase.instance.client.auth.currentUser!.id).single();
-      final customer = profile['account_type'] == 'customer';
       final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
       final author = widget.post.isEmployeePost && !widget.post.isOwnPost
           ? await widget.repository.isFollowingUser(widget.post.authorUserId)
           : false;
       if (!mounted) return;
       setState(() {
-        isCustomer = customer;
         followingBusiness = business;
         followingAuthor = author;
         followStateLoaded = true;
@@ -1415,14 +1412,14 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           style: const TextStyle(color: muted, fontSize: 10),
         ),
       ]),
-      if (isCustomer && widget.post.isEmployeePost && !widget.post.isOwnPost) ...[
+      if (!widget.post.isOwnPost) ...[
         const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: openingChat ? null : openEmployeeChat,
             icon: const Icon(Icons.chat_bubble_outline),
-            label: Text(openingChat ? 'Sohbet açılıyor...' : 'Çalışana Mesaj Gönder'),
+            label: Text(openingChat ? 'Sohbet açılıyor...' : 'Mesaj Gönder'),
             style: OutlinedButton.styleFrom(
               foregroundColor: wine,
               side: const BorderSide(color: blush),
@@ -2305,16 +2302,16 @@ class AppointmentTile extends StatelessWidget {
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
-  @override
-  State<MessagesPage> createState() => _MessagesPageState();
+  @override State<MessagesPage> createState() => _MessagesPageState();
 }
 
 class _MessagesPageState extends State<MessagesPage> {
   final repository = KuaforumMessagingRepository();
   final searchController = TextEditingController();
   late Future<List<Map<String, dynamic>>> conversations;
+  Future<List<Map<String, dynamic>>>? accountResults;
   Future<List<Map<String, dynamic>>>? businessResults;
-  bool openingBusinessChat = false;
+  bool openingChat = false;
 
   @override
   void initState() {
@@ -2334,161 +2331,172 @@ class _MessagesPageState extends State<MessagesPage> {
     await next;
   }
 
-  Future<void> searchBusinesses() async {
+  Future<void> searchAll() async {
     final query = searchController.text.trim();
     if (query.isEmpty) return;
-    setState(() => businessResults = repository.searchBusinesses(query));
+    setState(() {
+      accountResults = repository.searchAccounts(query);
+      businessResults = repository.searchBusinesses(query);
+    });
   }
 
-  Future<void> openBusinessChat(Map<String, dynamic> business) async {
-    if (openingBusinessChat) return;
-    setState(() => openingBusinessChat = true);
+  Future<void> openChat({required String targetId, required String title, required String subtitle, String? businessId}) async {
+    if (openingChat) return;
+    setState(() => openingChat = true);
     try {
-      final id = await repository.startBusinessConversation(business['id'] as String);
+      final id = businessId == null
+          ? await repository.startDirectConversation(targetId)
+          : await repository.startBusinessConversation(businessId);
       if (!mounted) return;
       await Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ChatPage(
-          conversationId: id,
-          title: business['name'] as String? ?? 'İşletme',
-          subtitle: 'İşletme',
-        ),
+        builder: (_) => ChatPage(conversationId: id, title: title, subtitle: subtitle),
       ));
-      if (mounted) {
-        setState(() {
-          conversations = repository.fetchConversations();
-          businessResults = null;
-          searchController.clear();
-        });
-      }
+      if (mounted) setState(() {
+        conversations = repository.fetchConversations();
+        accountResults = null;
+        businessResults = null;
+        searchController.clear();
+      });
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('İşletmeyle sohbet başlatılamadı: $error'), backgroundColor: wine),
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sohbet başlatılamadı: $error'), backgroundColor: wine),
       );
     } finally {
-      if (mounted) setState(() => openingBusinessChat = false);
+      if (mounted) setState(() => openingChat = false);
     }
   }
 
+  Widget resultPanel<T>({
+    required Future<List<Map<String,dynamic>>>? future,
+    required String emptyText,
+    required Widget Function(Map<String,dynamic>) tile,
+  }) {
+    if (future == null) return const SizedBox.shrink();
+    return FutureBuilder<List<Map<String,dynamic>>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(padding: EdgeInsets.all(10), child: Center(child: CircularProgressIndicator(color: wine)));
+        }
+        if (snapshot.hasError) return const Padding(
+          padding: EdgeInsets.all(10),
+          child: Text('Arama tamamlanamadı. Tekrar dene.', style: TextStyle(color: wine)),
+        );
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) return Padding(
+          padding: const EdgeInsets.all(10),
+          child: Text(emptyText, style: const TextStyle(color: muted)),
+        );
+        return Column(children: items.map(tile).toList());
+      },
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String,dynamic>>>(
     future: conversations,
     builder: (context, snapshot) => RefreshIndicator(
       color: wine,
       onRefresh: refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        padding: const EdgeInsets.fromLTRB(18,8,18,24),
         children: [
-          const Text('Mesajlar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
-          const SizedBox(height: 5),
-          const Text('İşletmelere veya çalışanlara doğrudan mesaj gönderebilirsin.', style: TextStyle(color: muted)),
-          const SizedBox(height: 14),
-          const Text('İşletmeye mesaj gönder', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Row(children: [
+          const Text('Mesajlar', style: TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:ink)),
+          const SizedBox(height:5),
+          const Text('Müşteriler, çalışanlar ve işletmeler birbirleriyle doğrudan konuşabilir.', style: TextStyle(color:muted)),
+          const SizedBox(height:14),
+          Row(children:[
             Expanded(child: TextField(
               controller: searchController,
               textInputAction: TextInputAction.search,
-              onSubmitted: (_) => searchBusinesses(),
+              onSubmitted: (_) => searchAll(),
               decoration: InputDecoration(
-                hintText: 'İşletme adı ara...',
-                prefixIcon: const Icon(Icons.search, color: wine),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: blush)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: blush)),
+                hintText:'Kişi veya işletme ara...',
+                prefixIcon:const Icon(Icons.search,color:wine),
+                filled:true,fillColor:Colors.white,
+                border:OutlineInputBorder(borderRadius:BorderRadius.circular(14),borderSide:const BorderSide(color:blush)),
+                enabledBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(14),borderSide:const BorderSide(color:blush)),
               ),
             )),
-            const SizedBox(width: 8),
+            const SizedBox(width:8),
             IconButton.filled(
-              onPressed: searchBusinesses,
-              style: IconButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
-              icon: const Icon(Icons.search),
+              onPressed:searchAll,
+              style:IconButton.styleFrom(backgroundColor:wine,foregroundColor:Colors.white),
+              icon:const Icon(Icons.search),
             ),
           ]),
-          if (businessResults != null)
-            FutureBuilder<List<Map<String, dynamic>>>(
-              future: businessResults,
-              builder: (context, result) {
-                if (result.connectionState == ConnectionState.waiting) {
-                  return const Padding(padding: EdgeInsets.all(14), child: Center(child: CircularProgressIndicator(color: wine)));
-                }
-                if (result.hasError) {
-                  return const Padding(padding: EdgeInsets.all(12), child: Text('İşletmeler aranamadı. Tekrar dene.', style: TextStyle(color: wine)));
-                }
-                final items = result.data ?? [];
-                if (items.isEmpty) {
-                  return const Padding(padding: EdgeInsets.all(12), child: Text('Bu isimle aktif işletme bulunamadı.', style: TextStyle(color: muted)));
-                }
-                return Column(children: items.map((business) => Card(
-                  color: Colors.white,
-                  elevation: 0,
-                  margin: const EdgeInsets.only(top: 7),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: blush)),
-                  child: ListTile(
-                    leading: const CircleAvatar(backgroundColor: blush, child: Icon(Icons.storefront_outlined, color: wine)),
-                    title: Text(business['name'] as String? ?? 'İşletme', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
-                    subtitle: Text(business['address'] as String? ?? 'Doğrudan işletmeyle sohbet et', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.chat_bubble_outline, color: wine),
-                    onTap: openingBusinessChat ? null : () => openBusinessChat(business),
+          if (accountResults != null || businessResults != null) ...[
+            const SectionTitle('Hesaplar'),
+            resultPanel(
+              future:accountResults,
+              emptyText:'Eşleşen kullanıcı bulunamadı.',
+              tile:(account) {
+                final type=account['account_type']?.toString();
+                final subtitle=type=='employee'?'Çalışan':type=='business_owner'?'İşletme hesabı':'Müşteri';
+                return Card(
+                  color:Colors.white,elevation:0,margin:const EdgeInsets.only(top:6),
+                  shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14),side:const BorderSide(color:blush)),
+                  child:ListTile(
+                    leading:CircleAvatar(backgroundColor:blush,child:Icon(type=='business_owner'?Icons.storefront_outlined:Icons.person_outline,color:wine)),
+                    title:Text(account['full_name']?.toString()??'Kullanıcı',style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),
+                    subtitle:Text(subtitle,style:const TextStyle(color:muted)),
+                    trailing:const Icon(Icons.chat_bubble_outline,color:wine),
+                    onTap:openingChat?null:()=>openChat(targetId:account['id'] as String,title:account['full_name']?.toString()??'Kullanıcı',subtitle:subtitle),
                   ),
-                )).toList());
+                );
               },
             ),
-          const SizedBox(height: 20),
-          const Text('Sohbetlerin', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          if (snapshot.connectionState == ConnectionState.waiting)
-            const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator(color: wine)))
-          else if (snapshot.hasError)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(children: [
-                const Icon(Icons.cloud_off_outlined, color: muted, size: 38),
-                const SizedBox(height: 8),
-                const Text('Mesajlar yüklenemedi.', style: TextStyle(color: ink, fontWeight: FontWeight.bold)),
-                TextButton(onPressed: refresh, child: const Text('Tekrar dene')),
-              ]),
-            )
-          else if ((snapshot.data ?? []).isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24, horizontal: 12),
-              child: Column(children: [
-                Icon(Icons.forum_outlined, color: rose, size: 42),
-                SizedBox(height: 10),
-                Text('Henüz sohbetin yok', style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.bold)),
-                SizedBox(height: 6),
-                Text('Yukarıdan işletme arayarak doğrudan sohbet başlatabilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.4)),
-              ]),
-            )
+            const SectionTitle('İşletmeler'),
+            resultPanel(
+              future:businessResults,
+              emptyText:'Eşleşen aktif işletme bulunamadı.',
+              tile:(business)=>Card(
+                color:Colors.white,elevation:0,margin:const EdgeInsets.only(top:6),
+                shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14),side:const BorderSide(color:blush)),
+                child:ListTile(
+                  leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.storefront_outlined,color:wine)),
+                  title:Text(business['name']?.toString()??'İşletme',style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),
+                  subtitle:Text(business['address']?.toString()??'İşletme hesabı',maxLines:1,overflow:TextOverflow.ellipsis),
+                  trailing:const Icon(Icons.chat_bubble_outline,color:wine),
+                  onTap:openingChat?null:()=>openChat(targetId:business['owner_id'] as String,title:business['name']?.toString()??'İşletme',subtitle:'İşletme',businessId:business['id'] as String),
+                ),
+              ),
+            ),
+          ],
+          const SectionTitle('Sohbetlerin'),
+          if(snapshot.connectionState==ConnectionState.waiting)
+            const Padding(padding:EdgeInsets.all(30),child:Center(child:CircularProgressIndicator(color:wine)))
+          else if(snapshot.hasError)
+            Padding(padding:const EdgeInsets.all(24),child:Column(children:[
+              const Icon(Icons.cloud_off_outlined,color:muted,size:38),
+              const SizedBox(height:8),
+              const Text('Mesajlar yüklenemedi.',style:TextStyle(color:ink,fontWeight:FontWeight.bold)),
+              TextButton(onPressed:refresh,child:const Text('Tekrar dene')),
+            ]))
+          else if((snapshot.data??[]).isEmpty)
+            const Padding(padding:EdgeInsets.symmetric(vertical:24,horizontal:12),child:Column(children:[
+              Icon(Icons.forum_outlined,color:rose,size:42),
+              SizedBox(height:10),
+              Text('Henüz sohbetin yok',style:TextStyle(color:ink,fontSize:16,fontWeight:FontWeight.bold)),
+              SizedBox(height:6),
+              Text('Yukarıdan müşteri, çalışan veya işletme arayarak sohbet başlatabilirsin.',textAlign:TextAlign.center,style:TextStyle(color:muted,height:1.4)),
+            ]))
           else
-            ...snapshot.data!.map((conversation) => Card(
-              color: Colors.white,
-              elevation: 0,
-              margin: const EdgeInsets.only(bottom: 9),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: blush)),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-                leading: CircleAvatar(
-                  backgroundColor: blush,
-                  child: Icon(conversation['employee_id'] == null ? Icons.storefront_outlined : Icons.person, color: wine),
-                ),
-                title: Text(conversation['peer_name'] as String? ?? 'Sohbet', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                subtitle: Text(
-                  '${conversation['business_name'] ?? 'İşletme'}  •  ${conversation['last_message'] ?? ''}',
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: muted, fontSize: 12),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: wine),
-                onTap: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => ChatPage(
-                    conversationId: conversation['id'] as String,
-                    title: conversation['peer_name'] as String? ?? 'Sohbet',
-                    subtitle: conversation['business_name'] as String? ?? 'İşletme',
-                  ),
-                )).then((_) => refresh()),
+            ...snapshot.data!.map((conversation)=>Card(
+              color:Colors.white,elevation:0,margin:const EdgeInsets.only(bottom:9),
+              shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16),side:const BorderSide(color:blush)),
+              child:ListTile(
+                contentPadding:const EdgeInsets.symmetric(horizontal:13,vertical:5),
+                leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person_outline,color:wine)),
+                title:Text(conversation['peer_name']?.toString()??'Sohbet',style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),
+                subtitle:Text('${conversation['peer_account_type']=='business_owner'?'İşletme':conversation['peer_account_type']=='employee'?'Çalışan':'Müşteri'} • ${conversation['last_message']??''}',maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12)),
+                trailing:const Icon(Icons.chevron_right,color:wine),
+                onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>ChatPage(
+                  conversationId:conversation['id'] as String,
+                  title:conversation['peer_name']?.toString()??'Sohbet',
+                  subtitle:conversation['peer_account_type']=='business_owner'?'İşletme':conversation['peer_account_type']=='employee'?'Çalışan':'Müşteri',
+                ))).then((_)=>refresh()),
               ),
             )),
         ],
