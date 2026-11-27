@@ -4584,8 +4584,13 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   }
 
   void open(BuildContext context, String section) {
+    if (section == 'Randevu Yönetimi') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const OwnerAppointments(),
+      ));
+      return;
+    }
     final page = switch (section) {
-      'Randevu Yönetimi' => const OwnerAppointments(),
       'Çalışan Randevuları' => const OwnerEmployeeAppointments(),
       'Müşterilerim' => const CustomersPage(),
       'Ayarlar' => const SettingsPage(),
@@ -4610,8 +4615,17 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
       if (snapshot.hasError || snapshot.data == null) {
         return Center(child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('İşletme profili yüklenemedi: ${snapshot.error ?? 'Bilinmeyen hata'}',
-            textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('İşletme profili yüklenemedi: ${snapshot.error ?? 'Bilinmeyen hata'}',
+              textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => setState(() => data = load()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tekrar dene'),
+              style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+            ),
+          ]),
         ));
       }
       final business = snapshot.data!['business'] as Map<String, dynamic>;
