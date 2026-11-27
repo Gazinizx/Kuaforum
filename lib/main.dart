@@ -1131,7 +1131,7 @@ class _FeedMessage extends StatelessWidget {
         Text(title, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16, height: 1.25)),
         const SizedBox(height: 6),
-        Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.45)),
+        Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 14, height: 1.45)),
         if (action != null) ...[
           const SizedBox(height: 12),
           OutlinedButton(onPressed: onPressed, child: Text(action!)),
