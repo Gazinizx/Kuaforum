@@ -5395,18 +5395,12 @@ class _CustomersPageState extends State<CustomersPage> {
   final search = TextEditingController();
   late Future<Map<String, dynamic>> data;
   String query = '';
+  int selectedFilter = 0;
 
   @override
-  void initState() {
-    super.initState();
-    data = load();
-  }
-
+  void initState() { super.initState(); data = load(); }
   @override
-  void dispose() {
-    search.dispose();
-    super.dispose();
-  }
+  void dispose() { search.dispose(); super.dispose(); }
 
   Future<Map<String, dynamic>> load() async {
     final user = client.auth.currentUser;
@@ -5414,10 +5408,13 @@ class _CustomersPageState extends State<CustomersPage> {
     final business = await client.from('businesses').select('id')
         .eq('owner_id', user.id).maybeSingle();
     if (business == null) throw Exception('İşletme kaydı bulunamadı.');
-    final customers = await client.rpc('get_business_customers', params: {
+    final rows = await client.rpc('get_business_customers', params: {
       'p_business_id': business['id'],
     });
-    return {'business_id': business['id'], 'customers': List<Map<String, dynamic>>.from(customers as List)};
+    return {
+      'business_id': business['id'],
+      'customers': List<Map<String, dynamic>>.from(rows as List),
+    };
   }
 
   Future<void> refreshData() async {
@@ -5426,7 +5423,32 @@ class _CustomersPageState extends State<CustomersPage> {
     await next;
   }
 
-  Future<void> toggleBlacklist(String businessId, Map<String, dynamic> customer, bool blocked) async {
+  String lastVisitLabel(dynamic value) {
+    if (value == null || value.toString().isEmpty) return 'Henüz randevu yok';
+    final date = DateTime.tryParse(value.toString())?.toLocal();
+    if (date == null) return 'Tarih bilgisi yok';
+    return 'Son randevu: ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  Future<void> toggleBlacklist(
+    String businessId, Map<String, dynamic> customer, bool blocked,
+  ) async {
+    final name = customer['full_name']?.toString() ?? 'Bu müşteri';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(blocked ? 'Kara listeye al' : 'Kara listeden çıkar'),
+        content: Text(blocked
+            ? '$$name adlı müşteriyi bu işletmenin kara listesine almak istiyor musun?'
+            : '$$name adlı müşterinin kara liste kaydını kaldırmak istiyor musun?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(blocked ? 'Kara listeye al' : 'Listeden çıkar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     try {
       await client.rpc('set_customer_blacklist', params: {
         'p_business_id': businessId,
@@ -5435,9 +5457,12 @@ class _CustomersPageState extends State<CustomersPage> {
         'p_reason': blocked ? 'İşletme tarafından kara listeye alındı' : null,
       });
       await refreshData();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(blocked ? 'Müşteri kara listeye alındı.' : 'Müşteri kara listeden çıkarıldı.'),
+      ));
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kara liste güncellenemedi: $error'), backgroundColor: wine),
+        SnackBar(content: Text('Kara liste güncellenemedi: $$error'), backgroundColor: wine),
       );
     }
   }
@@ -5446,58 +5471,153 @@ class _CustomersPageState extends State<CustomersPage> {
   Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
     future: data,
     builder: (context, snapshot) {
-      final customers = (snapshot.data?['customers'] as List<Map<String, dynamic>>? ?? [])
-          .where((customer) {
-            final value = '${customer['full_name'] ?? ''} ${customer['phone'] ?? ''}'.toLowerCase();
-            return value.contains(query.toLowerCase());
-          }).toList();
+      final all = snapshot.data?['customers'] as List<Map<String, dynamic>>? ?? [];
+      final blockedCount = all.where((c) => c['is_blacklisted'] == true).length;
+      final customers = all.where((c) {
+        final blocked = c['is_blacklisted'] == true;
+        final matchesFilter = selectedFilter == 0 || blocked;
+        final value = '${c['full_name'] ?? ''} ${c['phone'] ?? ''}'.toLowerCase();
+        return matchesFilter && value.contains(query.toLowerCase());
+      }).toList()
+        ..sort((a, b) {
+          final ab = a['is_blacklisted'] == true, bb = b['is_blacklisted'] == true;
+          if (ab != bb) return ab ? -1 : 1;
+          return (a['full_name'] ?? '').toString().compareTo((b['full_name'] ?? '').toString());
+        });
+
       return RefreshIndicator(
         color: wine,
         onRefresh: refreshData,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            const Text('Müşterilerim', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-            const SizedBox(height: 12),
+            const Text('Müşteri Yönetimi', style: TextStyle(
+              fontSize: 23, fontWeight: FontWeight.w900, color: ink,
+            )),
+            const SizedBox(height: 5),
+            const Text('Müşterilerini ve işletme bazlı kara listeyi yönet.',
+              style: TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: _CustomerMetric(
+                value: snapshot.connectionState == ConnectionState.waiting ? '—' : all.length.toString(),
+                label: 'Toplam müşteri', icon: Icons.people_alt_outlined,
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _CustomerMetric(
+                value: snapshot.connectionState == ConnectionState.waiting ? '—' : blockedCount.toString(),
+                label: 'Kara listede', icon: Icons.block_rounded, warning: blockedCount > 0,
+              )),
+            ]),
+            const SizedBox(height: 16),
             TextField(
               controller: search,
               onChanged: (value) => setState(() => query = value),
               decoration: InputDecoration(
                 hintText: 'İsim veya telefon ara...',
                 prefixIcon: const Icon(Icons.search, color: wine),
+                suffixIcon: query.isEmpty ? null : IconButton(
+                  onPressed: () { search.clear(); setState(() => query = ''); },
+                  icon: const Icon(Icons.close, color: muted),
+                ),
                 filled: true, fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: blush)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: blush)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: blush)),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 13),
+            Row(children: [
+              Expanded(child: _CustomerFilterChip(
+                label: 'Tüm müşteriler', count: all.length, selected: selectedFilter == 0,
+                onTap: () => setState(() => selectedFilter = 0),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _CustomerFilterChip(
+                label: 'Kara liste', count: blockedCount, selected: selectedFilter == 1,
+                onTap: () => setState(() => selectedFilter = 1),
+              )),
+            ]),
+            const SizedBox(height: 14),
             if (snapshot.connectionState == ConnectionState.waiting)
-              const Center(child: CircularProgressIndicator(color: wine))
+              const Padding(padding: EdgeInsets.all(34),
+                child: Center(child: CircularProgressIndicator(color: wine)))
             else if (snapshot.hasError)
-              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Müşteriler yüklenemedi', detail: snapshot.error.toString())
+              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Müşteriler yüklenemedi',
+                detail: snapshot.error.toString())
             else if (customers.isEmpty)
-              const _FeedMessage(icon: Icons.people_outline, title: 'Müşteri bulunamadı', detail: 'Arama ölçütünü değiştir veya işletmene bağlı müşterileri bekle.')
+              _FeedMessage(icon: Icons.people_outline,
+                title: selectedFilter == 1 ? 'Kara listede müşteri yok' : 'Müşteri bulunamadı',
+                detail: query.isNotEmpty ? 'Arama ölçütünü değiştirebilirsin.'
+                    : 'Müşteri randevu oluşturdukça burada görünecek.')
             else
               ...customers.map((customer) {
                 final blocked = customer['is_blacklisted'] == true;
-                return Card(
-                  color: Colors.white,
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: blush,
-                      child: Icon(blocked ? Icons.block : Icons.person, color: wine),
-                    ),
-                    title: Text(customer['full_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                    subtitle: Text('${customer['phone'] ?? 'Telefon yok'} • ${customer['appointment_count'] ?? 0} randevu'),
-                    isThreeLine: true,
-                    trailing: TextButton(
-                      onPressed: () => toggleBlacklist(snapshot.data!['business_id'] as String, customer, !blocked),
-                      child: Text(blocked ? 'Listeden çıkar' : 'Kara listeye al',
-                        style: TextStyle(color: blocked ? Colors.green.shade700 : wine, fontSize: 11)),
-                    ),
+                final noShows = int.tryParse('${customer['no_show_count'] ?? 0}') ?? 0;
+                final appointments = int.tryParse('${customer['appointment_count'] ?? 0}') ?? 0;
+                final reason = customer['blacklist_reason']?.toString() ?? '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 11),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(19),
+                    border: Border.all(color: blocked ? const Color(0xFFE8C4C8) : blush),
+                    boxShadow: [BoxShadow(color: ink.withOpacity(.035), blurRadius: 12,
+                      offset: const Offset(0, 4))],
                   ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      CircleAvatar(
+                        radius: 23,
+                        backgroundColor: blocked ? const Color(0xFFF8E8E9) : blush,
+                        child: Icon(blocked ? Icons.block_rounded : Icons.person_outline_rounded,
+                          color: blocked ? const Color(0xFF9B4B50) : wine),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(customer['full_name']?.toString() ?? 'İsimsiz müşteri',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: ink, fontSize: 14)),
+                        const SizedBox(height: 3),
+                        Text(customer['phone']?.toString() ?? 'Telefon bilgisi yok',
+                          style: const TextStyle(color: muted, fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Text(lastVisitLabel(customer['last_appointment']),
+                          style: const TextStyle(color: muted, fontSize: 10)),
+                      ])),
+                      if (blocked) Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                        decoration: BoxDecoration(color: const Color(0xFFF8E8E9),
+                          borderRadius: BorderRadius.circular(20)),
+                        child: const Text('KARA LİSTE', style: TextStyle(
+                          color: Color(0xFF9B4B50), fontSize: 9, fontWeight: FontWeight.w900)),
+                      ),
+                    ]),
+                    const SizedBox(height: 13),
+                    Row(children: [
+                      _CustomerInfoPill(icon: Icons.calendar_month_outlined, text: '$$appointments randevu'),
+                      const SizedBox(width: 7),
+                      _CustomerInfoPill(icon: Icons.event_busy_outlined, text: '$$noShows gelmedi',
+                        danger: noShows >= 3),
+                    ]),
+                    if (blocked && reason.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Not: $$reason', style: const TextStyle(color: muted, fontSize: 11)),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                      onPressed: () => toggleBlacklist(snapshot.data!['business_id'] as String,
+                        customer, !blocked),
+                      icon: Icon(blocked ? Icons.remove_circle_outline : Icons.block_outlined, size: 17),
+                      label: Text(blocked ? 'Kara listeden çıkar' : 'Kara listeye al'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: blocked ? const Color(0xFF26734D) : wine,
+                        side: BorderSide(color: blocked ? const Color(0xFFB8D8C6) : blush),
+                      ),
+                    )),
+                  ]),
                 );
               }),
           ],
@@ -5506,6 +5626,79 @@ class _CustomersPageState extends State<CustomersPage> {
     },
   );
 }
+
+class _CustomerMetric extends StatelessWidget {
+  final String value, label;
+  final IconData icon;
+  final bool warning;
+  const _CustomerMetric({required this.value, required this.label, required this.icon, this.warning = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: warning ? const Color(0xFFE8C4C8) : blush)),
+    child: Row(children: [
+      Container(width: 37, height: 37,
+        decoration: BoxDecoration(color: warning ? const Color(0xFFF8E8E9) : blush,
+          borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: warning ? const Color(0xFF9B4B50) : wine, size: 19)),
+      const SizedBox(width: 9),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(value, style: const TextStyle(color: ink, fontSize: 19, fontWeight: FontWeight.w900)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)),
+      ])),
+    ]),
+  );
+}
+
+class _CustomerFilterChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+  const _CustomerFilterChip({required this.label, required this.count,
+    required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap, borderRadius: BorderRadius.circular(14),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
+      decoration: BoxDecoration(color: selected ? wine : Colors.white,
+        borderRadius: BorderRadius.circular(14), border: Border.all(color: selected ? wine : blush)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: selected ? Colors.white : ink, fontSize: 11, fontWeight: FontWeight.w800))),
+        const SizedBox(width: 6),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(color: selected ? Colors.white.withOpacity(.18) : blush,
+            borderRadius: BorderRadius.circular(20)),
+          child: Text('$$count', style: TextStyle(color: selected ? Colors.white : wine,
+            fontSize: 10, fontWeight: FontWeight.w900))),
+      ]),
+    ),
+  );
+}
+
+class _CustomerInfoPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool danger;
+  const _CustomerInfoPill({required this.icon, required this.text, this.danger = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(color: danger ? const Color(0xFFFFF0EF) : cream,
+      borderRadius: BorderRadius.circular(10)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 13, color: danger ? const Color(0xFFB3261E) : muted),
+      const SizedBox(width: 5),
+      Text(text, style: TextStyle(color: danger ? const Color(0xFFB3261E) : muted,
+        fontSize: 10, fontWeight: FontWeight.w700)),
+    ]),
+  );
+}
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
