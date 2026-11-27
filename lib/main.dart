@@ -644,8 +644,8 @@ class _RoleShellState extends State<RoleShell> {
         pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.employee:
-        labels = ['Ana Sayfa','Keşfet','Takip','Paylaşım','Randevular','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.calendar_month,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const EmployeeHome(),const DiscoverPage(),const FollowingPage(),const SharePage(),const AppointmentsPage(title:'Randevularım'),const MessagesPage(),const ProfilePage()];
+        labels = ['Ana Sayfa','Keşfet','Paylaşım','Randevular','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.add_circle,Icons.calendar_month,Icons.chat_bubble_outline,Icons.person_outline];
+        pages = [const EmployeeHome(),const DiscoverPage(),const SharePage(),const AppointmentsPage(title:'Randevularım'),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
@@ -1087,7 +1087,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           const SizedBox(height: 16),
           const SearchBarBox(hint: 'Salon veya çalışan ara...'),
           const SizedBox(height: 12),
-          const SectionTitle('Keşfet akışı'),
+          SectionTitle('Keşfet akışı', action: 'Takip Edilenler', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FollowingPage()))),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
           else if (snapshot.hasError)
