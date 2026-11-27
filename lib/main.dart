@@ -31,13 +31,39 @@ class KuaforumApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     title: 'Kuaförüm',
+    themeMode: ThemeMode.light,
     theme: ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: cream,
-      colorScheme: ColorScheme.fromSeed(seedColor: wine, primary: wine, surface: cream),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: wine,
+        primary: wine,
+        surface: cream,
+        brightness: Brightness.light,
+      ),
       fontFamily: 'Roboto',
-      appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: cream,
+        foregroundColor: ink,
+        elevation: 0,
+        centerTitle: false,
+      ),
     ),
+    builder: (context, child) {
+      // Keep layouts readable on devices configured with extremely large system text.
+      // Preserve moderate accessibility scaling while preventing one word per line
+      // and oversized empty states/buttons across the app.
+      final media = MediaQuery.of(context);
+      final scale = (media.textScaler.scale(14) / 14).clamp(1.0, 1.3).toDouble();
+      return MediaQuery(
+        data: media.copyWith(textScaler: TextScaler.linear(scale)),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(decoration: TextDecoration.none),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+    },
     home: LoginEntryPage(autoResume: autoResume),
   );
 }
