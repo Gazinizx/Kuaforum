@@ -5717,36 +5717,58 @@ class SettingsPage extends StatelessWidget {
     if (page == null) return;
     Navigator.push(context, MaterialPageRoute(
       builder: (_) => Scaffold(
-        appBar: AppBar(title: Text(section, style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+        appBar: AppBar(title: Text(section,
+          style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
         body: page,
       ),
     ));
   }
 
   @override
-  Widget build(BuildContext context) => PageBody(children: [
-    const Text('Ayarlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
-    const SizedBox(height: 12),
-    ...['İşletme Profili','Çalışanlar','Hizmetler','Çalışma Saatleri','Randevu Aralığı','Çalışan İzinleri'].map((section) => Card(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        leading: Icon(switch (section) {
-          'İşletme Profili' => Icons.storefront_outlined,
-          'Çalışanlar' => Icons.people_outline,
-          'Hizmetler' => Icons.content_cut,
-          'Çalışma Saatleri' => Icons.schedule,
-          'Randevu Aralığı' => Icons.timelapse,
-          'Çalışan İzinleri' => Icons.event_busy,
-          _ => Icons.settings_outlined,
-        }, color: wine),
-        title: Text(section, style: const TextStyle(fontWeight: FontWeight.w600, color: ink)),
-        trailing: const Icon(Icons.chevron_right, color: muted),
-        onTap: () => open(context, section),
-      ),
-    )),
-  ]);
+  Widget build(BuildContext context) {
+    const sections = [
+      ('İşletme Profili', 'Salon adı, adres, fotoğraf ve geçici kapatma', Icons.storefront_outlined),
+      ('Çalışanlar', 'Ekibine çalışan ekle, hesaplarını ve durumlarını yönet', Icons.people_alt_outlined),
+      ('Hizmetler', 'Hizmet adlarını, ücretlerini ve sürelerini düzenle', Icons.content_cut_rounded),
+      ('Çalışma Saatleri', 'Haftanın günlerine göre açılış ve kapanış saatleri', Icons.schedule_rounded),
+      ('Randevu Aralığı', 'Yeni randevuların kaç dakikada bir başlayacağını belirle', Icons.timelapse_rounded),
+      ('Çalışan İzinleri', 'Çalışanların izin taleplerini incele ve yanıtla', Icons.event_busy_outlined),
+    ];
+    return PageBody(children: [
+      const Text('İşletme Ayarları',
+        style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 5),
+      const Text('Salonunu ve ekibini tek yerden yönet.',
+        style: TextStyle(color: muted, fontSize: 12)),
+      const SizedBox(height: 15),
+      ...sections.map((section) => Card(
+        color: Colors.white,
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(17),
+          side: const BorderSide(color: blush),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          leading: Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(13)),
+            child: Icon(section.$3, color: wine, size: 21),
+          ),
+          title: Text(section.$1,
+            style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(section.$2,
+              style: const TextStyle(color: muted, fontSize: 11)),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded, color: muted),
+          onTap: () => open(context, section.$1),
+        ),
+      )),
+    ]);
+  }
 }
 
 class BusinessDetailsPage extends StatefulWidget {
