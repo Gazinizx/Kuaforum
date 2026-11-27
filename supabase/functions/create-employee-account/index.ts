@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { withSupabase } from "npm:@supabase/server@1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,33 +6,31 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") {
-    return Response.json({ error: "Method not allowed" }, { status: 405, headers: corsHeaders });
-  }
+const json = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
-  const json = (body: Record<string, unknown>, status = 200) =>
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    for (const key of ["message", "details", "hint"]) {
+      if (typeof value[key] === "string" && value[key]) return value[key] as string;
+    }
+  }
+  return "Çalışan hesabı oluşturulamadı.";
+}
+
+const authenticatedHandler = withSupabase({ auth: "user" }, async (req, ctx) => {
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const admin = ctx.supabaseAdmin;
+  const ownerId = String(ctx.userClaims?.sub ?? "");
+  if (!ownerId) return json({ error: "Oturum doğrulanamadı." }, 401);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Oturum doğrulanamadı." }, 401);
-    const token = authHeader.slice("Bearer ".length);
-    const url = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !serviceKey) return json({ error: "Sunucu yapılandırması eksik." }, 500);
-
-    const admin = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data: authData, error: authError } = await admin.auth.getUser(token);
-    if (authError || !authData.user) return json({ error: "Oturum geçersiz veya süresi dolmuş." }, 401);
-    const ownerId = authData.user.id;
-
     const body = await req.json();
     const businessId = String(body.business_id ?? "").trim();
     const firstName = String(body.first_name ?? "").trim();
@@ -51,48 +49,94 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Bu e-posta ana yönetici hesabına ayrılmıştır." }, 409);
     }
     if (password.length < 8) return json({ error: "Şifre en az 8 karakter olmalıdır." }, 400);
-    if (phone.replace(/\D/g, "").length < 10) return json({ error: "Geçerli bir telefon numarası girin." }, 400);
+    if (phone.replace(/\D/g, "").length < 10) {
+      return json({ error: "Geçerli bir telefon numarası girin." }, 400);
+    }
 
     const { data: profile, error: profileError } = await admin
-      .from("profiles").select("account_type,is_blocked").eq("id", ownerId).single();
-    if (profileError || profile.account_type !== "business_owner" || profile.is_blocked) {
+      .from("profiles")
+      .select("account_type,is_blocked")
+      .eq("id", ownerId)
+      .single();
+
+    if (profileError || profile?.account_type !== "business_owner" || profile?.is_blocked) {
       return json({ error: "Bu işlem yalnızca aktif işletme sahibi tarafından yapılabilir." }, 403);
     }
 
     const { data: business, error: businessError } = await admin
-      .from("businesses").select("id").eq("id", businessId)
-      .eq("owner_id", ownerId).eq("status", "active").maybeSingle();
-    if (businessError || !business) return json({ error: "Bu işletmede çalışan ekleme yetkiniz yok." }, 403);
+      .from("businesses")
+      .select("id")
+      .eq("id", businessId)
+      .eq("owner_id", ownerId)
+      .eq("status", "active")
+      .maybeSingle();
 
-    const fullName = `${firstName} ${lastName}`;
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName, first_name: firstName, last_name: lastName, phone, account_type: "employee" },
-    });
-    if (inviteError || !invited.user) {
-      return json({ error: inviteError?.message ?? "Davet e-postası gönderilemedi." }, 400);
+    if (businessError || !business) {
+      return json({ error: "Bu işletmede çalışan ekleme yetkiniz yok." }, 403);
     }
 
-    const employeeUserId = invited.user.id;
-    try {
-      const { error: passwordError } = await admin.auth.admin.updateUserById(employeeUserId, { password });
-      if (passwordError) throw passwordError;
+    const fullName = `${firstName} ${lastName}`;
 
-      const { error: updateProfileError } = await admin.from("profiles").update({
-        full_name: fullName, email, phone, account_type: "employee",
-      }).eq("id", employeeUserId);
+    // Create the account directly as confirmed; no invitation or email verification step.
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        account_type: "employee",
+      },
+    });
+
+    if (createError || !created.user) {
+      const message = createError ? getErrorMessage(createError) : "Çalışan hesabı oluşturulamadı.";
+      const status = /already|exists|registered|duplicate/i.test(message) ? 409 : 400;
+      return json({ error: message }, status);
+    }
+
+    const employeeUserId = created.user.id;
+    try {
+      const { data: updatedProfile, error: updateProfileError } = await admin
+        .from("profiles")
+        .update({ full_name: fullName, email, phone, account_type: "employee" })
+        .eq("id", employeeUserId)
+        .select("id")
+        .maybeSingle();
+
       if (updateProfileError) throw updateProfileError;
+      if (!updatedProfile) throw new Error("Çalışan profili oluşturulamadı.");
 
       const { error: employeeError } = await admin.from("employees").insert({
-        business_id: businessId, user_id: employeeUserId, display_name: fullName, is_active: true,
+        business_id: businessId,
+        user_id: employeeUserId,
+        display_name: fullName,
+        is_active: true,
       });
       if (employeeError) throw employeeError;
     } catch (error) {
-      await admin.auth.admin.deleteUser(employeeUserId);
+      const { error: deleteError } = await admin.auth.admin.deleteUser(employeeUserId);
+      if (deleteError) console.error("Çalışan hesabı geri alınamadı:", getErrorMessage(deleteError));
       throw error;
     }
 
-    return json({ success: true, employee_id: employeeUserId });
+    return json({ success: true, employee_id: employeeUserId, email_confirmed: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Çalışan hesabı oluşturulamadı." }, 400);
+    console.error("create-employee-account:", getErrorMessage(error));
+    return json({ error: getErrorMessage(error) }, 400);
   }
+});
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const response = await authenticatedHandler(req);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) headers.set(key, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 });
