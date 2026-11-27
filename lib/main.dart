@@ -4619,12 +4619,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
       ));
       return;
     }
+    if (section == 'Ayarlar') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+      return;
+    }
     final page = switch (section) {
       'Çalışan Randevuları' => const OwnerEmployeeAppointments(),
       'Müşterilerim' => const CustomersPage(),
       'Müşteri Kara Listesi' => const CustomersPage(blacklistOnly: true),
-      'Ayarlar' => const SettingsPage(),
-      _ => const SettingsPage(),
+      _ => const CustomersPage(),
     };
     Navigator.push(context, MaterialPageRoute(
       builder: (_) => Scaffold(
@@ -5937,7 +5940,18 @@ class SettingsPage extends StatelessWidget {
       ('Randevu Aralığı', 'Randevu başlangıçları arasındaki dakika süresini ayarla', Icons.timelapse_rounded),
       ('Paylaşım Oluştur', 'Salonundan fotoğraf ve video paylaş', Icons.add_a_photo_outlined),
     ];
-    return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, 28), children: [
+    return Scaffold(
+      backgroundColor: cream,
+      appBar: AppBar(
+        backgroundColor: cream,
+        elevation: 0,
+        title: const Text('Ayarlar', style: TextStyle(color: wine, fontWeight: FontWeight.w900)),
+      ),
+      body: SafeArea(
+        child: ListView(
+          key: const PageStorageKey('business-settings-list'),
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+          children: [
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -5974,7 +5988,10 @@ class SettingsPage extends StatelessWidget {
           onTap: () => open(context, section.$1),
         ),
       )),
-    ]);
+          ],
+        ),
+      ),
+    );
   }
 }
 
