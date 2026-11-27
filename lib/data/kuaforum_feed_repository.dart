@@ -60,7 +60,7 @@ class KuaforumFeedPost {
         : '';
     final businessName = business is Map<String, dynamic>
         ? (business['name'] as String? ?? '')
-        : '';
+        : 'Topluluk';
     final businessOwnerId = business is Map<String, dynamic>
         ? (business['owner_id'] as String? ?? '')
         : '';
@@ -266,10 +266,12 @@ class KuaforumFeedRepository {
     }
 
     final accountType = profile['account_type'] as String? ?? 'customer';
-    String businessId;
+    String? businessId;
     String? employeeId;
 
-    if (accountType == 'business_owner') {
+    if (accountType == 'customer') {
+      businessId = null;
+    } else if (accountType == 'business_owner') {
       final business = await _client
           .from('businesses')
           .select('id')
@@ -314,8 +316,9 @@ class KuaforumFeedRepository {
         ),
     };
 
-    final objectPath =
-        '$businessId/$userId/${DateTime.now().microsecondsSinceEpoch}.$extension';
+    final objectPath = accountType == 'customer'
+        ? 'community/$userId/${DateTime.now().microsecondsSinceEpoch}.$extension'
+        : '$businessId/$userId/${DateTime.now().microsecondsSinceEpoch}.$extension';
     await _client.storage.from('salon-feed').upload(
           objectPath,
           mediaFile,
