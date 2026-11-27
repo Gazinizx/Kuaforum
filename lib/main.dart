@@ -4615,14 +4615,16 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
         ));
       }
       final business = snapshot.data!['business'] as Map<String, dynamic>;
-      final logo = business['logo_url'] as String?;
+      final rawLogo = business['logo_url'] as String?;
+      final logo = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
       final address = (business['address'] as String?)?.trim() ?? '';
       return PageBody(children: [
         Center(child: CircleAvatar(
           radius: 48,
           backgroundColor: blush,
-          backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
-          child: logo == null || logo.isEmpty
+          backgroundImage: logo == null ? null : NetworkImage(logo),
+          child: logo == null
               ? const Icon(Icons.storefront, size: 48, color: wine) : null,
         )),
         const SizedBox(height: 10),
@@ -5584,7 +5586,7 @@ class _CustomersPageState extends State<CustomersPage> {
                         Text(customer['phone']?.toString() ?? 'Telefon bilgisi yok',
                           style: const TextStyle(color: muted, fontSize: 12)),
                         const SizedBox(height: 5),
-                        Text(lastVisitLabel(customer['last_appointment']),
+                        Text(lastVisitLabel(customer['last_appointment_at']),
                           style: const TextStyle(color: muted, fontSize: 10)),
                       ])),
                       if (blocked) Container(
@@ -5866,13 +5868,27 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
   }
 
   Future<void> save() async {
-    if (businessId == null || name.text.trim().isEmpty) return;
+    if (businessId == null || saving) return;
+    final trimmedName = name.text.trim();
+    final trimmedAddress = address.text.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 80) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İşletme adı 2-80 karakter arasında olmalı.')),
+      );
+      return;
+    }
+    if (trimmedAddress.length > 180) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adres en fazla 180 karakter olabilir.')),
+      );
+      return;
+    }
     setState(() => saving = true);
     try {
       await client.rpc('update_my_business_profile', params: {
         'p_business_id': businessId,
-        'p_name': name.text.trim(),
-        'p_address': address.text.trim(),
+        'p_name': trimmedName,
+        'p_address': trimmedAddress,
       });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('İşletme profili güncellendi.')));
@@ -6058,8 +6074,23 @@ class _WorkingHoursPageState extends State<WorkingHoursPage> {
       '${selected.hour.toString().padLeft(2,'0')}:${selected.minute.toString().padLeft(2,'0')}');
   }
 
+  int _minutes(String value) {
+    final parts = value.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
+
   Future<void> save() async {
-    if (businessId == null) return;
+    if (businessId == null || saving) return;
+    for (final day in days) {
+      if (day['is_closed'] != true &&
+          _minutes(day['closes_at'] as String) <= _minutes(day['opens_at'] as String)) {
+        final dayName = labels[day['weekday'] as int];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$dayName için kapanış saati açılış saatinden sonra olmalı.')),
+        );
+        return;
+      }
+    }
     setState(() => saving = true);
     try {
       await client.from('business_hours').upsert(
