@@ -697,7 +697,11 @@ class _RoleShellState extends State<RoleShell> {
 
 class PageBody extends StatelessWidget {
   final List<Widget> children; const PageBody({super.key,required this.children});
-  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(18,8,18,24),children:children);
+  @override Widget build(BuildContext context)=>ListView(
+    padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+    children: children,
+  );
 }
 class SectionTitle extends StatelessWidget {
   final String title; final String? action; final VoidCallback? onTap;
@@ -2144,10 +2148,29 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       const SizedBox(width: 11),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(item['customer_name']?.toString() ?? item['business_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                        Text('${item['service_name']?.toString() ?? 'Hizmet'} • ${item['employee_name']?.toString() ?? 'Çalışan'}', style: const TextStyle(color: muted, fontSize: 12)),
+                        Text(
+                          '${item['service_name']?.toString() ?? 'Hizmet'} • ${item['employee_name']?.toString() ?? 'Çalışan'}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: muted, fontSize: 12),
+                        ),
                         Text(dateText, style: const TextStyle(color: ink, fontSize: 12)),
                       ])),
-                      Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 88),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(9)),
+                          child: Text(
+                            statusLabel(status),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: wine, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
                     ]),
                     if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] != true) ...[
                       const SizedBox(height: 8),
@@ -2220,8 +2243,9 @@ class _AppointmentCount extends StatelessWidget {
   final String value, label;
   const _AppointmentCount({required this.value, required this.label});
   @override Widget build(BuildContext context) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+    Text(value, maxLines: 1, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+    Text(label, maxLines: 2, overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.2)),
   ]));
 }
 
@@ -4283,7 +4307,8 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
         decoration: const InputDecoration(labelText: 'Hizmet seç'),
         items: services.map((service) => DropdownMenuItem(
           value: service['id'] as String,
-          child: Text('${service['name']} • ${service['price']} ₺'),
+          child: Text('${service['name']} • ${service['price']} ₺',
+            maxLines: 1, overflow: TextOverflow.ellipsis),
         )).toList(),
         onChanged: (value) async { setState(() => serviceId = value); await loadSlots(); },
       ),
@@ -4295,15 +4320,21 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
           const DropdownMenuItem<String?>(value: null, child: Text('Fark etmez')),
           ...employees.map((employee) => DropdownMenuItem<String?>(
             value: employee['id'] as String,
-            child: Text(employee['display_name'] as String? ?? 'Çalışan'),
+            child: Text(employee['display_name'] as String? ?? 'Çalışan',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
           )),
         ],
         onChanged: (value) async { setState(() => employeeId = value); await loadSlots(); },
       ),
       const SizedBox(height: 12),
-      OutlinedButton.icon(onPressed: chooseDate,
-        icon: const Icon(Icons.calendar_month),
-        label: Text(dateValue(selectedDate))),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: chooseDate,
+          icon: const Icon(Icons.calendar_month),
+          label: Text('Tarih: ${dateValue(selectedDate)}'),
+        ),
+      ),
       const SizedBox(height: 14),
       const Text('Uygun saatler', style: TextStyle(fontWeight: FontWeight.w700, color: ink)),
       const SizedBox(height: 8),
@@ -4320,8 +4351,15 @@ class _BusinessBookingPageState extends State<BusinessBookingPage> {
             onSelected: (_) => setState(() => selectedSlot = value), selectedColor: blush);
         }).toList()),
       const SizedBox(height: 20),
-      ElevatedButton(onPressed: booking || selectedSlot == null ? null : book,
-        child: booking ? const CircularProgressIndicator() : const Text('Randevu talebi oluştur')),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: booking || selectedSlot == null ? null : book,
+          child: booking
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Text('Randevu talebi oluştur'),
+        ),
+      ),
     ]);
   }
 }
