@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'data/kuaforum_feed_repository.dart';
@@ -29,13 +31,95 @@ class KuaforumApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     title: 'Kuaförüm',
+    themeMode: ThemeMode.light,
     theme: ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: cream,
-      colorScheme: ColorScheme.fromSeed(seedColor: wine, primary: wine, surface: cream),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: wine,
+        primary: wine,
+        surface: cream,
+        brightness: Brightness.light,
+      ),
       fontFamily: 'Roboto',
-      appBarTheme: const AppBarTheme(backgroundColor: cream, foregroundColor: ink, elevation: 0, centerTitle: false),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: cream,
+        foregroundColor: ink,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(color: ink, fontSize: 19, fontWeight: FontWeight.w800),
+        iconTheme: IconThemeData(color: ink),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+        hintStyle: const TextStyle(color: muted, fontSize: 13),
+        labelStyle: const TextStyle(color: muted, fontSize: 13),
+        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: blush)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: blush)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: wine, width: 1.5)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: Color(0xFFB3261E))),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15)), borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.5)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(
+        minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        backgroundColor: wine, foregroundColor: Colors.white, disabledBackgroundColor: blush, disabledForegroundColor: muted,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0,
+      )),
+      filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        backgroundColor: wine, foregroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      )),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 46), padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        foregroundColor: wine, side: const BorderSide(color: blush),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      )),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(
+        foregroundColor: wine, textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      )),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white, selectedColor: blush, side: const BorderSide(color: blush),
+        labelStyle: const TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(color: wine, fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white, indicatorColor: blush, height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+          color: states.contains(WidgetState.selected) ? wine : muted,
+          fontSize: 10, fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
+        )),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(backgroundColor: cream, surfaceTintColor: Colors.transparent, showDragHandle: false),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating, backgroundColor: ink,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     ),
+    builder: (context, child) {
+      // Keep layouts readable on devices configured with extremely large system text.
+      // Preserve moderate accessibility scaling while preventing one word per line
+      // and oversized empty states/buttons across the app.
+      final media = MediaQuery.of(context);
+      final scale = (media.textScaler.scale(14) / 14).clamp(0.9, 1.3).toDouble();
+      return MediaQuery(
+        data: media.copyWith(textScaler: TextScaler.linear(scale)),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(decoration: TextDecoration.none),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+    },
     home: LoginEntryPage(autoResume: autoResume),
   );
 }
@@ -51,6 +135,10 @@ class LoginEntryPage extends StatefulWidget {
 class _LoginEntryPageState extends State<LoginEntryPage> {
   final email = TextEditingController();
   final password = TextEditingController();
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
+  final phone = TextEditingController();
+  final inviteCode = TextEditingController();
   bool isRegister = false;
   bool busy = false;
   bool obscurePassword = true;
@@ -71,11 +159,19 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
   void dispose() {
     email.dispose();
     password.dispose();
+    firstName.dispose();
+    lastName.dispose();
+    phone.dispose();
+    inviteCode.dispose();
     super.dispose();
   }
 
   Future<void> submit() async {
     final mail = email.text.trim();
+    if (isRegister && (firstName.text.trim().isEmpty || lastName.text.trim().isEmpty || phone.text.trim().isEmpty)) {
+      setState(() => message = 'Ad, soyad ve telefon bilgilerini doldur.');
+      return;
+    }
     if (mail.isEmpty || !mail.contains('@')) {
       setState(() => message = 'Geçerli bir e-posta adresi gir.');
       return;
@@ -93,19 +189,38 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         final result = await auth.signUp(
           email: mail,
           password: password.text,
-          data: {'account_type': accountType},
+          data: {
+            'account_type': 'customer',
+            'first_name': firstName.text.trim(),
+            'last_name': lastName.text.trim(),
+            'full_name': '${firstName.text.trim()} ${lastName.text.trim()}',
+            'phone': phone.text.trim(),
+          },
         );
         if (result.session == null) {
-          setState(() => message = 'Doğrulama bağlantısı e-posta adresine gönderildi. E-postanı kontrol et.');
+          if (result.user == null) throw AuthException('Kayıt başlatılamadı.');
+          setState(() => message =
+              'Hesabın oluşturuldu. E-posta onayı istenirse gelen bağlantıyı açıp giriş yap.');
         } else if (result.user != null) {
           await _openAccount(result.user!.id);
         }
       } else {
         final result = await auth.signInWithPassword(email: mail, password: password.text);
         if (result.user == null) throw AuthException('Giriş yapılamadı.');
+        final code = inviteCode.text.trim();
+        if (code.isNotEmpty) {
+          try {
+            await Supabase.instance.client.rpc('claim_employee_invite', params: {'p_code': code});
+          } catch (error) {
+            await auth.signOut();
+            rethrow;
+          }
+        }
         await _openAccount(result.user!.id);
       }
     } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } on PostgrestException catch (error) {
       if (mounted) setState(() => message = error.message);
     } catch (error) {
       if (mounted) setState(() => message = 'İşlem tamamlanamadı. Bilgilerini ve bağlantını kontrol et.');
@@ -114,13 +229,37 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
     }
   }
 
+  Future<void> resetPassword() async {
+    final mail = email.text.trim();
+    if (mail.isEmpty || !mail.contains('@')) {
+      setState(() => message = 'Şifre sıfırlama bağlantısı için e-posta adresini gir.');
+      return;
+    }
+    setState(() { busy = true; message = ''; });
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(mail);
+      if (mounted) setState(() => message = 'Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
+    } on AuthException catch (error) {
+      if (mounted) setState(() => message = error.message);
+    } catch (_) {
+      if (mounted) setState(() => message = 'Şifre sıfırlama e-postası gönderilemedi.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _openAccount(String userId) async {
     final client = Supabase.instance.client;
     try {
-      final profile = await client.from('profiles')
-          .select('account_type,is_admin,is_blocked')
-          .eq('id', userId)
-          .maybeSingle();
+      if (client.auth.currentUser?.id != userId) {
+        await client.auth.signOut();
+        if (mounted) setState(() => message = 'Oturum doğrulanamadı. Yeniden giriş yap.');
+        return;
+      }
+      final statusRows = await client.rpc('get_my_account_status') as List;
+      final profile = statusRows.isEmpty
+          ? null
+          : Map<String, dynamic>.from(statusRows.first as Map);
       if (!mounted) return;
       if (profile == null) {
         await client.auth.signOut();
@@ -132,14 +271,22 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
         setState(() => message = 'Bu hesabın uygulamaya erişimi kısıtlanmış.');
         return;
       }
+      final myAdminPermissions = await client.rpc('get_my_admin_permissions') as List;
+      final hasAdminAccess = profile['is_admin'] == true || myAdminPermissions.isNotEmpty;
+      if (!mounted) return;
       AppRole role;
-      if (profile['is_admin'] == true) {
+      if (hasAdminAccess) {
         role = AppRole.admin;
       } else {
         final employees = await client.from('employees').select('id')
             .eq('user_id', userId).eq('is_active', true).limit(1);
         if (!mounted) return;
-        if (employees.isNotEmpty) {
+        if (profile['account_type'] == 'employee') {
+          if (employees.isEmpty) {
+            await client.auth.signOut();
+            if (mounted) setState(() => message = 'Çalışan hesabın pasif veya işletme bağlantın kaldırılmış. İşletme sahibinle iletişime geç.');
+            return;
+          }
           role = AppRole.employee;
         } else if (profile['account_type'] == 'business_owner') {
           role = AppRole.owner;
@@ -197,16 +344,43 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       style: const TextStyle(color: muted, fontSize: 13)),
                     if (isRegister) ...[
                       const SizedBox(height: 20),
-                      const Text('HESAP TÜRÜ', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                      const SizedBox(height: 8),
-                      SegmentedButton<String>(
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(value: 'customer', label: Text('Müşteri')),
-                          ButtonSegment(value: 'business_owner', label: Text('İşletme')),
-                        ],
-                        selected: {accountType},
-                        onSelectionChanged: (value) => setState(() => accountType = value.first),
+                      const Text('ADIN', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: firstName,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Adın',
+                          prefixIcon: const Icon(Icons.person_outline, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('SOYADIN', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: lastName,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Soyadın',
+                          prefixIcon: const Icon(Icons.person_outline, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('TELEFON', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: phone,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          hintText: '05xx xxx xx xx',
+                          prefixIcon: const Icon(Icons.phone_outlined, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -242,6 +416,21 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       ),
                       onSubmitted: (_) => busy ? null : submit(),
                     ),
+                    if (!isRegister) ...[
+                      const SizedBox(height: 14),
+                      const Text('ÇALIŞAN DAVET KODU (İSTEĞE BAĞLI)', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .7)),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: inviteCode,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: 'İşletmenin verdiği davet kodu',
+                          prefixIcon: const Icon(Icons.badge_outlined, color: wine),
+                          filled: true, fillColor: cream,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ],
                     if (isRegister && accountType == 'business_owner')
                       const Padding(
                         padding: EdgeInsets.only(top: 10),
@@ -269,6 +458,14 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (!isRegister)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: busy ? null : resetPassword,
+                          child: const Text('Şifremi unuttum', style: TextStyle(color: wine)),
+                        ),
+                      ),
                     TextButton(
                       onPressed: busy ? null : () => setState(() { isRegister = !isRegister; message = ''; }),
                       child: Text(isRegister ? 'Zaten hesabın var mı? Giriş yap' : 'Hesabın yok mu? Kayıt ol',
@@ -290,20 +487,6 @@ class _LoginEntryPageState extends State<LoginEntryPage> {
 
 
 enum AppRole { customer, employee, owner, admin }
-
-class DemoPost {
-  final String author, caption, audience;
-  final String? mediaPath;
-  final bool businessPost;
-  int likes;
-  bool liked;
-  DemoPost({required this.author, required this.caption, required this.audience, this.businessPost=false, this.likes=0, this.liked=false, this.mediaPath});
-}
-final ValueNotifier<List<DemoPost>> demoPosts = ValueNotifier([
-  DemoPost(author:'Zeynep Kaya',caption:'Işıltılı dalgalar ✨',audience:'Çalışan',likes:12500),
-  DemoPost(author:'Merve Demir',caption:'Yeni sezon renk geçişi ♡',audience:'Çalışan',likes:8700),
-  DemoPost(author:'Luxe Beauty Salon',caption:'Salonumuzdan günün dönüşümü ✨',audience:'İşletme',businessPost:true,likes:6200),
-]);
 
 class RolePicker extends StatelessWidget {
   const RolePicker({super.key});
@@ -352,10 +535,10 @@ class RolePicker extends StatelessWidget {
       );
       final user = response.user;
       if (user == null) throw AuthException('Oturum açılamadı.');
-      final profile = await auth.from('profiles')
-          .select('account_type,is_admin,is_blocked')
-          .eq('id', user.id)
-          .maybeSingle();
+      final statusRows = await auth.rpc('get_my_account_status') as List;
+      final profile = statusRows.isEmpty
+          ? null
+          : Map<String, dynamic>.from(statusRows.first as Map);
       if (profile == null || profile['is_blocked'] == true) {
         await auth.auth.signOut();
         throw AuthException('Bu hesap uygulamaya erişemiyor.');
@@ -419,9 +602,10 @@ class RoleShell extends StatefulWidget {
 }
 class _RoleShellState extends State<RoleShell> {
   int index = 0;
-  late final List<String> labels;
-  late final List<IconData> icons;
-  late final List<Widget> pages;
+  late List<String> labels;
+  late List<IconData> icons;
+  late List<Widget> pages;
+  bool adminNavLoading = false;
   String get heading => switch(widget.role) { AppRole.customer => 'Kuaförüm ♡', AppRole.employee => 'Çalışan Paneli', AppRole.owner => 'İşletme Paneli', AppRole.admin => 'Yönetim Merkezi' };
   @override void initState() {
     super.initState();
@@ -436,18 +620,74 @@ class _RoleShellState extends State<RoleShell> {
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(publisherName:'Luxe Beauty Salon',businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
-        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore];
-        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl()];
+        labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek','Alt Yöneticiler']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent,Icons.admin_panel_settings];
+        pages = [const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true),const AdminSubAdmins()];
+        adminNavLoading = true;
         break;
+    }
+    if (widget.role == AppRole.admin) _loadAdminNavigation();
+  }
+  Future<void> _loadAdminNavigation() async {
+    final client = Supabase.instance.client;
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) {
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
+      final statusRows = await client.rpc('get_my_account_status') as List;
+      if (statusRows.isEmpty) {
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
+      final profile = Map<String, dynamic>.from(statusRows.first as Map);
+      if (profile['is_blocked'] == true) {
+        await client.auth.signOut();
+        if (mounted) setState(() { labels = []; icons = []; pages = []; });
+        return;
+      }
+      if (profile['is_admin'] == true) return;
+      const keys = ['dashboard','businesses','users','discover','support'];
+      const names = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek'];
+      const glyphs = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent];
+      final widgets = <Widget>[const AdminHome(),const AdminBusinesses(),const AdminUsers(),const DiscoverControl(),const SupportTicketsPage(adminMode:true)];
+      final permissionRows = await client.rpc('get_my_admin_permissions') as List;
+      final permissionSet = Set<String>.from(permissionRows);
+      final allowed = <int>[
+        for (var i = 0; i < keys.length; i++)
+          if (permissionSet.contains(keys[i])) i,
+      ];
+      if (!mounted) return;
+      setState(() {
+        labels = allowed.map((i) => names[i]).toList();
+        icons = allowed.map((i) => glyphs[i]).toList();
+        pages = allowed.map((i) => widgets[i]).toList();
+        index = 0;
+      });
+    } catch (_) {
+      if (mounted) setState(() { labels = []; icons = []; pages = []; });
+    } finally {
+      if (mounted) setState(() => adminNavLoading = false);
     }
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(onPressed: (){}, icon: const Icon(Icons.notifications_none_rounded)), const SizedBox(width: 5)]),
-    body: IndexedStack(index:index, children:pages),
-    bottomNavigationBar: NavigationBar(
+    appBar: AppBar(title: Text(heading, style: const TextStyle(fontWeight: FontWeight.w800, color: wine)), actions: [IconButton(
+      tooltip: 'Bildirimler',
+      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+        appBar: AppBar(title: Text('Bildirimler')),
+        body: NotificationsPage(),
+      ))),
+      icon: const Icon(Icons.notifications_none_rounded),
+    ), const SizedBox(width: 5)]),
+    body: adminNavLoading
+      ? const Center(child: CircularProgressIndicator(color: wine))
+      : pages.isEmpty
+        ? const Center(child: Text('Bu hesap için yönetim yetkisi tanımlanmamış.'))
+        : IndexedStack(index:index, children:pages),
+    bottomNavigationBar: adminNavLoading || pages.isEmpty ? null : NavigationBar(
       selectedIndex:index, onDestinationSelected:(v)=>setState(()=>index=v),
       backgroundColor: Colors.white, indicatorColor: blush, height: 68,
       destinations: List.generate(labels.length,(i)=>NavigationDestination(icon:Icon(icons[i]), selectedIcon:Icon(icons[i],color:wine), label:labels[i])),
@@ -457,39 +697,329 @@ class _RoleShellState extends State<RoleShell> {
 
 class PageBody extends StatelessWidget {
   final List<Widget> children; const PageBody({super.key,required this.children});
-  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.fromLTRB(18,8,18,24),children:children);
+  @override Widget build(BuildContext context)=>ListView(
+    padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+    children: children,
+  );
 }
 class SectionTitle extends StatelessWidget {
-  final String title; final String? action; const SectionTitle(this.title,{super.key,this.action});
-  @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:22,bottom:12),child:Row(children:[Expanded(child:Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:ink))),if(action!=null) Text(action!,style:const TextStyle(color:rose,fontWeight:FontWeight.bold,fontSize:12))]));
+  final String title; final String? action; final VoidCallback? onTap;
+  const SectionTitle(this.title,{super.key,this.action,this.onTap});
+  @override Widget build(BuildContext context)=>Padding(
+    padding: const EdgeInsets.only(top: 22, bottom: 12),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: ink))),
+      if (action != null) ...[
+        const SizedBox(width: 8),
+        InkWell(onTap: onTap, borderRadius: BorderRadius.circular(10),
+          child: Padding(padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+            child: Text(action!, maxLines: 1, style: const TextStyle(color: rose, fontWeight: FontWeight.bold, fontSize: 12)))),
+      ],
+    ]),
+  );
 }
 class HeroPanel extends StatelessWidget {
   final String eyebrow,title,subtitle; final IconData icon; final String button;
-  const HeroPanel({super.key,required this.eyebrow,required this.title,required this.subtitle,required this.icon,this.button='Keşfet'});
-  @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF6E2038),Color(0xFFC45B78)],begin:Alignment.topLeft,end:Alignment.bottomRight),borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:wine.withOpacity(.18),blurRadius:18,offset:const Offset(0,8))]),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow.toUpperCase(),style:const TextStyle(color:Color(0xFFFFDDE5),fontSize:10,letterSpacing:1.5,fontWeight:FontWeight.bold)),const SizedBox(height:9),Text(title,style:const TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),const SizedBox(height:7),Text(subtitle,style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4)),const SizedBox(height:14),Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20)),child:Text(button,style:const TextStyle(color:wine,fontWeight:FontWeight.bold,fontSize:12)))])),const SizedBox(width:10),Container(width:82,height:100,decoration:BoxDecoration(color:Colors.white.withOpacity(.13),borderRadius:BorderRadius.circular(22)),child:Icon(icon,size:54,color:Colors.white))]));
+  final VoidCallback? onTap;
+  const HeroPanel({super.key,required this.eyebrow,required this.title,required this.subtitle,required this.icon,this.button='Keşfet',this.onTap});
+  @override Widget build(BuildContext context)=>Material(color:Colors.transparent,child:InkWell(
+    onTap:onTap,borderRadius:BorderRadius.circular(24),
+    child:Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF6E2038),Color(0xFFC45B78)],begin:Alignment.topLeft,end:Alignment.bottomRight),borderRadius:BorderRadius.circular(24),boxShadow:[BoxShadow(color:wine.withOpacity(.18),blurRadius:18,offset:const Offset(0,8))]),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow.toUpperCase(),style:const TextStyle(color:Color(0xFFFFDDE5),fontSize:10,letterSpacing:1.5,fontWeight:FontWeight.bold)),const SizedBox(height:9),Text(title,style:const TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),const SizedBox(height:7),Text(subtitle,style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4)),const SizedBox(height:14),Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20)),child:Text(button,style:const TextStyle(color:wine,fontWeight:FontWeight.bold,fontSize:12)))])),const SizedBox(width:10),Container(width:82,height:100,decoration:BoxDecoration(color:Colors.white.withOpacity(.13),borderRadius:BorderRadius.circular(22)),child:Icon(icon,size:54,color:Colors.white))]))));
 }
 class SearchBarBox extends StatelessWidget {
-  final String hint; const SearchBarBox({super.key,this.hint='Kuaför, çalışan veya şehir ara...'});
-  @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Row(children:[const Icon(Icons.search,color:muted),const SizedBox(width:9),Text(hint,style:const TextStyle(color:muted,fontSize:13))]));
+  final String hint;
+  const SearchBarBox({super.key, this.hint = 'Kuaför, çalışan veya şehir ara...'});
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(16),
+    onTap: () => Navigator.push(context, MaterialPageRoute(
+      builder: (_) => const BusinessDirectoryPage())),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: blush)),
+      child: Row(children: [
+        const Icon(Icons.search, color: muted),
+        const SizedBox(width: 9),
+        Expanded(child: Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: muted, fontSize: 13))),
+      ]),
+    ),
+  );
 }
+
+class BusinessDirectoryPage extends StatefulWidget {
+  const BusinessDirectoryPage({super.key});
+  @override
+  State<BusinessDirectoryPage> createState() => _BusinessDirectoryPageState();
+}
+
+class _BusinessDirectoryPageState extends State<BusinessDirectoryPage> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  List<Map<String, dynamic>> results = [];
+  List<Map<String, dynamic>> employeeResults = [];
+  bool loading = false;
+  bool employeeMode = false;
+  String error = '';
+
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<void> findBusinesses() async {
+    final term = search.text.trim();
+    setState(() { loading = true; error = ''; });
+    try {
+      var query = client.from('businesses')
+        .select('id,name,address,logo_url,is_temporarily_closed')
+        .eq('status', 'active');
+      if (term.isNotEmpty) {
+        final safeTerm = term
+            .replaceAll(RegExp(r'[^-a-zA-Z0-9ğüşıöçĞÜŞİÖÇ ]'), ' ')
+            .trim();
+        if (safeTerm.isNotEmpty) {
+          query = query.or('name.ilike.%$safeTerm%,address.ilike.%$safeTerm%');
+        }
+      }
+      final rows = await query.order('name').limit(40);
+      final mapped = List<Map<String, dynamic>>.from(rows);
+      for (final business in mapped) {
+        final rawLogo = business['logo_url'] as String?;
+        business['logo_public_url'] = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      }
+      if (mounted) setState(() => results = mapped);
+    } catch (e) {
+      if (mounted) setState(() => error = 'İşletme araması yapılamadı: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> findEmployees() async {
+    final term = search.text.trim();
+    setState(() { loading = true; error = ''; });
+    try {
+      var query = client.from('public_business_employees')
+        .select('id,business_id,display_name,avatar_url');
+      if (term.isNotEmpty) query = query.ilike('display_name', '%$term%');
+      final rows = await query.order('display_name').limit(40);
+      final employees = List<Map<String, dynamic>>.from(rows);
+      final businessIds = employees.map((e) => e['business_id'] as String).toSet().toList();
+      final businesses = businessIds.isEmpty ? <Map<String, dynamic>>[] :
+        List<Map<String, dynamic>>.from(await client.from('businesses')
+          .select('id,name,address').inFilter('id', businessIds));
+      final businessById = {for (final b in businesses) b['id'] as String: b};
+      for (final employee in employees) {
+        final business = businessById[employee['business_id']];
+        employee['business_name'] = business?['name'] ?? 'İşletme';
+        employee['business_address'] = business?['address'] ?? '';
+      }
+      if (mounted) setState(() => employeeResults = employees);
+    } catch (e) {
+      if (mounted) setState(() => error = 'Çalışan araması yapılamadı: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> searchCurrent() => employeeMode ? findEmployees() : findBusinesses();
+
+  Future<void> openBusiness(String businessId) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+      BusinessProfilePage(businessId: businessId)));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(title: const Text('Kuaför keşfet')),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), child: Row(children: [
+        ChoiceChip(
+          label: const Text('İşletmeler'),
+          selected: !employeeMode,
+          selectedColor: blush,
+          onSelected: (_) {
+            setState(() { employeeMode = false; });
+            findBusinesses();
+          },
+        ),
+        const SizedBox(width: 8),
+        ChoiceChip(
+          label: const Text('Çalışanlar'),
+          selected: employeeMode,
+          selectedColor: blush,
+          onSelected: (_) {
+            setState(() { employeeMode = true; });
+            findEmployees();
+          },
+        ),
+      ])),
+      Padding(padding: const EdgeInsets.all(16), child: TextField(
+        controller: search,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => searchCurrent(),
+        decoration: InputDecoration(
+          hintText: employeeMode ? 'Çalışan adı ara' : 'İşletme adı veya adres ara',
+          prefixIcon: const Icon(Icons.search, color: wine),
+          suffixIcon: IconButton(onPressed: searchCurrent,
+            icon: const Icon(Icons.arrow_forward, color: wine)),
+          filled: true, fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+        ),
+      )),
+      Expanded(child: loading
+        ? const Center(child: CircularProgressIndicator(color: wine))
+        : error.isNotEmpty
+          ? Center(child: Padding(padding: const EdgeInsets.all(20),
+              child: Text(error, textAlign: TextAlign.center, style: const TextStyle(color: wine))))
+          : employeeMode
+            ? employeeResults.isEmpty
+              ? const Center(child: Text('Çalışan aramak için yukarıya yaz.', style: TextStyle(color: muted)))
+              : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children:
+                  employeeResults.map((employee) {
+                    final avatar = employee['avatar_url'] as String?;
+                    return Card(color: Colors.white, elevation: 0, child: ListTile(
+                      leading: CircleAvatar(backgroundColor: blush,
+                        backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                        child: avatar == null || avatar.isEmpty ? const Icon(Icons.person, color: wine) : null),
+                      title: Text(employee['display_name'] as String? ?? 'Çalışan',
+                        style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                      subtitle: Text(employee['business_name'] as String? ?? 'İşletme',
+                        style: const TextStyle(color: muted)),
+                      trailing: const Icon(Icons.chevron_right, color: wine),
+                      onTap: () => openBusiness(employee['business_id'] as String),
+                    ));
+                  }).toList())
+            : results.isEmpty
+              ? const Center(child: Text('İşletme aramak için yukarıya yaz.', style: TextStyle(color: muted)))
+              : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children:
+                  results.map((business) {
+                    final logo = business['logo_public_url'] as String?;
+                    final closed = business['is_temporarily_closed'] == true;
+                    return Card(color: Colors.white, elevation: 0, child: ListTile(
+                      leading: CircleAvatar(backgroundColor: blush,
+                        backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+                        child: logo == null || logo.isEmpty ? const Icon(Icons.storefront, color: wine) : null),
+                      title: Text(business['name'] as String? ?? 'Kuaför',
+                        style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                      subtitle: Text(closed ? 'Geçici olarak kapalı • ${business['address'] ?? ''}' :
+                        (business['address'] as String? ?? 'Adres belirtilmemiş'),
+                        style: const TextStyle(color: muted)),
+                      trailing: const Icon(Icons.chevron_right, color: wine),
+                      onTap: () => openBusiness(business['id'] as String),
+                    ));
+                  }).toList()),
+      ),
+    ]),
+  );
+}
+
 class SalonCard extends StatelessWidget {
   final String name,detail; final String rating; const SalonCard({super.key,required this.name,required this.detail,this.rating='4.9'});
   @override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:13),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20),border:Border.all(color:blush)),child:Row(children:[Container(width:88,height:88,decoration:BoxDecoration(borderRadius:BorderRadius.circular(15),gradient:const LinearGradient(colors:[Color(0xFFE8C1C9),Color(0xFFB66B7D)])),child:const Icon(Icons.spa_rounded,color:Colors.white,size:38)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.w800,color:ink,fontSize:15)),const SizedBox(height:5),Text(detail,style:const TextStyle(color:muted,fontSize:12)),const SizedBox(height:8),Row(children:[const Icon(Icons.star_rounded,color:Color(0xFFE5A93D),size:16),Text(' $rating  •  1.2 km',style:const TextStyle(fontSize:11,color:muted)),const Spacer(),const Icon(Icons.favorite_border,color:rose,size:19)])]))]));
 }
+class NearbyBusinessesSection extends StatefulWidget {
+  const NearbyBusinessesSection({super.key});
+  @override
+  State<NearbyBusinessesSection> createState() => _NearbyBusinessesSectionState();
+}
+
+class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
+  late Future<List<Map<String, dynamic>>> businesses;
+  @override
+  void initState() { super.initState(); businesses = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+      List<Map<String, dynamic>>.from(await Supabase.instance.client
+        .from('businesses')
+        .select('id,name,address,logo_url,is_temporarily_closed')
+        .eq('status', 'active')
+        .order('name')
+        .limit(5));
+
+  Future<void> openBusiness(Map<String, dynamic> business) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => BusinessProfilePage(
+      businessId: business['id'] as String,
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Padding(padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator(color: wine)));
+      }
+      if (snapshot.hasError) {
+        return const Text('İşletmeler yüklenemedi. Bağlantını kontrol et.',
+          style: TextStyle(color: muted));
+      }
+      final items = snapshot.data ?? [];
+      if (items.isEmpty) {
+        return const Text('Henüz onaylı işletme bulunmuyor.', style: TextStyle(color: muted));
+      }
+      return Column(children: items.map((business) {
+        final rawLogo = business['logo_url'] as String?;
+        final logo = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : Supabase.instance.client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+        final closed = business['is_temporarily_closed'] == true;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: blush)),
+          child: Row(children: [
+            CircleAvatar(radius: 38, backgroundColor: blush,
+              backgroundImage: logo != null && logo.isNotEmpty ? NetworkImage(logo) : null,
+              child: logo == null || logo.isEmpty
+                ? const Icon(Icons.storefront, color: wine, size: 32) : null),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(business['name'] as String? ?? 'Kuaför',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: ink, fontSize: 15)),
+              const SizedBox(height: 5),
+              Text(business['address'] as String? ?? 'Adres belirtilmemiş',
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: muted, fontSize: 12)),
+              const SizedBox(height: 7),
+              Text(closed ? 'Geçici olarak kapalı' : 'Randevu için görüntüle',
+                style: TextStyle(color: closed ? rose : wine, fontSize: 11, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              SizedBox(height: 34, child: OutlinedButton(
+                onPressed: () => openBusiness(business),
+                child: const Text('Randevu al', style: TextStyle(fontSize: 11)),
+              )),
+            ])),
+          ]),
+        );
+      }).toList());
+    },
+  );
+}
+
 class CustomerHome extends StatelessWidget {
   const CustomerHome({super.key});
+  void open(BuildContext context,Widget page,String title)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(title)),body:page)));
   @override Widget build(BuildContext context)=>PageBody(children:[
-    const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),    const SizedBox(height:16),const HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →'),
-    const SizedBox(height:15),const SearchBarBox(),const SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →'),
-    const SalonCard(name:'Luxe Beauty Salon',detail:'Melikgazi • Saç, bakım ve renklendirme'),
-    const SalonCard(name:'Rose Hair Studio',detail:'Talas • Kesim ve profesyonel bakım'),
-    const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
+    const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),const SizedBox(height:16),
+    HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
+    const SizedBox(height:15),const SearchBarBox(),SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
+    const NearbyBusinessesSection(),const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
   ]);
 }
 class QuickTiles extends StatelessWidget {
   const QuickTiles({super.key});
-  @override Widget build(BuildContext context)=>Row(children:[_tile(Icons.calendar_month,'Randevu Al'),_tile(Icons.diamond,'Keşfet'),_tile(Icons.favorite,'Takip Edilen')]);
-  Widget _tile(IconData i,String s)=>Expanded(child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])));
+  @override Widget build(BuildContext context)=>Row(children:[
+    _tile(context,Icons.calendar_month,'Randevu Al',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const BusinessDirectoryPage()))),
+    _tile(context,Icons.diamond,'Keşfet',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const DiscoverPage()))),
+    _tile(context,Icons.favorite,'Takip Edilen',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const FollowingPage()))),
+  ]);
+  Widget _tile(BuildContext context,IconData i,String s,VoidCallback action)=>Expanded(child:Material(color:Colors.white,borderRadius:BorderRadius.circular(16),child:InkWell(onTap:action,borderRadius:BorderRadius.circular(16),child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])))));
 }
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -526,9 +1056,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
           const SizedBox(height: 5),
           const Text('İşletmelerden ve çalışanlardan gerçek paylaşımlar.', style: TextStyle(color: muted)),
           const SizedBox(height: 16),
-          const SearchBarBox(hint: 'Saç modeli, salon veya çalışan ara...'),
+          const SearchBarBox(hint: 'Salon veya çalışan ara...'),
           const SizedBox(height: 12),
-          const Wrap(spacing: 8, children: [_Chip('Tümü', true), _Chip('Saç Kesimi'), _Chip('Boyama'), _Chip('Ombre'), _Chip('Topuz')]),
           const SectionTitle('Keşfet akışı'),
           if (snapshot.connectionState == ConnectionState.waiting)
             const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
@@ -564,18 +1093,22 @@ class _FeedMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 12),
-    child: Column(children: [
-      Icon(icon, color: rose, size: 42),
-      const SizedBox(height: 12),
-      Text(title, textAlign: TextAlign.center, style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16)),
-      const SizedBox(height: 6),
-      Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.4)),
-      if (action != null) ...[
+    padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 12),
+    child: Center(child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 340),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: rose, size: 40),
         const SizedBox(height: 12),
-        OutlinedButton(onPressed: onPressed, child: Text(action!)),
-      ],
-    ]),
+        Text(title, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 16, height: 1.25)),
+        const SizedBox(height: 6),
+        Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.45)),
+        if (action != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: onPressed, child: Text(action!)),
+        ],
+      ]),
+    )),
   );
 }
 
@@ -596,12 +1129,15 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   bool followStateLoaded = false;
   bool isCustomer = false;
   bool openingChat = false;
+  late bool saved;
+  bool deleted = false;
 
   @override
   void initState() {
     super.initState();
     liked = widget.post.isLikedByMe;
     likes = widget.post.likeCount;
+    saved = widget.post.isSavedByMe;
     loadFollowState();
   }
 
@@ -685,6 +1221,40 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     }
   }
 
+  Future<void> toggleSaved() async {
+    final previous = saved;
+    setState(() => saved = !previous);
+    try {
+      await widget.repository.toggleSave(widget.post.id, currentlySaved: previous);
+    } catch (_) {
+      if (mounted) {
+        setState(() => saved = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paylaşım kaydedilemedi.')));
+      }
+    }
+  }
+
+  Future<void> deleteOwnPost() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Paylaşımı sil'),
+        content: const Text('Bu paylaşım ve yorumları kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Sil')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await widget.repository.deletePost(widget.post.id);
+      if (mounted) setState(() => deleted = true);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Paylaşım silinemedi: $error'), backgroundColor: wine));
+    }
+  }
+
   Future<void> toggleLike() async {
     if (busy) return;
     final previousLiked = liked;
@@ -710,7 +1280,9 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    if (deleted) return const SizedBox.shrink();
+    return Container(
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -727,21 +1299,23 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
           Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
           Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
         ])),
-        if (!widget.post.isOwnPost && followStateLoaded)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz, color: muted),
-            onSelected: (value) {
-              if (value == 'business') toggleBusinessFollow();
-              if (value == 'author') toggleAuthorFollow();
-            },
-            itemBuilder: (_) => [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_horiz, color: muted),
+          onSelected: (value) {
+            if (value == 'business') toggleBusinessFollow();
+            if (value == 'author') toggleAuthorFollow();
+            if (value == 'delete') deleteOwnPost();
+          },
+          itemBuilder: (_) => [
+            if (widget.post.isOwnPost)
+              const PopupMenuItem(value: 'delete', child: Text('Paylaşımı sil')),
+            if (!widget.post.isOwnPost && followStateLoaded) ...[
               PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
               if (widget.post.isEmployeePost)
                 PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
             ],
-          )
-        else
-          const Icon(Icons.more_horiz, color: muted),
+          ],
+        ),
       ]),
       const SizedBox(height: 12),
       ClipRRect(
@@ -793,7 +1367,20 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
             ]),
           ),
         ),
-        const Spacer(),
+        IconButton(
+          tooltip: saved ? 'Kaydedilenlerden çıkar' : 'Kaydet',
+          onPressed: toggleSaved,
+          icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border, color: saved ? wine : muted),
+        ),
+        IconButton(
+          tooltip: 'Paylaşım bağlantısını kopyala',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: '${widget.post.caption}\n${widget.post.mediaUrl}'));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Paylaşım bağlantısı kopyalandı.')));
+          },
+          icon: const Icon(Icons.share_outlined, color: muted),
+        ),
         Text(
           '${widget.post.createdAt.day}.${widget.post.createdAt.month}.${widget.post.createdAt.year}',
           style: const TextStyle(color: muted, fontSize: 10),
@@ -817,6 +1404,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
       ],
     ]),
   );
+  }
 }
 
 class InlineFeedVideo extends StatefulWidget {
@@ -1017,6 +1605,90 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
     }
   }
 
+  Future<void> editComment(Map<String, dynamic> item) async {
+    final editController = TextEditingController(text: item['body'] as String? ?? '');
+    final accepted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+          decoration: const BoxDecoration(
+            color: cream,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Expanded(child: Text('Yorumu düzenle', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: ink))),
+                IconButton(onPressed: () => Navigator.pop(sheetContext, false), icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: editController,
+                autofocus: true,
+                maxLength: 1000,
+                minLines: 3,
+                maxLines: 6,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: 'Yorumunu yaz...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(width: double.infinity, child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext, true),
+                style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 15)),
+                child: const Text('Değişiklikleri kaydet'),
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (accepted == true) {
+      try {
+        await widget.repository.updateComment(item['id'] as String, editController.text);
+        if (!mounted) return;
+        setState(() => comments = widget.repository.fetchComments(widget.postId));
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Yorum güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
+    editController.dispose();
+  }
+
+  Future<void> removeComment(Map<String, dynamic> item) async {
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Yorumu sil?'),
+        content: const Text('Yorumun kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (accepted != true) return;
+    try {
+      await widget.repository.deleteComment(item['id'] as String);
+      if (!mounted) return;
+      setState(() => comments = widget.repository.fetchComments(widget.postId));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yorum silinemedi: $error'), backgroundColor: wine));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -1100,6 +1772,20 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
                               style: const TextStyle(color: ink, fontWeight: FontWeight.w700),
                             )),
                             Text(dateText, style: const TextStyle(color: muted, fontSize: 10)),
+                            if (item['user_id'] == Supabase.instance.client.auth.currentUser?.id)
+                              PopupMenuButton<String>(
+                                padding: EdgeInsets.zero,
+                                iconSize: 18,
+                                icon: const Icon(Icons.more_horiz, color: muted),
+                                onSelected: (value) {
+                                  if (value == 'edit') editComment(item);
+                                  if (value == 'delete') removeComment(item);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                  PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                ],
+                              ),
                           ]),
                           const SizedBox(height: 4),
                           Text(item['body'] as String? ?? '',
@@ -1154,26 +1840,7 @@ class _FeedCommentsSheetState extends State<FeedCommentsSheet> {
   );
 }
 
-class _Chip extends StatelessWidget {final String text;final bool active;const _Chip(this.text,[this.active=false]);@override Widget build(BuildContext context)=>Chip(label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
-class PostCard extends StatelessWidget {
-  final String name,caption,likes; final DemoPost? post;
-  const PostCard({super.key,required this.name,required this.caption,required this.likes,this.post});
-  @override Widget build(BuildContext context)=>Container(
-    margin:const EdgeInsets.only(bottom:16),padding:const EdgeInsets.all(12),
-    decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22),border:Border.all(color:blush),boxShadow:[BoxShadow(color:wine.withOpacity(.05),blurRadius:16,offset:const Offset(0,5))]),
-    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Row(children:[CircleAvatar(backgroundColor:blush,child:Icon(post?.businessPost==true?Icons.storefront:Icons.person,color:wine)),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(post?.audience??'Kuaförüm topluluğu',style:const TextStyle(color:muted,fontSize:10))])),const Icon(Icons.more_horiz,color:muted)]),
-      const SizedBox(height:12),
-      Container(height:215,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(17),gradient:const LinearGradient(colors:[Color(0xFFE9C5CC),Color(0xFFB66A7D),Color(0xFF6E2038)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[if(post?.mediaPath!=null) ClipRRect(borderRadius:BorderRadius.circular(17),child:Image.file(File(post!.mediaPath!),width:double.infinity,height:215,fit:BoxFit.cover)) else ...[Positioned(right:16,top:14,child:Icon(Icons.auto_awesome,color:Colors.white.withOpacity(.8),size:28)),const Center(child:Icon(Icons.photo_camera_back_rounded,size:58,color:Colors.white70))],Positioned(left:14,bottom:14,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.22),borderRadius:BorderRadius.circular(20)),child:const Text('KUAFÖRÜM  •  İLHAM VER',style:TextStyle(color:Colors.white,fontSize:9,letterSpacing:1.2,fontWeight:FontWeight.bold))))])),
-      const SizedBox(height:12),Text(caption,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),
-      const SizedBox(height:9),Row(children:[
-        InkWell(onTap:post==null?null:(){post!.liked=!post!.liked;post!.likes+=post!.liked?1:-1;demoPosts.value=[...demoPosts.value];},child:Row(children:[Icon(post?.liked==true?Icons.favorite:Icons.favorite_border,color:rose),const SizedBox(width:5),Text(post==null?likes:post!.likes.toString(),style:const TextStyle(color:muted))])),
-        const SizedBox(width:18),const Icon(Icons.mode_comment_outlined,color:muted),const SizedBox(width:5),const Text('Yorum yap',style:TextStyle(color:muted,fontSize:12)),const Spacer(),const Icon(Icons.bookmark_border,color:muted)
-      ])
-    ]),
-  );
-}
-
+class _Chip extends StatelessWidget {final String text;final bool active;final VoidCallback? onTap;const _Chip(this.text,{this.active=false,this.onTap});@override Widget build(BuildContext context)=>ActionChip(onPressed:onTap,label:Text(text,style:TextStyle(color:active?Colors.white:ink,fontSize:11)),backgroundColor:active?wine:Colors.white,side:BorderSide(color:blush));}
 class FollowingPage extends StatefulWidget {
   const FollowingPage({super.key});
   @override
@@ -1223,8 +1890,390 @@ class _FollowingPageState extends State<FollowingPage> {
   );
 }
 
-class AppointmentsPage extends StatelessWidget {final String title;const AppointmentsPage({super.key,required this.title});@override Widget build(BuildContext context)=>PageBody(children:[Text(title,style:const TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Aktif Randevular',true),_Chip('Geçmiş')]),const SectionTitle('Yaklaşan'),const AppointmentTile(name:'Elif Demir',service:'Saç Boyama',time:'12 Kasım • 14:30',status:'Onaylandı'),const AppointmentTile(name:'Zeynep Kaya',service:'Saç Kesimi',time:'14 Kasım • 11:00',status:'Beklemede')]);}
-class AppointmentTile extends StatelessWidget {final String name,service,time,status;const AppointmentTile({super.key,required this.name,required this.service,required this.time,required this.status});@override Widget build(BuildContext context)=>Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:blush)),child:Row(children:[const CircleAvatar(radius:24,backgroundColor:blush,child:Icon(Icons.person,color:wine)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(name,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),Text(service,style:const TextStyle(color:muted,fontSize:12)),Text(time,style:const TextStyle(color:ink,fontSize:12))])),Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE3F3E8),borderRadius:BorderRadius.circular(12)),child:Text(status,style:const TextStyle(color:Color(0xFF32734B),fontSize:10,fontWeight:FontWeight.bold))) ]));}
+class AppointmentsPage extends StatefulWidget {
+  final String title;
+  final bool ownerMode;
+  const AppointmentsPage({super.key, required this.title, this.ownerMode = false});
+  @override
+  State<AppointmentsPage> createState() => _AppointmentsPageState();
+}
+
+class _AppointmentsPageState extends State<AppointmentsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> appointments;
+  String filter = 'Aktif';
+
+  @override
+  void initState() {
+    super.initState();
+    appointments = loadAppointments();
+  }
+
+  Future<List<Map<String, dynamic>>> loadAppointments() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı. Yeniden giriş yapın.');
+    final profile = await client.from('profiles')
+        .select('account_type').eq('id', user.id).single();
+    if (profile['account_type'] == 'customer') {
+      final rows = await client.from('appointments').select(
+        'id,starts_at,ends_at,status,requires_business_approval,'
+        'businesses(id,name),services(name),employees(display_name),business_reviews(id,rating,body)'
+      ).eq('customer_id', user.id).order('starts_at', ascending: false);
+      return List<Map<String, dynamic>>.from(rows).map((item) => {
+        ...item,
+        'appointment_id': item['id'],
+        'business_id': (item['businesses'] as Map?)?['id'],
+        'business_name': (item['businesses'] as Map?)?['name'] ?? 'İşletme',
+        'review': ((item['business_reviews'] as List?) ?? const []).isNotEmpty
+            ? Map<String, dynamic>.from(((item['business_reviews'] as List).first as Map))
+            : null,
+        'reviewed': ((item['business_reviews'] as List?) ?? const []).isNotEmpty,
+        'service_name': (item['services'] as Map?)?['name'] ?? 'Hizmet',
+        'employee_name': (item['employees'] as Map?)?['display_name'] ?? 'Çalışan',
+      }).toList();
+    }
+    if (profile['account_type'] == 'business_owner') {
+      final business = await client.from('businesses').select('id')
+          .eq('owner_id', user.id).maybeSingle();
+      if (business == null) throw Exception('İşletme kaydınız bulunamadı.');
+      final rows = await client.rpc('get_business_appointments', params: {
+        'p_business_id': business['id'],
+        'p_mine_only': widget.ownerMode,
+      });
+      return List<Map<String, dynamic>>.from(rows as List);
+    }
+    final employee = await client.from('employees')
+        .select('id,business_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+    if (employee == null) throw Exception('Aktif çalışan kaydınız bulunamadı.');
+    final rows = await client.rpc('get_business_appointments', params: {
+      'p_business_id': employee['business_id'],
+      'p_mine_only': true,
+    });
+    return List<Map<String, dynamic>>.from(rows as List);
+  }
+
+  Future<void> refreshAppointments() async {
+    final next = loadAppointments();
+    setState(() => appointments = next);
+    await next;
+  }
+
+  String statusLabel(String status) => switch (status) {
+    'pending' => 'Onay bekliyor',
+    'confirmed' => 'Onaylandı',
+    'completed' => 'Tamamlandı',
+    'cancelled' => 'İptal edildi',
+    'no_show' => 'Gelmedi',
+    _ => status,
+  };
+
+  Future<void> rateAppointment(Map<String, dynamic> appointment) async {
+    final existing = appointment['review'] is Map
+        ? Map<String, dynamic>.from(appointment['review'] as Map)
+        : null;
+    int rating = (existing?['rating'] as num?)?.toInt() ?? 5;
+    final body = TextEditingController(text: existing?['body']?.toString() ?? '');
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: Text(existing == null ? 'İşletmeyi değerlendir' : 'Değerlendirmeyi düzenle'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Hizmet deneyimin nasıldı?'),
+          const SizedBox(height: 12),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (index) =>
+            IconButton(
+              onPressed: () => setDialogState(() => rating = index + 1),
+              icon: Icon(index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: const Color(0xFFE5A93D), size: 30),
+            ))),
+          TextField(controller: body, maxLength: 1000, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Yorumun (isteğe bağlı)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(existing == null ? 'Gönder' : 'Kaydet')),
+        ],
+      )));
+    if (accepted == true) {
+      try {
+        final values = {'rating': rating, 'body': body.text.trim()};
+        if (existing == null) {
+          await client.from('business_reviews').insert({
+            'business_id': appointment['business_id'],
+            'customer_id': client.auth.currentUser!.id,
+            'appointment_id': appointment['appointment_id'],
+            ...values,
+          });
+        } else {
+          await client.from('business_reviews').update(values)
+              .eq('id', existing['id']).eq('customer_id', client.auth.currentUser!.id);
+        }
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(existing == null ? 'Değerlendirmen kaydedildi.' : 'Değerlendirmen güncellendi.')));
+        await refreshAppointments();
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Değerlendirme kaydedilemedi: $error'), backgroundColor: wine));
+      }
+    }
+    body.dispose();
+  }
+
+  Future<void> deleteReview(Map<String, dynamic> appointment) async {
+    final review = appointment['review'] is Map
+        ? Map<String, dynamic>.from(appointment['review'] as Map)
+        : null;
+    if (review == null) return;
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Değerlendirmeyi sil?'),
+        content: const Text('Bu değerlendirme kalıcı olarak silinecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (accepted != true) return;
+    try {
+      await client.from('business_reviews').delete()
+          .eq('id', review['id']).eq('customer_id', client.auth.currentUser!.id);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Değerlendirmen silindi.')));
+      await refreshAppointments();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Değerlendirme silinemedi: $error'), backgroundColor: wine));
+    }
+  }
+
+  Future<void> changeStatus(Map<String, dynamic> appointment, String status) async {
+    try {
+      if (status == 'cancelled') {
+        await client.rpc('cancel_appointment', params: {
+          'p_appointment_id': appointment['appointment_id'],
+        });
+      } else if (status == 'approve' || status == 'reject') {
+        await client.rpc('review_appointment_request', params: {
+          'p_appointment_id': appointment['appointment_id'],
+          'p_decision': status,
+        });
+      } else {
+        await client.rpc('update_appointment_status', params: {
+          'p_appointment_id': appointment['appointment_id'],
+          'p_status': status,
+        });
+      }
+      if (!mounted) return;
+      final message = status == 'completed' ? 'Randevu tamamlandı.' :
+        status == 'no_show' ? 'Gelmedi olarak işaretlendi.' :
+        status == 'approve' ? 'Randevu onaylandı.' :
+        status == 'reject' ? 'Randevu reddedildi.' : 'Randevu iptal edildi.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      await refreshAppointments();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşlem yapılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: appointments,
+    builder: (context, snapshot) {
+      final all = snapshot.data ?? const <Map<String, dynamic>>[];
+      final visible = all.where((item) {
+        final status = item['status'] as String? ?? '';
+        if (filter == 'Aktif') return status == 'pending' || status == 'confirmed';
+        if (filter == 'Geçmiş') return status == 'completed' || status == 'cancelled' || status == 'no_show';
+        return status == 'pending';
+      }).toList();
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: refreshAppointments,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)]),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 5),
+                const Text('Randevularını tarihine ve durumuna göre kolayca takip et.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 14),
+                Row(children: [
+                  _AppointmentCount(value: all.length.toString(), label: 'Toplam'),
+                  _AppointmentCount(value: all.where((a) => a['status'] == 'pending' || a['status'] == 'confirmed').length.toString(), label: 'Aktif'),
+                  _AppointmentCount(value: all.where((a) => a['status'] == 'completed').length.toString(), label: 'Tamamlanan'),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Wrap(spacing: 8, children: [
+              _Chip('Aktif', active: filter == 'Aktif', onTap: () => setState(() => filter = 'Aktif')),
+              _Chip('Bekleyen', active: filter == 'Bekleyen', onTap: () => setState(() => filter = 'Bekleyen')),
+              _Chip('Geçmiş', active: filter == 'Geçmiş', onTap: () => setState(() => filter = 'Geçmiş')),
+            ]),
+            const SizedBox(height: 16),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(padding: EdgeInsets.all(36), child: Center(child: CircularProgressIndicator(color: wine)))
+            else if (snapshot.hasError)
+              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Randevular yüklenemedi', detail: snapshot.error.toString())
+            else if (visible.isEmpty)
+              const _FeedMessage(icon: Icons.calendar_month_outlined, title: 'Randevu bulunamadı', detail: 'Bu bölümde henüz gösterilecek randevu yok.')
+            else
+              ...visible.map((item) {
+                final status = item['status'] as String? ?? '';
+                final startsAt = DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
+                final dateText = startsAt == null ? 'Tarih bilgisi yok' :
+                  '${startsAt.day.toString().padLeft(2, '0')}.${startsAt.month.toString().padLeft(2, '0')}.${startsAt.year} • ${startsAt.hour.toString().padLeft(2, '0')}:${startsAt.minute.toString().padLeft(2, '0')}';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const CircleAvatar(radius: 22, backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(item['customer_name']?.toString() ?? item['business_name']?.toString() ?? 'Müşteri', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                        Text(
+                          '${item['service_name']?.toString() ?? 'Hizmet'} • ${item['employee_name']?.toString() ?? 'Çalışan'}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: muted, fontSize: 12),
+                        ),
+                        Text(dateText, style: const TextStyle(color: ink, fontSize: 12)),
+                      ])),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 88),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(9)),
+                          child: Text(
+                            statusLabel(status),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: wine, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] != true) ...[
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: OutlinedButton.icon(
+                        onPressed: () => rateAppointment(item),
+                        icon: const Icon(Icons.star_outline_rounded),
+                        label: const Text('Değerlendir'),
+                      )),
+                    ] else if (status == 'completed' && item.containsKey('business_id') && item['reviewed'] == true) ...[
+                      const SizedBox(height: 8),
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        TextButton.icon(
+                          onPressed: () => rateAppointment(item),
+                          icon: const Icon(Icons.edit_outlined, size: 17),
+                          label: const Text('Düzenle'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => deleteReview(item),
+                          icon: const Icon(Icons.delete_outline, size: 17),
+                          label: const Text('Sil'),
+                          style: TextButton.styleFrom(foregroundColor: wine),
+                        ),
+                      ]),
+                    ],
+                    if ((status == 'confirmed' || status == 'pending') && item.containsKey('business_name')) ...[
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: TextButton(
+                        onPressed: () => changeStatus(item, 'cancelled'),
+                        child: const Text('Randevuyu iptal et', style: TextStyle(color: wine)),
+                      )),
+                    ] else if (status == 'pending' && item['requires_business_approval'] == true) ...[
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => changeStatus(item, 'reject'),
+                          child: const Text('Reddet'),
+                        )),
+                        const SizedBox(width: 8),
+                        Expanded(child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                          onPressed: () => changeStatus(item, 'approve'),
+                          child: const Text('Onayla'),
+                        )),
+                      ]),
+                    ] else if (status == 'confirmed') ...[
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => changeStatus(item, 'no_show'),
+                          child: const Text('Gelmedi'),
+                        )),
+                        const SizedBox(width: 8),
+                        Expanded(child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+                          onPressed: () => changeStatus(item, 'completed'),
+                          child: const Text('Tamamlandı'),
+                        )),
+                      ]),
+                    ],
+                  ]),
+                );
+              }),
+          ],
+        ),
+      );
+    },
+  );
+}
+class _AppointmentCount extends StatelessWidget {
+  final String value, label;
+  const _AppointmentCount({required this.value, required this.label});
+  @override Widget build(BuildContext context) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(value, maxLines: 1, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+    Text(label, maxLines: 2, overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.2)),
+  ]));
+}
+
+class AppointmentTile extends StatelessWidget {
+  final String name, service, time, status;
+  const AppointmentTile({super.key, required this.name, required this.service, required this.time, required this.status});
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+    child: Row(children: [
+      const CircleAvatar(radius: 24, backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+        Text(service, style: const TextStyle(color: muted, fontSize: 12)),
+        Text(time, style: const TextStyle(color: ink, fontSize: 12)),
+      ])),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(color: const Color(0xFFE3F3E8), borderRadius: BorderRadius.circular(12)),
+        child: Text(status, style: const TextStyle(color: Color(0xFF32734B), fontSize: 10, fontWeight: FontWeight.bold)),
+      ),
+    ]),
+  );
+}
+
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
   @override
@@ -1441,16 +2490,41 @@ class _ChatPageState extends State<ChatPage> {
   late final Stream<List<Map<String, dynamic>>> messageStream;
   bool sending = false;
   String? sendError;
+  final Set<String> hiddenMessageIds = {};
 
   @override
   void initState() {
     super.initState();
+    loadHiddenMessages();
     messageStream = Supabase.instance.client
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('conversation_id', widget.conversationId)
         .order('created_at')
         .map((rows) => rows.map((row) => Map<String, dynamic>.from(row)).toList());
+  }
+
+  Future<void> loadHiddenMessages() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final rows = await Supabase.instance.client.from('message_hidden_for_me')
+          .select('message_id').eq('user_id', userId);
+      if (!mounted) return;
+      setState(() => hiddenMessageIds.addAll(rows.map((row) => row['message_id'] as String)));
+    } catch (_) {
+      // The chat remains usable if hidden-message metadata cannot be refreshed.
+    }
+  }
+
+  Future<void> hideMessage(String messageId) async {
+    try {
+      await repository.hideMessageForMe(messageId);
+      if (mounted) setState(() => hiddenMessageIds.add(messageId));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesaj gizlenemedi: $error'), backgroundColor: wine));
+    }
   }
 
   @override
@@ -1495,7 +2569,9 @@ class _ChatPageState extends State<ChatPage> {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator(color: wine));
             }
-            final rows = snapshot.data!;
+            final rows = snapshot.data!
+                .where((row) => !hiddenMessageIds.contains(row['id'] as String))
+                .toList();
             if (rows.isEmpty) {
               return const Center(child: Text('Sohbet başladı. İlk mesajı sen gönder ♡', style: TextStyle(color: muted)));
             }
@@ -1508,16 +2584,24 @@ class _ChatPageState extends State<ChatPage> {
                 final mine = row['sender_id'] == userId;
                 return Align(
                   alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
-                    margin: const EdgeInsets.only(bottom: 9),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: mine ? wine : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: mine ? null : Border.all(color: blush),
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'hide') hideMessage(row['id'] as String);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'hide', child: Text('Benden sil')),
+                    ],
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+                      margin: const EdgeInsets.only(bottom: 9),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: mine ? wine : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: mine ? null : Border.all(color: blush),
+                      ),
+                      child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
                     ),
-                    child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
                   ),
                 );
               },
@@ -1563,18 +2647,1845 @@ class _ChatPageState extends State<ChatPage> {
     ]),
   );
 }
-class ProfilePage extends StatelessWidget {const ProfilePage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.person,size:55,color:wine))),const SizedBox(height:10),const Text('Gizem Yılmaz ♡',textAlign:TextAlign.center,style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:ink)),const Text('@gizemyilmaz',textAlign:TextAlign.center,style:TextStyle(color:muted)),const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('28','Takipçi'),_Metric('12','Takip'),_Metric('45','Paylaşım')]),const SizedBox(height:20),...['Profilimi Düzenle','Randevularım','Favorilerim','Takip Ettiklerim','Ayarlar','Çıkış Yap'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
+class ActiveSessionsPage extends StatefulWidget {
+  const ActiveSessionsPage({super.key});
+  @override State<ActiveSessionsPage> createState() => _ActiveSessionsPageState();
+}
+
+class _ActiveSessionsPageState extends State<ActiveSessionsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    sessions = load();
+  }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('get_my_sessions') as List);
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => sessions = next);
+    await next;
+  }
+
+  String formatDate(dynamic raw) {
+    final date = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (date == null) return 'Bilinmiyor';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> revoke(Map<String, dynamic> session) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Oturumu kapat'),
+        content: const Text('Seçilen cihazın oturumu kapatılacak. Bu cihaz tekrar giriş yapmak zorunda kalacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Oturumu kapat', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('revoke_my_session', params: {'p_session_id': session['session_id']});
+      await refresh();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seçilen cihazın oturumu kapatıldı.')),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Oturum kapatılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: sessions,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        const Text('Aktif Cihazlar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+        const SizedBox(height: 6),
+        const Text('Hesabının açık olduğu cihazları görüntüleyebilir ve diğer cihazlardan çıkış yapabilirsin.',
+          style: TextStyle(color: muted)),
+        const SizedBox(height: 12),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Oturumlar yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.devices_outlined, title: 'Aktif oturum bulunamadı', detail: 'Yeniden giriş yaparak oturumunu görebilirsin.')
+        else
+          ...(snapshot.data ?? []).map((session) {
+            final current = session['is_current'] == true;
+            final agent = session['user_agent']?.toString().trim();
+            final ip = session['ip_address']?.toString();
+            return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 9),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: blush,
+                  child: Icon((agent ?? '').toLowerCase().contains('android') ? Icons.phone_android : Icons.devices, color: wine)),
+                title: Text(agent == null || agent.isEmpty ? 'Bilinmeyen cihaz' : agent,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  "Son etkinlik: ${formatDate(session['last_active_at'])}\n"
+                  "Başlangıç: ${formatDate(session['created_at'])}"
+                  "${ip == null || ip.isEmpty ? '' : '\nIP: $ip'}",
+                  style: const TextStyle(color: muted, fontSize: 11),
+                ),
+                trailing: current
+                  ? const Text('Bu cihaz', style: TextStyle(color: wine, fontWeight: FontWeight.bold, fontSize: 11))
+                  : IconButton(
+                      tooltip: 'Uzaktan çıkış yap',
+                      onPressed: () => revoke(session),
+                      icon: const Icon(Icons.logout, color: wine),
+                    ),
+              ),
+            );
+          }),
+      ]),
+    ),
+  );
+}
+
+class NotificationPreferencesPage extends StatefulWidget {
+  const NotificationPreferencesPage({super.key});
+  @override State<NotificationPreferencesPage> createState() => _NotificationPreferencesPageState();
+}
+
+class _NotificationPreferencesPageState extends State<NotificationPreferencesPage> {
+  final client = Supabase.instance.client;
+  final Map<String, bool> values = {
+    'appointments': true,
+    'messages': true,
+    'social': true,
+    'support': true,
+    'account': true,
+  };
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('notification_preferences')
+        .select('appointments,messages,social,support,account')
+        .eq('user_id', userId).maybeSingle();
+      if (row != null && mounted) {
+        setState(() {
+          for (final key in values.keys) {
+            values[key] = row[key] as bool? ?? true;
+          }
+        });
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bildirim tercihleri yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> updateValue(String key, bool value) async {
+    final previous = values[key]!;
+    setState(() { values[key] = value; saving = true; });
+    try {
+      await client.from('notification_preferences').upsert({
+        'user_id': client.auth.currentUser!.id,
+        ...values,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => values[key] = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tercih kaydedilemedi: $error'), backgroundColor: wine),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(18), children: [
+    const Text('Bildirim Tercihleri', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+    const SizedBox(height: 6),
+    const Text('Hangi konularda bildirim almak istediğini seç.', style: TextStyle(color: muted)),
+    if (loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(color: wine))),
+    if (!loading) ...[
+      SwitchListTile(
+        value: values['appointments']!, activeColor: wine,
+        onChanged: (value) => updateValue('appointments', value),
+        title: const Text('Randevular', style: TextStyle(color: ink)),
+        subtitle: const Text('Randevu onayı, iptali ve kara liste uyarıları'),
+      ),
+      SwitchListTile(
+        value: values['messages']!, activeColor: wine,
+        onChanged: (value) => updateValue('messages', value),
+        title: const Text('Mesajlar', style: TextStyle(color: ink)),
+        subtitle: const Text('Yeni mesaj ve sohbet hareketleri'),
+      ),
+      SwitchListTile(
+        value: values['social']!, activeColor: wine,
+        onChanged: (value) => updateValue('social', value),
+        title: const Text('Sosyal etkileşimler', style: TextStyle(color: ink)),
+        subtitle: const Text('Takip, beğeni, yorum ve paylaşım bildirimleri'),
+      ),
+      SwitchListTile(
+        value: values['support']!, activeColor: wine,
+        onChanged: (value) => updateValue('support', value),
+        title: const Text('Destek', style: TextStyle(color: ink)),
+        subtitle: const Text('Destek taleplerindeki yeni mesajlar ve durum değişiklikleri'),
+      ),
+      SwitchListTile(
+        value: values['account']!, activeColor: wine,
+        onChanged: (value) => updateValue('account', value),
+        title: const Text('Hesap ve çalışan işlemleri', style: TextStyle(color: ink)),
+        subtitle: const Text('Hesap güvenliği, çalışan bağlantısı ve izin bildirimleri'),
+      ),
+      if (saving) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Kaydediliyor…', style: TextStyle(color: muted, fontSize: 12))),
+    ],
+  ]);
+}
+
+class NotificationsPage extends StatefulWidget {
+  const NotificationsPage({super.key});
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> notifications;
+  @override
+  void initState() { super.initState(); notifications = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Oturum bulunamadı.');
+    return List<Map<String, dynamic>>.from(await client.from('notifications')
+      .select('id,title,body,created_at,read_at')
+      .eq('user_id', userId).order('created_at', ascending: false).limit(100));
+  }
+
+  Future<void> refresh() async { final next = load(); setState(() => notifications = next); await next; }
+
+  Future<void> markRead(String id) async {
+    await client.from('notifications').update({'read_at': DateTime.now().toUtc().toIso8601String()})
+      .eq('id', id);
+    await refresh();
+  }
+
+  Future<void> markAllRead(List<Map<String, dynamic>> rows) async {
+    final unread = rows.where((row) => row['read_at'] == null).map((row) => row['id'] as String).toList();
+    if (unread.isEmpty) return;
+    await client.from('notifications').update({'read_at': DateTime.now().toUtc().toIso8601String()})
+      .inFilter('id', unread);
+    await refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: notifications,
+    builder: (context, snapshot) => RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        Row(children: [
+          const Expanded(child: Text('Bildirimler', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink))),
+          if (snapshot.hasData)
+            TextButton(onPressed: () => markAllRead(snapshot.data!), child: const Text('Tümünü okundu işaretle')),
+        ]),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Bildirimler yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.notifications_none, title: 'Henüz bildirimin yok', detail: 'Randevu ve hesap hareketlerin burada görünecek.')
+        else
+          ...(snapshot.data ?? []).map((row) {
+            final unread = row['read_at'] == null;
+            return Card(
+              color: unread ? blush.withOpacity(.45) : Colors.white,
+              elevation: 0,
+              child: ListTile(
+                leading: Icon(unread ? Icons.notifications_active : Icons.notifications_none,
+                  color: unread ? wine : muted),
+                title: Text(row['title'] as String? ?? 'Bildirim',
+                  style: TextStyle(color: ink, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
+                subtitle: Text(row['body'] as String? ?? '', style: const TextStyle(color: muted)),
+                onTap: unread ? () => markRead(row['id'] as String) : null,
+              ),
+            );
+          }),
+      ]),
+    ),
+  );
+}
+
+class SupportTicketsPage extends StatefulWidget {
+  final bool adminMode;
+  const SupportTicketsPage({super.key, this.adminMode = false});
+  @override
+  State<SupportTicketsPage> createState() => _SupportTicketsPageState();
+}
+
+class _SupportTicketsPageState extends State<SupportTicketsPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> tickets;
+  @override
+  void initState() { super.initState(); tickets = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+      List<Map<String, dynamic>>.from(await client.from('support_tickets')
+        .select('id,subject,status,updated_at,created_by')
+        .order('updated_at', ascending: false));
+
+  Future<void> refresh() async { final next = load(); setState(() => tickets = next); await next; }
+
+  Future<void> createTicket() async {
+    final subject = TextEditingController();
+    final body = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Yeni destek talebi'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: subject, decoration: const InputDecoration(labelText: 'Konu')),
+          TextField(controller: body, minLines: 2, maxLines: 5,
+            decoration: const InputDecoration(labelText: 'Sorununu açıkla')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Gönder')),
+        ],
+      ));
+    if (accepted != true) { subject.dispose(); body.dispose(); return; }
+    if (subject.text.trim().length < 3 || body.text.trim().isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Konu en az 3 karakter olmalı ve mesaj boş bırakılamaz.')));
+      subject.dispose();
+      body.dispose();
+      return;
+    }
+    try {
+      final userId = client.auth.currentUser!.id;
+      final row = await client.from('support_tickets').insert({
+        'created_by': userId, 'subject': subject.text.trim(),
+      }).select('id').single();
+      await client.from('support_ticket_messages').insert({
+        'ticket_id': row['id'], 'sender_id': userId, 'body': body.text.trim(),
+      });
+      await refresh();
+      if (mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+        SupportTicketChatPage(ticketId: row['id'] as String, subject: subject.text.trim(), adminMode: false)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Destek talebi oluşturulamadı: $error'), backgroundColor: wine));
+    } finally {
+      subject.dispose();
+      body.dispose();
+    }
+  }
+
+  String statusLabel(String status) => switch (status) {
+    'in_review' => 'İnceleniyor',
+    'resolved' => 'Çözüldü',
+    'closed' => 'Kapatıldı',
+    _ => 'Bekliyor',
+  };
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: tickets,
+    builder: (context, snapshot) => RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(padding: const EdgeInsets.all(18), children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)]),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Row(children: [
+            Container(width: 48, height: 48,
+              decoration: BoxDecoration(color: Colors.white.withOpacity(.16), borderRadius: BorderRadius.circular(15)),
+              child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28)),
+            const SizedBox(width: 13),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.adminMode ? 'Destek Merkezi' : 'Yanındayız',
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(widget.adminMode ? 'Gelen talepleri yanıtla ve takip et.' : 'Soruların ve sorunların için bize ulaş.',
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ])),
+          ]),
+        ),
+        const SizedBox(height: 14),
+        if (!widget.adminMode)
+          SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: createTicket, icon: const Icon(Icons.add), label: const Text('Yeni destek talebi'),
+            style: FilledButton.styleFrom(backgroundColor: wine, padding: const EdgeInsets.symmetric(vertical: 14)))),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Center(child: CircularProgressIndicator(color: wine))
+        else if (snapshot.hasError)
+          _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Talepler yüklenemedi', detail: snapshot.error.toString())
+        else if ((snapshot.data ?? []).isEmpty)
+          const _FeedMessage(icon: Icons.support_agent, title: 'Henüz destek talebi yok', detail: 'Yardıma ihtiyaç duyduğunda yeni talep oluşturabilirsin.')
+        else
+          ...(snapshot.data ?? []).map((ticket) {
+            final status = ticket['status'] as String? ?? 'pending';
+            final updated = DateTime.tryParse(ticket['updated_at']?.toString() ?? '')?.toLocal();
+            final date = updated == null ? '' : updated.day.toString().padLeft(2, '0') + '.' + updated.month.toString().padLeft(2, '0') + '.' + updated.year.toString();
+            return Container(
+              margin: const EdgeInsets.only(bottom: 11),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: blush)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                leading: Container(width: 44, height: 44,
+                  decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.forum_outlined, color: wine)),
+                title: Text(ticket['subject'] as String? ?? 'Destek talebi',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ink, fontWeight: FontWeight.w800)),
+                subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Row(children: [
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(20)),
+                    child: Text(statusLabel(status), style: const TextStyle(color: wine, fontSize: 10, fontWeight: FontWeight.w800))),
+                  if (date.isNotEmpty) ...[const SizedBox(width: 8), Text(date, style: const TextStyle(color: muted, fontSize: 11))],
+                ])),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, color: muted, size: 16),
+                onTap: () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+                    SupportTicketChatPage(
+                      ticketId: ticket['id'] as String,
+                      subject: ticket['subject'] as String? ?? 'Destek',
+                      adminMode: widget.adminMode,
+                    )));
+                  if (mounted) refresh();
+                },
+              ),
+            );
+          }),
+      ]),
+    ),
+  );
+}
+
+class SupportTicketChatPage extends StatefulWidget {
+  final String ticketId;
+  final String subject;
+  final bool adminMode;
+  const SupportTicketChatPage({super.key, required this.ticketId, required this.subject, required this.adminMode});
+  @override
+  State<SupportTicketChatPage> createState() => _SupportTicketChatPageState();
+}
+
+class _SupportTicketChatPageState extends State<SupportTicketChatPage> {
+  final client = Supabase.instance.client;
+  final controller = TextEditingController();
+  late final Stream<List<Map<String, dynamic>>> messages;
+  String status = 'pending';
+  bool sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStatus();
+    messages = client.from('support_ticket_messages').stream(primaryKey: ['id'])
+      .eq('ticket_id', widget.ticketId).order('created_at')
+      .map((rows) => rows.map((row) => Map<String, dynamic>.from(row)).toList());
+  }
+
+  Future<void> loadStatus() async {
+    try {
+      final row = await client.from('support_tickets').select('status')
+        .eq('id', widget.ticketId).single();
+      if (mounted) setState(() => status = row['status'] as String? ?? 'pending');
+    } catch (_) {}
+  }
+
+  Future<void> send() async {
+    final body = controller.text.trim();
+    if (sending || body.isEmpty || status == 'closed') return;
+    setState(() => sending = true);
+    try {
+      await client.from('support_ticket_messages').insert({
+        'ticket_id': widget.ticketId,
+        'sender_id': client.auth.currentUser!.id,
+        'body': body,
+      });
+      await client.from('support_tickets').update({'updated_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', widget.ticketId);
+      controller.clear();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesaj gönderilemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Future<void> changeStatus(String value) async {
+    try {
+      await client.from('support_tickets').update({
+        'status': value,
+        'closed_at': value == 'closed' ? DateTime.now().toUtc().toIso8601String() : null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.ticketId);
+      if (mounted) setState(() => status = value);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Talep durumu değiştirilemedi: $error'), backgroundColor: wine));
+    }
+  }
+
+  @override
+  void dispose() { controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: cream,
+    appBar: AppBar(
+      title: Text(widget.subject, style: const TextStyle(color: wine, fontWeight: FontWeight.bold)),
+      actions: [
+        if (widget.adminMode)
+          PopupMenuButton<String>(
+            onSelected: changeStatus,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'pending', child: Text('Bekliyor')),
+              PopupMenuItem(value: 'in_review', child: Text('İnceleniyor')),
+              PopupMenuItem(value: 'resolved', child: Text('Çözüldü')),
+              PopupMenuItem(value: 'closed', child: Text('Kapat')),
+            ],
+          )
+        else if (status != 'closed')
+          TextButton(onPressed: () => changeStatus('closed'), child: const Text('Talebi kapat')),
+      ],
+    ),
+    body: Column(children: [
+      Expanded(child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: messages,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: wine));
+          final userId = client.auth.currentUser?.id;
+          return ListView(padding: const EdgeInsets.all(16), children: snapshot.data!.map((message) {
+            final mine = message['sender_id'] == userId;
+            return Align(
+              alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),
+                decoration: BoxDecoration(color: mine ? wine : Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Text(message['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink)),
+              ),
+            );
+          }).toList());
+        },
+      )),
+      if (status != 'closed')
+        SafeArea(child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            Expanded(child: TextField(controller: controller, minLines: 1, maxLines: 4,
+              decoration: const InputDecoration(hintText: 'Mesajını yaz...'))),
+            IconButton(onPressed: sending ? null : send, icon: const Icon(Icons.send, color: wine)),
+          ]),
+        ))
+      else
+        const Padding(padding: EdgeInsets.all(16), child: Text('Bu destek talebi kapatıldı.', style: TextStyle(color: muted))),
+    ]),
+  );
+}
+
+class EmployeeSchedulePage extends StatefulWidget {
+  const EmployeeSchedulePage({super.key});
+  @override State<EmployeeSchedulePage> createState() => _EmployeeSchedulePageState();
+}
+class _EmployeeSchedulePageState extends State<EmployeeSchedulePage> {
+  final client = Supabase.instance.client;
+  final labels = const ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  String? employeeId;
+  List<Map<String, dynamic>> days = [];
+  bool loading = true, saving = false;
+  @override void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final employee = await client.from('employees').select('id,business_id')
+        .eq('user_id', user.id).eq('is_active', true).maybeSingle();
+      if (employee == null) throw Exception('Aktif çalışan kaydı bulunamadı.');
+      employeeId = employee['id'] as String;
+      final results = await Future.wait([
+        client.from('employee_working_hours').select('weekday,opens_at,closes_at,is_closed').eq('employee_id', employeeId!),
+        client.from('business_hours').select('weekday,opens_at,closes_at,is_closed').eq('business_id', employee['business_id']),
+      ]);
+      final own = {for (final row in results[0]) row['weekday'] as int: row};
+      final business = {for (final row in results[1]) row['weekday'] as int: row};
+      days = List.generate(7, (index) {
+        final row = own[index] ?? business[index];
+        return {'weekday': index,
+          'opens_at': row?['opens_at']?.toString().substring(0,5) ?? '09:00',
+          'closes_at': row?['closes_at']?.toString().substring(0,5) ?? '18:00',
+          'is_closed': row?['is_closed'] as bool? ?? (index == 0)};
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çalışma saatleri yüklenemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => loading = false); }
+  }
+
+  Future<void> chooseTime(int day, String field) async {
+    final parts = (days[day][field] as String).split(':');
+    final selected = await showTimePicker(context: context,
+      initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
+    if (selected == null) return;
+    setState(() => days[day][field] = '${selected.hour.toString().padLeft(2,'0')}:${selected.minute.toString().padLeft(2,'0')}');
+  }
+
+  Future<void> save() async {
+    if (employeeId == null) return;
+    setState(() => saving = true);
+    try {
+      await client.from('employee_working_hours').upsert(
+        days.map((day) => {...day, 'employee_id': employeeId}).toList(),
+        onConflict: 'employee_id,weekday');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çalışma saatlerin kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saatler kaydedilemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => saving = false); }
+  }
+
+  @override Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Çalışma Saatlerim', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const Text('Randevu saatleri işletmenin açık olduğu zamanlarla birlikte bu programa göre hesaplanır.', style: TextStyle(color: muted)),
+      ...days.asMap().entries.map((entry) {
+        final index = entry.key, day = entry.value;
+        return Card(color: Colors.white, elevation: 0, child: Padding(padding: const EdgeInsets.all(10),
+          child: Column(children: [
+            SwitchListTile(contentPadding: EdgeInsets.zero,
+              title: Text(labels[index], style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+              subtitle: Text(day['is_closed'] == true ? 'Kapalı' : '${day['opens_at']} – ${day['closes_at']}', style: const TextStyle(color: muted)),
+              value: day['is_closed'] != true,
+              onChanged: (open) => setState(() => day['is_closed'] = !open), activeColor: wine),
+            if (day['is_closed'] != true)
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => chooseTime(index, 'opens_at'), child: Text('Açılış ${day['opens_at']}'))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: () => chooseTime(index, 'closes_at'), child: Text('Kapanış ${day['closes_at']}'))),
+              ]),
+          ])));
+      }),
+      ElevatedButton(onPressed: saving ? null : save, child: saving ? const CircularProgressIndicator() : const Text('Çalışma saatlerini kaydet')),
+    ]);
+  }
+}
+
+class EmployeeTimeOffPage extends StatefulWidget {
+  const EmployeeTimeOffPage({super.key});
+  @override State<EmployeeTimeOffPage> createState() => _EmployeeTimeOffPageState();
+}
+class _EmployeeTimeOffPageState extends State<EmployeeTimeOffPage> {
+  final client = Supabase.instance.client;
+  final reason = TextEditingController();
+  String? employeeId;
+  DateTime start = DateTime.now().add(const Duration(days: 1));
+  DateTime end = DateTime.now().add(const Duration(days: 1));
+  late Future<List<Map<String, dynamic>>> requests;
+  bool loading = true, sending = false;
+  @override void initState() { super.initState(); load(); }
+  @override void dispose() { reason.dispose(); super.dispose(); }
+
+  Future<void> load() async {
+    try {
+      final employee = await client.from('employees').select('id')
+        .eq('user_id', client.auth.currentUser!.id).eq('is_active', true).single();
+      employeeId = employee['id'] as String;
+      requests = client.from('employee_time_off').select('id,starts_at,ends_at,reason,status')
+        .eq('employee_id', employeeId!).order('created_at', ascending: false)
+        .then((rows) => List<Map<String, dynamic>>.from(rows));
+    } catch (error) { requests = Future.error(error); }
+    finally { if (mounted) setState(() => loading = false); }
+  }
+
+  Future<void> chooseDate(bool isStart) async {
+    final selected = await showDatePicker(context: context, initialDate: isStart ? start : end,
+      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+    if (selected == null) return;
+    setState(() { if (isStart) { start = selected; if (end.isBefore(start)) end = start; } else { end = selected; } });
+  }
+
+  Future<void> submit() async {
+    if (employeeId == null || end.isBefore(start)) return;
+    setState(() => sending = true);
+    try {
+      await client.from('employee_time_off').insert({
+        'employee_id': employeeId,
+        'starts_at': DateTime(start.year,start.month,start.day).toUtc().toIso8601String(),
+        'ends_at': DateTime(end.year,end.month,end.day,23,59,59).toUtc().toIso8601String(),
+        'reason': reason.text.trim(),
+      });
+      reason.clear(); await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İzin talebin işletme sahibine iletildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İzin talebi gönderilemedi: $error'), backgroundColor: wine));
+    } finally { if (mounted) setState(() => sending = false); }
+  }
+
+  @override Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return FutureBuilder<List<Map<String, dynamic>>>(future: requests, builder: (context, snapshot) =>
+      ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('İzin Talebi', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+        OutlinedButton(onPressed: () => chooseDate(true), child: Text('Başlangıç: ${start.day}.${start.month}.${start.year}')),
+        OutlinedButton(onPressed: () => chooseDate(false), child: Text('Bitiş: ${end.day}.${end.month}.${end.year}')),
+        TextField(controller: reason, decoration: const InputDecoration(labelText: 'Açıklama (isteğe bağlı)')),
+        ElevatedButton(onPressed: sending ? null : submit, child: sending ? const CircularProgressIndicator() : const Text('İzin talebi gönder')),
+        const SectionTitle('İzin geçmişim'),
+        if (snapshot.hasError) Text('İzinler yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+        else ...(snapshot.data ?? []).map((row) => Card(color: Colors.white, elevation: 0, child: ListTile(
+          title: Text('${DateTime.parse(row['starts_at'] as String).toLocal().day} – ${DateTime.parse(row['ends_at'] as String).toLocal().day}', style: const TextStyle(color: ink)),
+          subtitle: Text(row['reason'] as String? ?? '', style: const TextStyle(color: muted)),
+          trailing: Text(switch (row['status']) { 'approved' => 'Onaylandı', 'rejected' => 'Reddedildi', _ => 'Bekliyor' }, style: const TextStyle(color: wine)),
+        ))),
+      ]));
+  }
+}
+
+class OwnerTimeOffPage extends StatefulWidget {
+  const OwnerTimeOffPage({super.key});
+  @override State<OwnerTimeOffPage> createState() => _OwnerTimeOffPageState();
+}
+class _OwnerTimeOffPageState extends State<OwnerTimeOffPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> requests;
+  @override void initState() { super.initState(); requests = load(); }
+  Future<List<Map<String, dynamic>>> load() async {
+    final business = await client.from('businesses').select('id').eq('owner_id', client.auth.currentUser!.id).single();
+    final employees = await client.from('employees').select('id').eq('business_id', business['id']);
+    final ids = employees.map((e) => e['id'] as String).toList();
+    if (ids.isEmpty) return [];
+    return List<Map<String, dynamic>>.from(await client.from('employee_time_off')
+      .select('id,employee_id,starts_at,ends_at,reason,status,employees(display_name)')
+      .inFilter('employee_id', ids).order('created_at', ascending: false));
+  }
+  Future<void> review(Map<String, dynamic> row, String status) async {
+    try {
+      await client.from('employee_time_off').update({'status': status, 'reviewed_by': client.auth.currentUser!.id}).eq('id', row['id']);
+      final next = load(); setState(() => requests = next); await next;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İzin talebi güncellenemedi: $error'), backgroundColor: wine));
+    }
+  }
+  @override Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: requests,
+    builder: (context, snapshot) => ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Çalışan İzin Talepleri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      if (snapshot.connectionState == ConnectionState.waiting) const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError) Text('İzin talepleri yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else if ((snapshot.data ?? []).isEmpty) const Text('Henüz izin talebi yok.', style: TextStyle(color: muted))
+      else ...(snapshot.data ?? []).map((row) {
+        final employee = row['employees'] is Map ? row['employees'] as Map : {};
+        return Card(color: Colors.white, elevation: 0, child: Padding(padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(fontWeight: FontWeight.w700, color: ink)),
+            Text('${DateTime.parse(row['starts_at'] as String).toLocal()} – ${DateTime.parse(row['ends_at'] as String).toLocal()}', style: const TextStyle(color: muted, fontSize: 12)),
+            Text(row['reason'] as String? ?? '', style: const TextStyle(color: muted)),
+            Text('Durum: ${row['status']}', style: const TextStyle(color: wine)),
+            if (row['status'] == 'pending') Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () => review(row, 'rejected'), child: const Text('Reddet'))),
+              const SizedBox(width: 8),
+              Expanded(child: ElevatedButton(onPressed: () => review(row, 'approved'), child: const Text('Onayla'))),
+            ]),
+          ])));
+      }),
+    ]));
+}
+
+class MyFollowingPage extends StatefulWidget {
+  const MyFollowingPage({super.key});
+  @override State<MyFollowingPage> createState() => _MyFollowingPageState();
+}
+class _MyFollowingPageState extends State<MyFollowingPage> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> following;
+  @override void initState() { super.initState(); following = load(); }
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final userId = client.auth.currentUser!.id;
+    final rows = await client.from('feed_follows')
+      .select('id,followed_user_id,followed_business_id')
+      .eq('follower_user_id', userId).order('created_at', ascending: false);
+    final userIds = rows.map((r) => r['followed_user_id'] as String?).whereType<String>().toSet().toList();
+    final businessIds = rows.map((r) => r['followed_business_id'] as String?).whereType<String>().toSet().toList();
+    final profiles = userIds.isEmpty ? [] : await client.from('public_profiles')
+      .select('id,full_name,avatar_url').inFilter('id', userIds);
+    final businesses = businessIds.isEmpty ? [] : await client.from('businesses')
+      .select('id,name,logo_url').inFilter('id', businessIds);
+    final profileMap = {for (final p in profiles) p['id'] as String: p};
+    final businessMap = {for (final b in businesses) b['id'] as String: b};
+    return rows.map((row) {
+      final businessId = row['followed_business_id'] as String?;
+      final userId = row['followed_user_id'] as String?;
+      if (businessId != null) {
+        final b = businessMap[businessId] ?? {};
+        return {'id': row['id'], 'target_id': businessId, 'is_business': true,
+          'name': b['name'] ?? 'İşletme', 'avatar': b['logo_url']};
+      }
+      final targetUserId = userId!;
+      final p = profileMap[targetUserId] ?? {};
+      return {'id': row['id'], 'target_id': targetUserId, 'is_business': false,
+        'name': p['full_name'] ?? 'Kullanıcı', 'avatar': p['avatar_url']};
+    }).toList();
+  }
+
+  Future<void> unfollow(Map<String, dynamic> item) async {
+    try {
+      final userId = client.auth.currentUser!.id;
+      if (item['is_business'] == true) {
+        await client.from('feed_follows').delete().eq('follower_user_id', userId)
+          .eq('followed_business_id', item['target_id']);
+      } else {
+        await client.from('feed_follows').delete().eq('follower_user_id', userId)
+          .eq('followed_user_id', item['target_id']);
+      }
+      final next = load(); setState(() => following = next); await next;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Takip kaldırılamadı: $error'), backgroundColor: wine));
+    }
+  }
+
+  @override Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: following,
+    builder: (context, snapshot) => ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Takip Ettiklerim', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        Text('Takip listesi yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else if ((snapshot.data ?? []).isEmpty)
+        const Text('Henüz takip ettiğin işletme veya çalışan yok.', style: TextStyle(color: muted))
+      else
+        ...(snapshot.data ?? []).map((item) {
+          final avatar = item['avatar'] as String?;
+          return Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: CircleAvatar(backgroundColor: blush,
+              backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar == null || avatar.isEmpty ? Icon(item['is_business'] == true ? Icons.storefront : Icons.person, color: wine) : null),
+            title: Text(item['name'] as String, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            subtitle: Text(item['is_business'] == true ? 'İşletme' : 'Çalışan', style: const TextStyle(color: muted)),
+            trailing: TextButton(onPressed: () => unfollow(item), child: const Text('Takibi bırak')),
+          ));
+        }),
+    ]),
+  );
+}
+
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+  @override State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> profile;
+  bool uploading = false;
+
+  @override
+  void initState() { super.initState(); profile = loadProfile(); }
+  Future<Map<String, dynamic>> loadProfile() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final publicProfile = Map<String, dynamic>.from(await client.from('public_profiles')
+      .select('id,full_name,account_type,avatar_url').eq('id', user.id).single());
+    final contactRows = await client.rpc('get_my_profile_contact') as List;
+    final contact = contactRows.isEmpty
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(contactRows.first as Map);
+    final row = <String, dynamic>{
+      ...publicProfile,
+      'email': user.email ?? '',
+      'phone': contact['phone'] ?? '',
+      'full_name': contact['full_name'] ?? publicProfile['full_name'],
+    };
+    if (row['account_type'] == 'customer') {
+      final memberships = await client.from('business_memberships')
+          .select('business_id,businesses(name,address)')
+          .eq('customer_id', user.id);
+      row['memberships'] = memberships.map((item) => Map<String, dynamic>.from(item)).toList();
+    } else {
+      row['memberships'] = <Map<String, dynamic>>[];
+    }
+    return row;
+  }
+
+  Future<void> joinBusiness() async {
+    final code = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeye katıl'),
+        content: TextField(controller: code, textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'İşletme katılım kodu')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
+        ],
+      ));
+    if (accepted == true && code.text.trim().isNotEmpty) {
+      try {
+        await client.rpc('join_business_by_code', params: {'p_code': code.text.trim()});
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletmeye başarıyla katıldın.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletmeye katılınamadı: $error'), backgroundColor: wine));
+      }
+    }
+    code.dispose();
+  }
+
+  Future<void> leaveBusiness(String businessId) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeden ayrıl'),
+        content: const Text('Bu işletmeyle bağlantın kaldırılacak. Devam etmek istiyor musun?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Ayrıl')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('leave_business', params: {'p_business_id': businessId});
+      await refreshProfile();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeden ayrılamadın: $error'), backgroundColor: wine));
+    }
+  }
+  Future<void> refreshProfile() async { final next = loadProfile(); setState(() => profile = next); await next; }
+
+  Future<void> editName(String current) async {
+    final controller = TextEditingController(text: current);
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Ad soyad düzenle'),
+      content: TextField(controller: controller, autofocus: true, maxLength: 100,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'Ad soyad', prefixIcon: Icon(Icons.person_outline))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+      ],
+    ));
+    if (accepted == true) {
+      final name = controller.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+      try {
+        if (name.length < 3 || !name.contains(' ')) {
+          throw Exception('Ad ve soyadını birlikte gir.');
+        }
+        await client.from('profiles').update({'full_name': name}).eq('id', client.auth.currentUser!.id);
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad soyad güncellendi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ad soyad güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
+    controller.dispose();
+  }
+
+  Future<void> editPhone(String current) async {
+    final controller = TextEditingController(text: current);
+    final save = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Telefon numarası'),
+      content: TextField(controller: controller, keyboardType: TextInputType.phone,
+        maxLength: 13, decoration: const InputDecoration(hintText: '05xx xxx xx xx', prefixIcon: Icon(Icons.phone))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+        ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+      ],
+    ));
+    if (save == true) {
+      try {
+        final normalized = controller.text.replaceAll(RegExp(r'[^0-9+]'), '');
+        final digits = normalized.startsWith('+90')
+            ? normalized.substring(3)
+            : normalized.startsWith('90') && normalized.length == 12
+                ? normalized.substring(2)
+                : normalized.startsWith('0')
+                    ? normalized.substring(1)
+                    : normalized;
+        if (!RegExp(r'^5[0-9]{9}$').hasMatch(digits)) {
+          throw Exception('05 ile başlayan 11 haneli geçerli bir cep telefonu gir.');
+        }
+        await client.from('profiles').update({'phone': '0$digits'})
+          .eq('id', client.auth.currentUser!.id);
+        await refreshProfile();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Telefon numaran güncellendi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Telefon güncellenemedi: $error'), backgroundColor: wine));
+      }
+    }
+    controller.dispose();
+  }
+
+  Future<void> changePassword() async {
+    final current = TextEditingController();
+    final next = TextEditingController();
+    final confirm = TextEditingController();
+    final accepted = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Şifre değiştir'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: current, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Mevcut şifre')),
+          TextField(controller: next, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Yeni şifre')),
+          TextField(controller: confirm, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Yeni şifre tekrar')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Değiştir')),
+        ],
+      ));
+    if (accepted == true) {
+      try {
+        if (next.text.length < 8 || next.text != confirm.text) {
+          throw Exception('Yeni şifre en az 8 karakter olmalı ve iki alan eşleşmeli.');
+        }
+        final userEmail = client.auth.currentUser?.email;
+        if (userEmail == null) throw Exception('Hesap e-postası bulunamadı.');
+        await client.auth.signInWithPassword(email: userEmail, password: current.text);
+        await client.auth.updateUser(UserAttributes(password: next.text));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Şifren başarıyla değiştirildi.')));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Şifre değiştirilemedi: $error'), backgroundColor: wine));
+      }
+    }
+    current.dispose();
+    next.dispose();
+    confirm.dispose();
+  }
+
+  Future<void> uploadAvatar() async {
+    final user = client.auth.currentUser;
+    if (user == null || uploading) return;
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 2048, maxHeight: 2048);
+    if (image == null) return;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 88,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Profil Fotoğrafını Düzenle',
+          toolbarColor: wine,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Profil Fotoğrafını Düzenle',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
+    setState(() => uploading = true);
+    try {
+      final file = File(cropped.path);
+      if (await file.length() > 5 * 1024 * 1024) throw Exception('Fotoğraf 5 MB sınırını aşıyor.');
+      const contentType = 'image/jpeg';
+      final path = 'profiles/${user.id}/avatar.jpg';
+      await client.storage.from('salon-avatars').upload(path, file,
+        fileOptions: FileOptions(upsert: true, contentType: contentType));
+      final url = client.storage.from('salon-avatars').getPublicUrl(path);
+      await client.from('profiles').update({'avatar_url': url}).eq('id', user.id);
+      await refreshProfile();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profil fotoğrafı yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final password = TextEditingController();
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Hesabını kalıcı olarak sil'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Hesabın ve hesabına bağlı kişisel verilerin silinmesini onaylıyor musun? Bu işlem geri alınamaz.'),
+          const SizedBox(height: 12),
+          TextField(controller: password, obscureText: true,
+            decoration: const InputDecoration(labelText: 'Mevcut şifren')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Hesabımı sil', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) { password.dispose(); return; }
+    try {
+      await client.functions.invoke('delete-my-account', body: {'password': password.text});
+      await client.auth.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+        (route) => false,
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hesap silinemedi: $error'), backgroundColor: wine));
+    } finally {
+      password.dispose();
+    }
+  }
+
+  Future<void> leaveEmployeeBusiness() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('İşletmeden ayrıl'),
+        content: const Text('Çalışan bağlantın kaldırılacak ve hesabın müşteri hesabına dönecek. Daha sonra başka bir işletmeye katılabilirsin. Devam edilsin mi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ayrıl', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('leave_employee_business');
+      await client.auth.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+        (route) => false,
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeden ayrılamadın: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  Future<void> logout() async {
+    await client.auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: profile,
+    builder: (context, snapshot) => PageBody(children: [
+      Center(child: Stack(children: [
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: blush,
+          backgroundImage: snapshot.data?['avatar_url'] != null ? NetworkImage(snapshot.data!['avatar_url'].toString()) : null,
+          child: snapshot.data?['avatar_url'] == null ? const Icon(Icons.person, size: 55, color: wine) : null,
+        ),
+        Positioned(right: 0, bottom: 0, child: IconButton.filled(
+          style: IconButton.styleFrom(backgroundColor: wine),
+          onPressed: uploading ? null : uploadAvatar,
+          icon: uploading ? const SizedBox(width: 18,height: 18,child: CircularProgressIndicator(strokeWidth: 2,color: Colors.white)) : const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+        )),
+      ])),
+      const SizedBox(height: 10),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        Text('Profil yüklenemedi: ${snapshot.error}', style: const TextStyle(color: wine))
+      else ...[
+        Text(snapshot.data!['full_name']?.toString() ?? 'Kuaförüm kullanıcısı',
+          textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+        Text(snapshot.data!['email']?.toString() ?? '', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        Text(snapshot.data!['phone']?.toString() ?? 'Telefon eklenmemiş', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        const SizedBox(height: 20),
+        ...[
+          ('Ad soyad düzenle', Icons.person_outline, () => editName(snapshot.data!['full_name']?.toString() ?? '')),
+          ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
+          ('Şifre değiştir', Icons.lock_outline, changePassword),
+          ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
+          ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
+          ('Bildirim Tercihleri', Icons.notifications_active_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Bildirim Tercihleri')), body: const NotificationPreferencesPage())))),
+          ('Aktif Cihazlar', Icons.devices_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Aktif Cihazlar')), body: const ActiveSessionsPage())))),
+          ('Çıkış Yap', Icons.logout, logout),
+          if (snapshot.data!['account_type'] == 'customer') ('Hesabı kalıcı sil', Icons.delete_forever, deleteAccount),
+        ].map((item) => Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: Icon(item.$2, color: wine),
+          title: Text(item.$1, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: item.$3,
+        ))),
+        if (snapshot.data!['account_type'] == 'employee') ...[
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.link_off, color: wine),
+            title: const Text('İşletmeden ayrıl', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: leaveEmployeeBusiness,
+          )),
+          const SectionTitle('Çalışma ve İzin'),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.schedule, color: wine),
+            title: const Text('Çalışma saatlerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+              appBar: AppBar(title: Text('Çalışma Saatlerim')), body: EmployeeSchedulePage()))),
+          )),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.event_busy, color: wine),
+            title: const Text('İzin talebi', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+              appBar: AppBar(title: Text('İzin Talebi')), body: EmployeeTimeOffPage()))),
+          )),
+        ],
+        if (snapshot.data!['account_type'] == 'customer') ...[
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.favorite_border, color: wine),
+            title: const Text('Takip ettiklerim', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+              appBar: AppBar(title: Text('Takip Ettiklerim')), body: MyFollowingPage()))),
+          )),
+          const SectionTitle('İşletmelerim'),
+          ...(snapshot.data!['memberships'] as List<Map<String, dynamic>>).map((membership) {
+            final business = membership['businesses'] is Map
+                ? Map<String, dynamic>.from(membership['businesses'] as Map)
+                : <String, dynamic>{};
+            return Card(color: Colors.white, elevation: 0, child: ListTile(
+              leading: const Icon(Icons.storefront_outlined, color: wine),
+              title: Text(business['name'] as String? ?? 'İşletme', style: const TextStyle(color: ink)),
+              subtitle: Text(business['address'] as String? ?? '', style: const TextStyle(color: muted)),
+              trailing: TextButton(onPressed: () => leaveBusiness(membership['business_id'] as String),
+                child: const Text('Ayrıl')),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BusinessProfilePage(
+                businessId: membership['business_id'] as String,
+              ))),
+            ));
+          }),
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.add_business_outlined, color: wine),
+            title: const Text('İşletmeye katıl', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: joinBusiness,
+          )),
+        ],
+      ],
+    ]),
+  );
+}
+class _ProfileMetric extends StatelessWidget {
+  final String value, label;
+  const _ProfileMetric({required this.value, required this.label});
+  @override Widget build(BuildContext context) => Column(children: [
+    Text(value, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+    const SizedBox(height: 3),
+    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+  ]);
+}
+
+class BusinessProfilePage extends StatefulWidget {
+  final String businessId;
+  const BusinessProfilePage({super.key, required this.businessId});
+  @override State<BusinessProfilePage> createState() => _BusinessProfilePageState();
+}
+
+class _BusinessProfilePageState extends State<BusinessProfilePage> {
+  final client = Supabase.instance.client;
+  final feedRepository = KuaforumFeedRepository();
+  final messagingRepository = KuaforumMessagingRepository();
+  late Future<Map<String, dynamic>> data;
+  bool following = false;
+  bool followBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final business = Map<String, dynamic>.from(await client.from('businesses')
+      .select('id,name,address,logo_url,is_temporarily_closed')
+      .eq('id', widget.businessId).eq('status', 'active').single());
+    final results = await Future.wait([
+      client.from('services').select('id,name,price,duration_minutes')
+        .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
+      client.from('public_business_employees').select('id,display_name,avatar_url')
+        .eq('business_id', widget.businessId).order('display_name'),
+      client.from('business_reviews').select('id,customer_id,rating,body,created_at')
+        .eq('business_id', widget.businessId).order('created_at', ascending: false).limit(30),
+      client.from('feed_follows').select('id').eq('followed_business_id', widget.businessId),
+    ]);
+    final services = List<Map<String, dynamic>>.from(results[0]);
+    final employees = List<Map<String, dynamic>>.from(results[1]);
+    final reviews = List<Map<String, dynamic>>.from(results[2]);
+    final followers = results[3] as List;
+    final customerIds = reviews.map((r) => r['customer_id'] as String).toSet().toList();
+    final profiles = customerIds.isEmpty ? [] : await client.from('public_profiles')
+      .select('id,full_name,avatar_url').inFilter('id', customerIds);
+    final profileMap = {for (final p in profiles) p['id'] as String: p};
+    for (final review in reviews) {
+      review['customer_profile'] = profileMap[review['customer_id']] ?? {};
+    }
+    final posts = await feedRepository.fetchBusinessFeed(widget.businessId);
+    final userId = client.auth.currentUser?.id;
+    if (userId != null) {
+      following = await feedRepository.isFollowingBusiness(widget.businessId);
+    }
+    return {
+      'business': business,
+      'services': services,
+      'employees': employees,
+      'reviews': reviews,
+      'followers': followers.length,
+      'posts': posts,
+    };
+  }
+
+  Future<void> refresh() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> toggleFollow() async {
+    if (followBusy) return;
+    setState(() { followBusy = true; following = !following; });
+    try {
+      if (following) {
+        await feedRepository.followBusiness(widget.businessId);
+      } else {
+        await feedRepository.unfollowBusiness(widget.businessId);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => following = !following);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Takip durumu güncellenemedi: $error'), backgroundColor: wine),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => followBusy = false);
+    }
+  }
+
+  Future<void> messageBusiness(String businessName) async {
+    try {
+      final conversationId = await messagingRepository.startBusinessConversation(widget.businessId);
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(
+        conversationId: conversationId,
+        title: businessName,
+        subtitle: 'İşletme',
+      )));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletmeye mesaj gönderilemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  Future<void> bookAppointment(String businessName) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return;
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(businessName)),
+      body: BusinessBookingPage(businessId: widget.businessId, businessName: businessName),
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator(color: wine)));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Scaffold(appBar: AppBar(), body: Center(
+          child: Text('İşletme profili yüklenemedi: ${snapshot.error ?? ''}', style: const TextStyle(color: wine)),
+        ));
+      }
+      final business = snapshot.data!['business'] as Map<String, dynamic>;
+      final services = snapshot.data!['services'] as List<Map<String, dynamic>>;
+      final employees = snapshot.data!['employees'] as List<Map<String, dynamic>>;
+      final reviews = snapshot.data!['reviews'] as List<Map<String, dynamic>>;
+      final posts = snapshot.data!['posts'] as List<KuaforumFeedPost>;
+      final rawLogo = business['logo_url'] as String?;
+      final logo = rawLogo == null || rawLogo.isEmpty ? null :
+        (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      final average = reviews.isEmpty ? 'Yeni' :
+        (reviews.fold<double>(0, (sum, r) => sum + ((r['rating'] as num?)?.toDouble() ?? 0)) / reviews.length).toStringAsFixed(1);
+      final closed = business['is_temporarily_closed'] == true;
+      return Scaffold(
+        backgroundColor: cream,
+        appBar: AppBar(title: const Text('İşletme Profili')),
+        body: RefreshIndicator(
+          color: wine,
+          onRefresh: refresh,
+          child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF6E2038), Color(0xFFC45B78)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [BoxShadow(color: wine.withOpacity(.16), blurRadius: 18, offset: const Offset(0, 8))],
+              ),
+              child: Column(children: [
+                CircleAvatar(
+                  radius: 43, backgroundColor: Colors.white,
+                  backgroundImage: logo == null ? null : NetworkImage(logo),
+                  child: logo == null ? const Icon(Icons.storefront, size: 42, color: wine) : null,
+                ),
+                const SizedBox(height: 12),
+                Text(business['name'] as String? ?? 'Kuaför', textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 5),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.location_on_outlined, color: Colors.white70, size: 16),
+                  Flexible(child: Text(business['address'] as String? ?? 'Adres belirtilmemiş',
+                    textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70))),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _ProfileMetric(value: average, label: 'Puan')),
+                  Expanded(child: _ProfileMetric(value: reviews.length.toString(), label: 'Yorum')),
+                  Expanded(child: _ProfileMetric(value: snapshot.data!['followers'].toString(), label: 'Takipçi')),
+                ]),
+              ]),
+            ),
+            if (closed) const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: Text('İşletme şu anda geçici olarak kapalı.', textAlign: TextAlign.center,
+                style: TextStyle(color: wine, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: followBusy ? null : toggleFollow,
+              icon: Icon(following ? Icons.favorite : Icons.favorite_border),
+              label: Text(following ? 'Takip ediliyor' : 'İşletmeyi takip et'),
+            ),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              onPressed: () => messageBusiness(business['name'] as String? ?? 'İşletme'),
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('İşletmeye mesaj gönder'),
+            ),
+            const SectionTitle('Hizmetler'),
+            if (services.isEmpty) const Text('Henüz hizmet eklenmemiş.', style: TextStyle(color: muted))
+            else ...services.map((service) => Card(
+              color: Colors.white, elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.content_cut, color: wine),
+                title: Text(service['name'] as String? ?? 'Hizmet', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                subtitle: Text('${service['duration_minutes']} dakika', style: const TextStyle(color: muted)),
+                trailing: Text('${service['price']} ₺', style: const TextStyle(color: wine, fontWeight: FontWeight.w800)),
+              ),
+            )),
+            const SectionTitle('Çalışanlarımız'),
+            if (employees.isEmpty) const Text('Henüz aktif çalışan bulunmuyor.', style: TextStyle(color: muted))
+            else ...employees.map((employee) {
+              final avatar = employee['avatar_url'] as String?;
+              return Card(
+                color: Colors.white, elevation: 0,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: blush,
+                    backgroundImage: avatar == null || avatar.isEmpty ? null : NetworkImage(avatar),
+                    child: avatar == null || avatar.isEmpty ? const Icon(Icons.person, color: wine) : null,
+                  ),
+                  title: Text(employee['display_name'] as String? ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.w700)),
+                ),
+              );
+            }),
+            const SectionTitle('Paylaşımlar'),
+            if (posts.isEmpty) const Text('Bu işletme henüz paylaşım yapmamış.', style: TextStyle(color: muted))
+            else ...posts.map((post) => LiveFeedPostCard(post: post, repository: feedRepository)),
+            const SectionTitle('Müşteri Değerlendirmeleri'),
+            if (reviews.isEmpty) const Text('Henüz değerlendirme yok.', style: TextStyle(color: muted))
+            else ...reviews.map((review) {
+              final profile = review['customer_profile'] is Map ? review['customer_profile'] as Map : {};
+              return Card(color: Colors.white, elevation: 0, child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(profile['full_name'] as String? ?? 'Müşteri',
+                      style: const TextStyle(color: ink, fontWeight: FontWeight.w700))),
+                    const Icon(Icons.star_rounded, color: Color(0xFFE5A93D), size: 18),
+                    Text(' ${review['rating']}/5', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                  ]),
+                  if ((review['body'] as String? ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(review['body'] as String, style: const TextStyle(color: muted, height: 1.4)),
+                  ],
+                ]),
+              ));
+            }),
+          ]),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.all(14),
+          child: SizedBox(height: 50, child: FilledButton(
+            onPressed: closed ? null : () => bookAppointment(business['name'] as String? ?? 'İşletme'),
+            style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+            child: Text(closed ? 'Geçici olarak kapalı' : 'Randevu al'),
+          )),
+        ),
+      );
+    },
+  );
+}
+
+class BusinessBookingPage extends StatefulWidget {
+  final String businessId;
+  final String businessName;
+  const BusinessBookingPage({super.key, required this.businessId, required this.businessName});
+  @override
+  State<BusinessBookingPage> createState() => _BusinessBookingPageState();
+}
+
+class _BusinessBookingPageState extends State<BusinessBookingPage> {
+  final client = Supabase.instance.client;
+  List<Map<String, dynamic>> services = [];
+  List<Map<String, dynamic>> employees = [];
+  List<Map<String, dynamic>> slots = [];
+  String? serviceId;
+  String? employeeId;
+  String? selectedSlot;
+  DateTime selectedDate = DateTime.now();
+  bool loading = true;
+  bool loadingSlots = false;
+  bool booking = false;
+  bool businessClosed = false;
+
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final business = await client.from('businesses')
+          .select('is_temporarily_closed').eq('id', widget.businessId).single();
+      businessClosed = business['is_temporarily_closed'] as bool? ?? false;
+      if (businessClosed) return;
+      final results = await Future.wait([
+        client.from('services').select('id,name,price,duration_minutes')
+          .eq('business_id', widget.businessId).eq('is_active', true).order('name'),
+        client.from('employees').select('id,display_name')
+          .eq('business_id', widget.businessId).eq('is_active', true).not('user_id', 'is', null).order('display_name'),
+      ]);
+      services = List<Map<String, dynamic>>.from(results[0]);
+      employees = List<Map<String, dynamic>>.from(results[1]);
+      serviceId = services.isEmpty ? null : services.first['id'] as String;
+      if (serviceId != null) await loadSlots();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu bilgileri yüklenemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  String dateValue(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  Future<void> loadSlots() async {
+    if (serviceId == null) return;
+    setState(() { loadingSlots = true; slots = []; selectedSlot = null; });
+    try {
+      final targets = employeeId == null
+          ? employees
+          : employees.where((e) => e['id'] == employeeId).toList();
+      final all = <String, Map<String, dynamic>>{};
+      for (final employee in targets) {
+        final rows = await client.rpc('get_available_appointment_slots', params: {
+          'p_business_id': widget.businessId,
+          'p_employee_id': employee['id'],
+          'p_service_id': serviceId,
+          'p_date': dateValue(selectedDate),
+        });
+        for (final raw in rows as List) {
+          final row = Map<String, dynamic>.from(raw);
+          final start = row['slot_start'] as String;
+          all.putIfAbsent(start, () => {...row, 'employee_id': employee['id']});
+        }
+      }
+      final result = all.values.toList()
+        ..sort((a, b) => DateTime.parse(a['slot_start'] as String)
+          .compareTo(DateTime.parse(b['slot_start'] as String)));
+      if (mounted) setState(() => slots = result);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Uygun saatler alınamadı: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => loadingSlots = false);
+    }
+  }
+
+  Future<void> chooseDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: selectedDate.isBefore(DateTime.now()) ? DateTime.now() : selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+    );
+    if (date == null) return;
+    setState(() => selectedDate = date);
+    await loadSlots();
+  }
+
+  Future<void> book() async {
+    if (serviceId == null || selectedSlot == null) return;
+    final slot = slots.firstWhere((s) => s['slot_start'] == selectedSlot);
+    setState(() => booking = true);
+    try {
+      await client.rpc('book_appointment', params: {
+        'p_business_id': widget.businessId,
+        'p_employee_id': slot['employee_id'],
+        'p_service_id': serviceId,
+        'p_starts_at': selectedSlot,
+        'p_customer_note': null,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu talebin oluşturuldu.')));
+      Navigator.pop(context);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu oluşturulamadı: $error'), backgroundColor: wine));
+      await loadSlots();
+    } finally {
+      if (mounted) setState(() => booking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    if (businessClosed) return const Center(
+      child: Padding(padding: EdgeInsets.all(24),
+        child: Text('Bu işletme şu anda geçici olarak kapalı. Yeni randevu kabul edilmiyor.',
+          textAlign: TextAlign.center, style: TextStyle(color: muted))),
+    );
+    return PageBody(children: [
+      Text(widget.businessName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 6),
+      const Text('Hizmetini, çalışanını ve sana uygun saati seç.', style: TextStyle(color: muted)),
+      const SizedBox(height: 18),
+      DropdownButtonFormField<String>(
+        value: serviceId,
+        decoration: const InputDecoration(labelText: 'Hizmet seç'),
+        items: services.map((service) => DropdownMenuItem(
+          value: service['id'] as String,
+          child: Text('${service['name']} • ${service['price']} ₺',
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        )).toList(),
+        onChanged: (value) async { setState(() => serviceId = value); await loadSlots(); },
+      ),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String?>(
+        value: employeeId,
+        decoration: const InputDecoration(labelText: 'Çalışan seç'),
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('Fark etmez')),
+          ...employees.map((employee) => DropdownMenuItem<String?>(
+            value: employee['id'] as String,
+            child: Text(employee['display_name'] as String? ?? 'Çalışan',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          )),
+        ],
+        onChanged: (value) async { setState(() => employeeId = value); await loadSlots(); },
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: chooseDate,
+          icon: const Icon(Icons.calendar_month),
+          label: Text('Tarih: ${dateValue(selectedDate)}'),
+        ),
+      ),
+      const SizedBox(height: 14),
+      const Text('Uygun saatler', style: TextStyle(fontWeight: FontWeight.w700, color: ink)),
+      const SizedBox(height: 8),
+      if (loadingSlots)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (slots.isEmpty)
+        const Text('Bu gün için uygun saat bulunamadı.', style: TextStyle(color: muted))
+      else
+        Wrap(spacing: 8, runSpacing: 8, children: slots.map((slot) {
+          final start = DateTime.parse(slot['slot_start'] as String).toLocal();
+          final label = '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+          final value = slot['slot_start'] as String;
+          return ChoiceChip(label: Text(label), selected: selectedSlot == value,
+            onSelected: (_) => setState(() => selectedSlot = value), selectedColor: blush);
+        }).toList()),
+      const SizedBox(height: 20),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: booking || selectedSlot == null ? null : book,
+          child: booking
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Text('Randevu talebi oluştur'),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _HomeActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _HomeActionTile({required this.icon, required this.label, required this.onTap});
+  @override Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: Material(color: Colors.white, borderRadius: BorderRadius.circular(16),
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16),
+        child: Container(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(border: Border.all(color: blush), borderRadius: BorderRadius.circular(16)),
+          child: Column(children: [Icon(icon, color: wine), const SizedBox(height: 7),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: ink, fontSize: 11, fontWeight: FontWeight.w700))])))));
+}
+
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
-class EmployeeHome extends StatelessWidget {const EmployeeHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Merhaba Ayşe 👋',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const Text('Harika işler çıkarmaya devam et!',style:TextStyle(color:muted)),const SizedBox(height:16),const Row(children:[_StatCard('12','Bugün Randevu'),_StatCard('28','Toplam Randevu'),_StatCard('4.9','Puan')]),const SizedBox(height:16),const HeroPanel(eyebrow:'Portfolyonu büyüt',title:'Çalışmalarını paylaş',subtitle:'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',icon:Icons.camera_alt,button:'Paylaşım yap →'),const SectionTitle('Bugünkü Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Elif Demir',service:'Saç Kesimi',time:'09:30',status:'Devam Ediyor'),const AppointmentTile(name:'Merve Aksoy',service:'Keratin Bakım',time:'11:00',status:'Onaylandı')]);}
+class EmployeeHome extends StatefulWidget {
+  const EmployeeHome({super.key});
+  @override
+  State<EmployeeHome> createState() => _EmployeeHomeState();
+}
+
+class _EmployeeHomeState extends State<EmployeeHome> {
+  late Future<Map<String, dynamic>> data;
+  @override
+  void initState() { super.initState(); data = load(); }
+
+  Future<Map<String, dynamic>> load() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final employee = await client.from('employees')
+        .select('id,business_id,display_name')
+        .eq('user_id', user.id).eq('is_active', true).maybeSingle();
+    if (employee == null) throw Exception('Aktif çalışan kaydı bulunamadı.');
+    final rows = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_appointments',
+      params: {'p_business_id': employee['business_id'], 'p_mine_only': true},
+    ) as List);
+    final today = DateTime.now();
+    final todays = rows.where((row) {
+      final date = DateTime.parse(row['starts_at'] as String).toLocal();
+      return date.year == today.year && date.month == today.month && date.day == today.day;
+    }).toList();
+    rows.sort((a, b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    return {'employee': employee, 'appointments': rows, 'today': todays.length};
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Center(child: Text('Çalışan paneli yüklenemedi: ${snapshot.error ?? ''}',
+          style: const TextStyle(color: muted)));
+      }
+      final employee = snapshot.data!['employee'] as Map<String, dynamic>;
+      final appointments = snapshot.data!['appointments'] as List<Map<String, dynamic>>;
+      return PageBody(children: [
+        Text('Merhaba, ${employee['display_name'] ?? 'Çalışan'}',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+        const Text('Bugünkü çalışma planın', style: TextStyle(color: muted)),
+        const SizedBox(height: 16),
+        Row(children: [
+          _StatCard((snapshot.data!['today'] as int).toString(), 'Bugün Randevu'),
+          _StatCard(appointments.length.toString(), 'Toplam Randevu'),
+          _StatCard(appointments.where((a) => a['status'] == 'completed').length.toString(), 'Tamamlanan'),
+        ]),
+        const SizedBox(height: 16),
+        HeroPanel(eyebrow: 'Portfolyonu büyüt', title: 'Çalışmalarını paylaş',
+          subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',
+          icon: Icons.camera_alt, button: 'Paylaşım yap →',
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SharePage()))),
+        const SectionTitle('Randevularım'),
+        if (appointments.isEmpty)
+          const Text('Henüz randevun bulunmuyor.', style: TextStyle(color: muted))
+        else
+          ...appointments.take(5).map((row) => AppointmentTile(
+            name: row['customer_name'] as String? ?? 'Müşteri',
+            service: row['service_name'] as String? ?? 'Hizmet',
+            time: DateTime.parse(row['starts_at'] as String).toLocal().toString().substring(0, 16),
+            status: row['status'] as String? ?? 'pending',
+          )),
+      ]);
+    },
+  );
+}
 class _StatCard extends StatelessWidget {final String v,l;const _StatCard(this.v,this.l);@override Widget build(BuildContext context)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.symmetric(vertical:15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15),border:Border.all(color:blush)),child:Column(children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:20,color:wine)),Text(l,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,color:muted))])));}
 class SharePage extends StatefulWidget {
-  final String publisherName; final bool businessPost;
-  const SharePage({super.key,this.publisherName='Ayşe Demir',this.businessPost=false});
+  final bool businessPost;
+  const SharePage({super.key,this.businessPost=false});
   @override State<SharePage> createState()=>_SharePageState();
 }
 class _SharePageState extends State<SharePage> {
   final caption=TextEditingController(); final picker=ImagePicker(); XFile? selectedMedia; bool isVideo=false;
-  Future<void> chooseMedia(bool video) async { final file=video?await picker.pickVideo(source:ImageSource.gallery,maxDuration:const Duration(minutes:2)):await picker.pickImage(source:ImageSource.gallery,imageQuality:88); if(file!=null&&mounted)setState(() { selectedMedia=file; isVideo=video; }); }
+  Future<void> chooseMedia(bool video) async {
+    final file = video
+        ? await picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 2))
+        : await picker.pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 2400, maxHeight: 2400);
+    if (file == null || !mounted) return;
+    if (video) {
+      setState(() { selectedMedia = file; isVideo = true; });
+      return;
+    }
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 90,
+      uiSettings: [
+        AndroidUiSettings(toolbarTitle: 'Gönderi fotoğrafını düzenle', toolbarColor: wine,
+          toolbarWidgetColor: Colors.white, lockAspectRatio: false),
+        IOSUiSettings(title: 'Gönderi fotoğrafını düzenle', aspectRatioLockEnabled: false),
+      ],
+    );
+    if (cropped != null && mounted) {
+      setState(() { selectedMedia = XFile(cropped.path); isVideo = false; });
+    }
+  }
   @override void dispose(){caption.dispose();super.dispose();}
   Future<void> publish() async {
     final text = caption.text.trim();
@@ -1611,7 +4522,7 @@ class _SharePageState extends State<SharePage> {
     const SizedBox(height:16),
     Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(24),border:Border.all(color:blush),boxShadow:[BoxShadow(color:wine.withOpacity(.07),blurRadius:18,offset:const Offset(0,7))]),child:Column(children:[
       Container(height:230,width:double.infinity,decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(colors:[Color(0xFFF4DCE2),Color(0xFFD88DA2),Color(0xFF8E2947)],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Stack(children:[
-        Positioned(right:14,top:14,child:Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Colors.white.withOpacity(.85),shape:BoxShape.circle),child:const Icon(Icons.auto_awesome,color:wine))),
+        Positioned(right:10,top:10,child:Container(decoration:const BoxDecoration(color:Colors.white,shape:BoxShape.circle),child:IconButton(tooltip:'Seçimi kaldır',onPressed:selectedMedia==null?null:()=>setState((){selectedMedia=null;isVideo=false;}),icon:Icon(selectedMedia==null?Icons.auto_awesome:Icons.close_rounded,color:wine)))),
         Center(child:selectedMedia!=null&&!isVideo?ClipRRect(borderRadius:BorderRadius.circular(18),child:Image.file(File(selectedMedia!.path),width:double.infinity,height:230,fit:BoxFit.cover)):Column(mainAxisSize:MainAxisSize.min,children:[Icon(isVideo?Icons.videocam_rounded:Icons.add_photo_alternate_rounded,size:54,color:Colors.white),const SizedBox(height:9),Text(selectedMedia==null?'Fotoğraf veya video seç':'Video hazır',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold)),const SizedBox(height:4),const Text('En güzel dönüşümünü burada göster ♡',style:TextStyle(color:Colors.white70,fontSize:11))])),
         Positioned(left:12,bottom:12,child:Container(padding:const EdgeInsets.symmetric(horizontal:12,vertical:7),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),borderRadius:BorderRadius.circular(18)),child:const Text('ÖN İZLEME',style:TextStyle(color:Colors.white,fontSize:9,fontWeight:FontWeight.bold,letterSpacing:1))))
       ])),
@@ -1627,68 +4538,2068 @@ class _SharePageState extends State<SharePage> {
   ]);
 }
 
-class OwnerProfilePage extends StatelessWidget {
+class OwnerProfilePage extends StatefulWidget {
   const OwnerProfilePage({super.key});
-  void open(BuildContext context,String section){
-    final page=switch(section){
-      'Randevu Yönetimi'=>const OwnerAppointments(),
-      'Çalışan Randevuları'=>const OwnerAppointments(),
-      'Müşterilerim'=>const CustomersPage(),
-      'Çalışanlar'=>const EmployeeManagementPage(),
-      'Hizmetler'=>const ServicesPage(),
-      _=>const SettingsPage(),    };
-    Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(section,style:const TextStyle(color:wine,fontWeight:FontWeight.bold))),body:page)));
-  }
-  @override Widget build(BuildContext context)=>PageBody(children:[
-    const Center(child:CircleAvatar(radius:48,backgroundColor:blush,child:Icon(Icons.storefront,size:48,color:wine))),
-    const SizedBox(height:10),const Text('Luxe Beauty Salon',textAlign:TextAlign.center,style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),
-    const Text('İşletme hesabı • Kayseri',textAlign:TextAlign.center,style:TextStyle(color:muted)),
-    const SizedBox(height:18),const Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[_Metric('2.4K','Takipçi'),_Metric('180','Takip'),_Metric('96','Paylaşım')]),
-    const SizedBox(height:18),const SectionTitle('İşletme Yönetimi'),
-    ...['Randevu Yönetimi','Çalışan Randevuları','Müşterilerim','Çalışanlar','Hizmetler','Çalışma Saatleri','İşletme Ayarları','Bildirimler'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.circle_outlined,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.chevron_right,color:muted),onTap:()=>open(context,s)))),
-  ]);
-}
-class EmployeeManagementPage extends StatelessWidget {
-  const EmployeeManagementPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Çalışanlar',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Çalışan Davet Et'),...['Ayşe Demir','Mehmet Yıldız','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(color:ink,fontWeight:FontWeight.bold)),subtitle:const Text('Aktif çalışan'),trailing:const Icon(Icons.more_vert,color:muted)))]);
-}
-class ServicesPage extends StatelessWidget {
-  const ServicesPage({super.key});
-  @override Widget build(BuildContext context)=>PageBody(children:[const Text('Hizmetler',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const _PrimaryButton('Yeni Hizmet Ekle'),...['Saç Kesimi  •  ₺800','Saç Boyama  •  ₺1.800','Ombre  •  ₺2.500','Keratin Bakım  •  ₺1.400'].map((s)=>Card(color:Colors.white,elevation:0,child:ListTile(leading:const Icon(Icons.content_cut,color:wine),title:Text(s,style:const TextStyle(color:ink,fontWeight:FontWeight.w600)),trailing:const Icon(Icons.edit_outlined,color:muted))))]);
-}
-
-class OwnerHome extends StatelessWidget {const OwnerHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Luxe Beauty Salon',title:'Güzelliğin profesyonel adresi',subtitle:'İşletmeni, ekibini ve müşteri deneyimini tek yerden yönet.',icon:Icons.storefront,button:'İşletme paneli'),const SizedBox(height:14),const Row(children:[_StatCard('12','Bugünkü Randevu'),_StatCard('1.248','Toplam Müşteri'),_StatCard('4.9','Puan')]),const SectionTitle('Son Randevular',action:'Tümünü Gör'),const AppointmentTile(name:'Ayşe Demir',service:'Saç Kesimi',time:'Bugün • 16:30',status:'Onaylandı'),const SectionTitle('Hızlı Yönetim'),const QuickTiles()]);}
-class OwnerAppointments extends StatelessWidget {const OwnerAppointments({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Randevu Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const Wrap(spacing:8,children:[_Chip('Tümü',true),_Chip('Bekleyen'),_Chip('Onaylanan'),_Chip('Tamamlanan')]),const SectionTitle('Benim Randevularım'),const AppointmentTile(name:'Gizem Yılmaz',service:'Saç Kesimi',time:'Bugün • 14:00',status:'Onaylandı'),const SectionTitle('Çalışan Randevuları'),const AppointmentTile(name:'Zeynep Kaya • Elif Demir',service:'Saç Boyama',time:'Bugün • 15:30',status:'Beklemede'),const AppointmentTile(name:'Merve Aksoy • Ayşe Demir',service:'Keratin Bakım',time:'Yarın • 11:00',status:'Onaylandı')]);}
-class CustomersPage extends StatelessWidget {const CustomersPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Müşterilerim',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Müşteri ara...'),const SectionTitle('Müşteri Listesi'),...['Ayşe Demir','Elif Yılmaz','Merve Aksoy','Derya Şahin','Zeynep Kaya'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('+90 545 123 45 67'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class SettingsPage extends StatelessWidget {const SettingsPage({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ayarlar',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),...['İşletme Bilgileri','Çalışma Saatleri','Hizmetler','Çalışanlar','Çalışan Davet Et','Bildirim Ayarları','Güvenlik','Yardım ve Destek'].map((s)=>Card(color:Colors.white,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),child:ListTile(leading:const Icon(Icons.settings_outlined,color:wine),title:Text(s,style:const TextStyle(fontWeight:FontWeight.w600,color:ink)),trailing:const Icon(Icons.chevron_right,color:muted))))]);}
-class AdminHome extends StatelessWidget {const AdminHome({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Ana Yönetici',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:14),const HeroPanel(eyebrow:'Platform kontrolü',title:'Kuaförüm ekosistemini yönet',subtitle:'İşletmeleri, kullanıcıları ve Keşfet erişimlerini kontrol et.',icon:Icons.admin_panel_settings,button:'Platformu yönet'),const SizedBox(height:14),const Row(children:[_StatCard('248','İşletme'),_StatCard('12.5K','Kullanıcı'),_StatCard('1.8K','Paylaşım')]),const SectionTitle('Yönetim araçları'),const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.',style:TextStyle(color:muted,height:1.5)),]);}
-class AdminBusinesses extends StatelessWidget {const AdminBusinesses({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('İşletme Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'İşletme ara...'),const SectionTitle('İşletmeler'),...['Luxe Beauty Salon','Rose Hair Studio','Tasarımhane Kuaför','Mira Güzellik'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.store,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Aktif • Keşfet erişimi açık'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class AdminUsers extends StatelessWidget {const AdminUsers({super.key});@override Widget build(BuildContext context)=>PageBody(children:[const Text('Kullanıcı Yönetimi',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:12),const SearchBarBox(hint:'Kullanıcı ara...'),const SectionTitle('Son kayıtlar'),...['Gizem Yılmaz','Ayşe Demir','Zeynep Kaya','Merve Demir'].map((n)=>ListTile(leading:const CircleAvatar(backgroundColor:blush,child:Icon(Icons.person,color:wine)),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Müşteri hesabı'),trailing:const Icon(Icons.more_vert,color:muted)))]);}
-class DiscoverControl extends StatefulWidget {const DiscoverControl({super.key});@override State<DiscoverControl> createState()=>_DiscoverControlState();}
-class _DiscoverControlState extends State<DiscoverControl> {
-  final Map<String,bool> enabled={'Luxe Beauty Salon':true,'Rose Hair Studio':true,'Tasarımhane Kuaför':false};
-  @override Widget build(BuildContext context)=>PageBody(children:[    const Text('Keşfet Görünürlüğü',style:TextStyle(fontSize:23,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:8),
-    const Text('İşletmelerin paylaşımlarının herkese açık Keşfet akışında görünmesini buradan yönet.',style:TextStyle(color:muted)),
-    const SectionTitle('Erişim yönetimi'),
-    ...enabled.keys.map((n)=>SwitchListTile(value:enabled[n]!,onChanged:(v)=>setState(()=>enabled[n]=v),activeThumbColor:wine,secondary:const Icon(Icons.store,color:wine),title:Text(n,style:const TextStyle(fontWeight:FontWeight.bold,color:ink)),subtitle:const Text('Keşfet görünürlüğü'))),
-  ]);
-}
-
-class _PrimaryButton extends StatelessWidget {
-  final String label;
-  const _PrimaryButton(this.label);
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: wine,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  State<OwnerProfilePage> createState() => _OwnerProfilePageState();
+}
+
+class _OwnerProfilePageState extends State<OwnerProfilePage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses')
+        .select('id,name,address,logo_url,status')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+    if (business == null) throw Exception('İşletme bilgisi bulunamadı.');
+    final businessId = business['id'] as String;
+    final followers = await client.from('feed_follows')
+        .select('id').eq('followed_business_id', businessId);
+    final posts = await client.from('feed_posts')
+        .select('id').eq('business_id', businessId);
+    return {
+      'business': Map<String, dynamic>.from(business),
+      'followers': followers.length,
+      'posts': posts.length,
+    };
+  }
+
+  Future<void> logout() async {
+    await client.auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const KuaforumApp(autoResume: false)),
+      (route) => false,
+    );
+  }
+
+  void open(BuildContext context, String section) {
+    if (section == 'Randevu Yönetimi') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const OwnerAppointments(),
+      ));
+      return;
+    }
+    final page = switch (section) {
+      'Çalışan Randevuları' => const OwnerEmployeeAppointments(),
+      'Müşterilerim' => const CustomersPage(),
+      'Ayarlar' => const SettingsPage(),
+      _ => const SettingsPage(),
+    };
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(section,
+          style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+        body: page,
       ),
-      onPressed: () {},
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: wine));
+      }
+      if (snapshot.hasError || snapshot.data == null) {
+        return Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('İşletme profili yüklenemedi: ${snapshot.error ?? 'Bilinmeyen hata'}',
+              textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => setState(() => data = load()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tekrar dene'),
+              style: FilledButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+            ),
+          ]),
+        ));
+      }
+      final business = snapshot.data!['business'] as Map<String, dynamic>;
+      final rawLogo = business['logo_url'] as String?;
+      final logo = rawLogo == null || rawLogo.isEmpty ? null :
+          (rawLogo.startsWith('http') ? rawLogo : client.storage.from('salon-avatars').getPublicUrl(rawLogo));
+      final address = (business['address'] as String?)?.trim() ?? '';
+      return PageBody(children: [
+        Center(child: CircleAvatar(
+          radius: 48,
+          backgroundColor: blush,
+          backgroundImage: logo == null ? null : NetworkImage(logo),
+          child: logo == null
+              ? const Icon(Icons.storefront, size: 48, color: wine) : null,
+        )),
+        const SizedBox(height: 10),
+        Text(business['name'] as String? ?? 'İşletmem',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)),
+        Text(address.isEmpty ? 'Adres eklenmemiş' : address,
+          textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        const SizedBox(height: 18),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+          _Metric((snapshot.data!['followers'] as int).toString(), 'Takipçi'),
+          _Metric('—', 'Takip'),
+          _Metric((snapshot.data!['posts'] as int).toString(), 'Paylaşım'),
+        ]),
+        const SizedBox(height: 18),
+        const SectionTitle('İşletme Yönetimi'),
+        ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Ayarlar'].map((section) =>
+          Card(color: Colors.white, elevation: 0, child: ListTile(
+            leading: const Icon(Icons.circle_outlined, color: wine),
+            title: Text(section, style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, color: muted),
+            onTap: () => open(context, section),
+          ))),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.devices_outlined, color: wine),
+          title: const Text('Aktif Cihazlar', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Aktif Cihazlar')),
+            body: const ActiveSessionsPage(),
+          ))),
+        )),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.notifications_active_outlined, color: wine),
+          title: const Text('Bildirim Tercihleri', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Bildirim Tercihleri')),
+            body: const NotificationPreferencesPage(),
+          ))),
+        )),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.logout, color: wine),
+          title: const Text('Çıkış Yap', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: logout,
+        )),
+      ]);
+    },
+  );
+}
+class EmployeeManagementPage extends StatefulWidget {
+  const EmployeeManagementPage({super.key});
+  @override
+  State<EmployeeManagementPage> createState() => _EmployeeManagementPageState();
+}
+
+class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final employees = await client.from('employees')
+        .select('id,display_name,is_active,user_id')
+        .eq('business_id', business['id']).order('created_at');
+    final employeeUserIds = employees
+        .map((row) => row['user_id'])
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final avatars = employeeUserIds.isEmpty
+        ? <dynamic>[]
+        : await client.from('public_profiles')
+            .select('id,avatar_url')
+            .inFilter('id', employeeUserIds);
+    final avatarByUserId = {
+      for (final profile in avatars)
+        profile['id'] as String: profile['avatar_url'] as String?,
+    };
+    final employeesWithAvatars = employees.map((row) {
+      final employee = Map<String, dynamic>.from(row);
+      employee['avatar_url'] = avatarByUserId[employee['user_id']];
+      return employee;
+    }).toList();
+    return {'business_id': business['id'], 'employees': employeesWithAvatars};
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> inviteEmployee(String businessId) async {
+    final firstName = TextEditingController();
+    final lastName = TextEditingController();
+    final phone = TextEditingController();
+    final email = TextEditingController();
+    final password = TextEditingController();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Çalışan hesabı oluştur'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: firstName, textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Ad')),
+            TextField(controller: lastName, textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Soyad')),
+            TextField(controller: phone, keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Telefon')),
+            TextField(controller: email, keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'E-posta')),
+            TextField(controller: password, obscureText: true,
+              decoration: const InputDecoration(labelText: 'İlk giriş şifresi (en az 8 karakter)')),
+            const SizedBox(height: 8),
+            const Text('Çalışana e-posta doğrulama bağlantısı gönderilir. Hesabı doğruladıktan sonra belirlediğin şifreyle giriş yapabilir.',
+              style: TextStyle(color: muted, fontSize: 12)),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Hesabı oluştur')),
+        ],
+      ),
+    );
+    if (accepted != true) {
+      firstName.dispose(); lastName.dispose(); phone.dispose(); email.dispose(); password.dispose();
+      return;
+    }
+    try {
+      if ([firstName.text, lastName.text, phone.text, email.text, password.text]
+          .any((value) => value.trim().isEmpty)) {
+        throw Exception('Ad, soyad, telefon, e-posta ve şifre zorunludur.');
+      }
+      if (!email.text.trim().contains('@') || password.text.length < 8) {
+        throw Exception('E-posta geçerli olmalı ve şifre en az 8 karakter olmalıdır.');
+      }
+      await client.functions.invoke('create-employee-account', body: {
+        'business_id': businessId,
+        'first_name': firstName.text.trim(),
+        'last_name': lastName.text.trim(),
+        'phone': phone.text.trim(),
+        'email': email.text.trim().toLowerCase(),
+        'password': password.text,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Çalışan hesabı oluşturuldu. E-posta doğrulaması bekleniyor.')),
+      );
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışan hesabı oluşturulamadı: $error'), backgroundColor: wine),
+      );
+    } finally {
+      firstName.dispose(); lastName.dispose(); phone.dispose(); email.dispose(); password.dispose();
+    }
+  }
+
+  Future<void> removeEmployee(String employeeId, String name) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Çalışanı kaldır'),
+        content: Text('$name işletmenden kaldırılacak. Çalışanın hesabı müşteri hesabına dönecek; geçmiş randevu kayıtları korunacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Çalışanı kaldır', style: TextStyle(color: wine))),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('remove_employee', params: {'p_employee_id': employeeId});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışan kaldırılamadı: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  Future<void> setActive(String employeeId, bool active) async {
+    try {
+      await client.rpc('set_employee_active', params: {
+        'p_employee_id': employeeId,
+        'p_is_active': active,
+      });
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışan durumu değiştirilemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refreshData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Çalışanlar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Çalışanlar yüklenemedi', detail: snapshot.error.toString())
+          else ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              onPressed: () => inviteEmployee(snapshot.data!['business_id'] as String),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Çalışan Davet Et'),
+            ),
+            const SizedBox(height: 12),
+            if ((snapshot.data!['employees'] as List).isEmpty)
+              const _FeedMessage(icon: Icons.people_outline, title: 'Henüz çalışan yok', detail: 'Çalışan Davet Et bölümünden ekibine yeni çalışan ekleyebilirsin.')
+            else
+              ...(snapshot.data!['employees'] as List).map((raw) {
+                final employee = Map<String, dynamic>.from(raw as Map);
+                final active = employee['is_active'] == true;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: blush,
+                      backgroundImage: (employee['avatar_url'] as String?)?.isNotEmpty == true
+                          ? NetworkImage(employee['avatar_url'] as String)
+                          : null,
+                      child: (employee['avatar_url'] as String?)?.isNotEmpty == true
+                          ? null
+                          : const Icon(Icons.person, color: wine),
+                    ),
+                    title: Text(employee['display_name']?.toString() ?? 'Çalışan', style: const TextStyle(color: ink, fontWeight: FontWeight.bold)),
+                    subtitle: Text(active ? (employee['user_id'] == null ? 'Davet bekliyor' : 'Aktif çalışan') : 'Pasif çalışan'),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Switch(
+                        value: active,
+                        activeColor: wine,
+                        onChanged: (value) => setActive(employee['id'].toString(), value),
+                      ),
+                      IconButton(
+                        tooltip: 'Çalışanı kaldır',
+                        onPressed: () => removeEmployee(
+                          employee['id'].toString(),
+                          employee['display_name']?.toString() ?? 'Çalışan',
+                        ),
+                        icon: const Icon(Icons.person_remove_alt_1, color: wine),
+                      ),
+                    ]),
+                  ),
+                );
+              }),
+          ],
+        ],
+      ),
     ),
+  );
+}
+class ServicesPage extends StatefulWidget {
+  const ServicesPage({super.key});
+  @override
+  State<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends State<ServicesPage> {
+  final client = Supabase.instance.client;
+  late Future<Map<String, dynamic>> data;
+
+  @override
+  void initState() {
+    super.initState();
+    data = load();
+  }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final services = await client.from('services')
+        .select('id,name,price,duration_minutes,is_active')
+        .eq('business_id', business['id']).order('created_at');
+    return {'business_id': business['id'], 'services': services};
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  Future<void> editService(String businessId, {Map<String, dynamic>? service}) async {
+    final name = TextEditingController(text: service?['name']?.toString() ?? '');
+    final price = TextEditingController(text: service?['price']?.toString() ?? '');
+    final duration = TextEditingController(text: service?['duration_minutes']?.toString() ?? '30');
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(service == null ? 'Yeni hizmet' : 'Hizmeti düzenle'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Hizmet adı')),
+          TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Fiyat (₺)')),
+          TextField(controller: duration, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Süre (dakika)')),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (save != true) { name.dispose(); price.dispose(); duration.dispose(); return; }
+    final parsedPrice = double.tryParse(price.text.trim().replaceAll(',', '.'));
+    final parsedDuration = int.tryParse(duration.text.trim());
+    if (name.text.trim().isEmpty || parsedPrice == null || parsedPrice < 0 || parsedDuration == null || parsedDuration < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hizmet adı, geçerli fiyat ve en az 5 dakikalık süre girin.')));
+      name.dispose(); price.dispose(); duration.dispose(); return;
+    }
+    try {
+      final values = {'name': name.text.trim(), 'price': parsedPrice, 'duration_minutes': parsedDuration};
+      if (service == null) {
+        await client.from('services').insert({...values, 'business_id': businessId, 'is_active': true});
+      } else {
+        await client.from('services').update(values).eq('id', service['id']);
+      }
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hizmet kaydedilemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      name.dispose(); price.dispose(); duration.dispose();
+    }
+  }
+
+  Future<void> toggleService(String id, bool active) async {
+    try {
+      await client.from('services').update({'is_active': active}).eq('id', id);
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hizmet durumu değiştirilemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refreshData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+        children: [
+          const Text('Hizmetler', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Hizmetler yüklenemedi', detail: snapshot.error.toString())
+          else ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+              onPressed: () => editService(snapshot.data!['business_id'] as String),
+              icon: const Icon(Icons.add),
+              label: const Text('Yeni Hizmet Ekle'),
+            ),
+            const SizedBox(height: 12),
+            if ((snapshot.data!['services'] as List).isEmpty)
+              const _FeedMessage(icon: Icons.content_cut, title: 'Henüz hizmet eklenmemiş', detail: 'Müşterilerin randevu alabilmesi için hizmetlerini ekle.')
+            else
+              ...(snapshot.data!['services'] as List).map((raw) {
+                final service = Map<String, dynamic>.from(raw as Map);
+                final active = service['is_active'] == true;
+                return Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  child: ListTile(
+                    leading: const Icon(Icons.content_cut, color: wine),
+                    title: Text(service['name']?.toString() ?? 'Hizmet', style: const TextStyle(color: ink, fontWeight: FontWeight.w600)),
+                    subtitle: Text('₺${service['price']} • ${service['duration_minutes']} dakika • ${active ? 'Aktif' : 'Pasif'}'),
+                    onTap: () => editService(snapshot.data!['business_id'] as String, service: service),
+                    trailing: Switch(
+                      value: active,
+                      activeColor: wine,
+                      onChanged: (value) => toggleService(service['id'].toString(), value),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+
+class OwnerHome extends StatefulWidget {
+  const OwnerHome({super.key});
+  @override State<OwnerHome> createState() => _OwnerHomeState();
+}
+
+class _OwnerHomeState extends State<OwnerHome> {
+  late Future<Map<String, dynamic>> data;
+  @override void initState() { super.initState(); data = load(); }
+
+  Future<Map<String, dynamic>> load() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id,name')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme bulunamadı.');
+    final rows = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_appointments',
+      params: {'p_business_id': business['id'], 'p_mine_only': false},
+    ) as List);
+    final customers = List<Map<String, dynamic>>.from(await client.rpc(
+      'get_business_customers', params: {'p_business_id': business['id']},
+    ) as List);
+    final now = DateTime.now();
+    final today = rows.where((row) {
+      final d = DateTime.parse(row['starts_at'] as String).toLocal();
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList()..sort((a,b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    final upcoming = rows.where((row) {
+      final d = DateTime.parse(row['starts_at'] as String).toLocal();
+      return d.isAfter(now) && !['cancelled','completed','rejected'].contains(row['status']);
+    }).toList()..sort((a,b) => DateTime.parse(a['starts_at'] as String)
+        .compareTo(DateTime.parse(b['starts_at'] as String)));
+    final week = List<int>.generate(7, (i) {
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6-i));
+      return rows.where((row) {
+        final d = DateTime.parse(row['starts_at'] as String).toLocal();
+        return d.year == day.year && d.month == day.month && d.day == day.day &&
+            row['status'] != 'cancelled';
+      }).length;
+    });
+    return {'business':business,'appointments':rows,'today':today,'upcoming':upcoming,
+      'customers':customers.length,'pending':rows.where((r)=>r['status']=='pending').length,'week':week};
+  }
+
+  Future<void> refreshData() async { final next = load(); setState(() => data = next); await next; }
+  String timeOf(dynamic value) {
+    final d = DateTime.parse(value as String).toLocal();
+    return '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
+  }
+  String dateOf(dynamic value) {
+    final d = DateTime.parse(value as String).toLocal();
+    const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    return '${d.day} ${months[d.month-1]}';
+  }
+
+  @override Widget build(BuildContext context) => FutureBuilder<Map<String,dynamic>>(
+    future:data,
+    builder:(context,snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting)
+        return const Center(child:CircularProgressIndicator(color:wine));
+      if (snapshot.hasError || snapshot.data == null)
+        return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(
+          mainAxisSize:MainAxisSize.min,children:[
+            _FeedMessage(icon:Icons.cloud_off_outlined,title:'İşletme özeti yüklenemedi',
+              detail:'Bağlantını kontrol edip yeniden deneyebilirsin.'),
+            const SizedBox(height:12),
+            FilledButton.icon(
+              onPressed:()=>setState(()=>data=load()),
+              style:FilledButton.styleFrom(backgroundColor:wine,foregroundColor:Colors.white),
+              icon:const Icon(Icons.refresh_rounded),label:const Text('Tekrar dene')),
+          ],
+        )));
+      final result=snapshot.data!;
+      final business=result['business'] as Map<String,dynamic>;
+      final today=result['today'] as List<Map<String,dynamic>>;
+      final upcoming=result['upcoming'] as List<Map<String,dynamic>>;
+      final week=result['week'] as List<int>;
+      final next=upcoming.isEmpty?null:upcoming.first;
+      final maxWeek=week.fold<int>(1,(a,b)=>a>b?a:b);
+      const days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+      final todayDate=DateTime.now();
+      return RefreshIndicator(
+        color:const Color(0xFFE8C28C),onRefresh:refreshData,
+        child:ListView(
+          physics:const AlwaysScrollableScrollPhysics(),
+          padding:const EdgeInsets.fromLTRB(16,8,16,28),
+          children:[
+            Container(
+              padding:const EdgeInsets.fromLTRB(20,22,20,22),
+              decoration:BoxDecoration(
+                gradient:const LinearGradient(colors:[Color(0xFF210D17),Color(0xFF4A1C2C),Color(0xFF702B40)],
+                  begin:Alignment.topLeft,end:Alignment.bottomRight),
+                borderRadius:BorderRadius.circular(28),
+                boxShadow:[BoxShadow(color:const Color(0xFF4A1C2C).withOpacity(.2),blurRadius:22,offset:const Offset(0,10))]),
+              child:Stack(children:[
+                Positioned(right:-28,top:-40,child:Container(width:170,height:170,
+                  decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(
+                    color:const Color(0xFFE8C28C).withOpacity(.18),width:22)))),
+                Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Row(children:[
+                    Container(width:48,height:48,decoration:BoxDecoration(shape:BoxShape.circle,
+                      color:Colors.white.withOpacity(.08),border:Border.all(color:const Color(0xFFE8C28C))),
+                      child:const Icon(Icons.spa_rounded,color:Color(0xFFE8C28C),size:27)),
+                    const SizedBox(width:12),
+                    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                      const Text('Kuaförüm',style:TextStyle(color:Color(0xFFF6DDB8),fontSize:23,fontWeight:FontWeight.w800)),
+                      Text(business['name']?.toString()??'İşletme Paneli',maxLines:1,overflow:TextOverflow.ellipsis,
+                        style:const TextStyle(color:Colors.white70,fontSize:12))])),
+                    IconButton(tooltip:'Bildirimler',onPressed:()=>Navigator.push(context,MaterialPageRoute(
+                      builder:(_)=>Scaffold(appBar:AppBar(title:const Text('Bildirimler')),body:NotificationsPage()))),
+                      icon:const Icon(Icons.notifications_none_rounded,color:Color(0xFFF6DDB8),size:26)),
+                  ]),
+                  const SizedBox(height:27),
+                  const Text('Salonunuzda bugün\nher şey yolunda mı?',
+                    style:TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w800,height:1.15)),
+                  const SizedBox(height:7),
+                  Text('Gününüzün genel görünümüne göz atın.',
+                    style:TextStyle(color:Colors.white.withOpacity(.72),fontSize:13)),
+                  const SizedBox(height:18),
+                  Row(children:[
+                    const Icon(Icons.calendar_today_rounded,size:14,color:Color(0xFFE8C28C)),
+                    const SizedBox(width:7),
+                    Text('${todayDate.day}.${todayDate.month}.${todayDate.year}',
+                      style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:12,fontWeight:FontWeight.w700)),
+                    const Spacer(),
+                    const Text('GÜNLÜK ÖZET',style:TextStyle(color:Color(0xFFE8C28C),fontSize:9,letterSpacing:1.3,fontWeight:FontWeight.w800)),
+                  ]),
+                ]),
+              ]),
+            ),
+            const SizedBox(height:15),
+            Row(children:[
+              Expanded(child:metric(today.length.toString(),'Bugünkü randevu',Icons.calendar_month_rounded, const Color(0xFF8E2947))),
+              const SizedBox(width:9),
+              Expanded(child:metric(result['customers'].toString(),'Müşteri',Icons.people_alt_rounded,const Color(0xFFB18454))),
+            ]),
+            const SizedBox(height:9),
+            Row(children:[
+              Expanded(child:metric(result['pending'].toString(),'Onay bekleyen',Icons.hourglass_top_rounded,const Color(0xFFB18454))),
+              const SizedBox(width:9),
+              Expanded(child:metric((result['appointments'] as List).length.toString(),'Toplam randevu',Icons.auto_awesome_rounded,const Color(0xFF8E2947))),
+            ]),
+            const SizedBox(height:17),
+            if(next!=null) Container(
+              padding:const EdgeInsets.all(16),
+              decoration:BoxDecoration(color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(22),
+                border:Border.all(color:const Color(0xFFEADBCB)),boxShadow:[BoxShadow(
+                  color:const Color(0xFF4A1C2C).withOpacity(.06),blurRadius:15,offset:const Offset(0,5))]),
+              child:Row(children:[
+                Container(width:62,height:74,decoration:BoxDecoration(
+                  gradient:const LinearGradient(colors:[Color(0xFF741F3D),Color(0xFF3B1425)]),
+                  borderRadius:BorderRadius.circular(16)),
+                  child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+                    Text(dateOf(next['starts_at']).split(' ').first,style:const TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w800)),
+                    Text(dateOf(next['starts_at']).split(' ').last,style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:12,fontWeight:FontWeight.w700))])),
+                const SizedBox(width:12),
+                Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  const Text('SIRADAKİ RANDEVU',style:TextStyle(color:Color(0xFF9B765F),fontSize:9,letterSpacing:1,fontWeight:FontWeight.w800)),
+                  const SizedBox(height:4),
+                  Text(timeOf(next['starts_at']),style:const TextStyle(color:Color(0xFF321A25),fontSize:24,fontWeight:FontWeight.w800)),
+                  Text(next['customer_name']?.toString()??'Müşteri',maxLines:1,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(color:Color(0xFF321A25),fontWeight:FontWeight.w700,fontSize:13)),
+                  Text(next['service_name']?.toString()??'Hizmet',maxLines:1,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(color:Color(0xFF927B82),fontSize:11)),
+                ])),
+                const Icon(Icons.arrow_forward_ios_rounded,color:Color(0xFF8E2947),size:17),
+              ]),
+            ) else Container(padding:const EdgeInsets.all(17),decoration:BoxDecoration(
+              color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(20),
+              border:Border.all(color:const Color(0xFFEADBCB))),
+              child:const Row(children:[Icon(Icons.event_available_rounded,color:Color(0xFF9B765F),size:27),
+                SizedBox(width:11),Expanded(child:Text('Sıradaki randevunuz burada görünecek.',
+                  style:TextStyle(color:Color(0xFF6F5961),fontSize:13)))])),
+            const SizedBox(height:21),
+            Row(children:[
+              const Expanded(child:Text('Hızlı işlemler',style:TextStyle(color:Color(0xFF321A25),fontSize:19,fontWeight:FontWeight.w800))),
+              TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const SettingsPage())),
+                child:const Text('Yönetim araçları')),
+            ]),
+            Row(children:[
+              Expanded(child:action(Icons.calendar_month_rounded,'Randevular',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const OwnerAppointments())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.people_alt_rounded,'Müşteriler',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CustomersPage())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.chat_bubble_rounded,'Mesajlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const MessagesPage())))),
+              const SizedBox(width:8),
+              Expanded(child:action(Icons.tune_rounded,'Ayarlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const SettingsPage())))),
+            ]),
+            const SizedBox(height:21),
+            Container(padding:const EdgeInsets.fromLTRB(16,16,16,13),
+              decoration:BoxDecoration(color:const Color(0xFF321722),borderRadius:BorderRadius.circular(22),
+                border:Border.all(color:const Color(0xFF754354).withOpacity(.55))),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Row(children:[
+                  const Icon(Icons.insights_rounded,color:Color(0xFFE8C28C),size:19),
+                  const SizedBox(width:8),
+                  const Expanded(child:Text('Son 7 günün randevuları',style:TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w700))),
+                  Text('${week.fold<int>(0,(a,b)=>a+b)} randevu',style:const TextStyle(color:Color(0xFFE8C28C),fontSize:11,fontWeight:FontWeight.w700)),
+                ]),
+                const SizedBox(height:17),
+                SizedBox(height:92,child:Row(crossAxisAlignment:CrossAxisAlignment.end,children:
+                  List.generate(7,(i){
+                    final d=DateTime.now().subtract(Duration(days:6-i));
+                    final h=12.0+(week[i]/maxWeek)*54;
+                    return Expanded(child:Padding(padding:const EdgeInsets.symmetric(horizontal:4),
+                      child:Column(mainAxisAlignment:MainAxisAlignment.end,children:[
+                        Text(week[i].toString(),style:const TextStyle(color:Color(0xFFF6DDB8),fontSize:10,fontWeight:FontWeight.w700)),
+                        const SizedBox(height:5),
+                        Container(height:h,decoration:BoxDecoration(
+                          gradient:const LinearGradient(colors:[Color(0xFFE8C28C),Color(0xFFB47758)],begin:Alignment.topCenter,end:Alignment.bottomCenter),
+                          borderRadius:BorderRadius.circular(8))),
+                        const SizedBox(height:7),
+                        Text(days[d.weekday-1],style:const TextStyle(color:Colors.white70,fontSize:9)),
+                      ])));
+                  }))),
+              ])),
+            const SizedBox(height:20),
+            Row(children:[
+              const Expanded(child:Text('Bugünün randevuları',style:TextStyle(color:Color(0xFF321A25),fontSize:18,fontWeight:FontWeight.w800))),
+              TextButton(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const OwnerAppointments())),
+                child:const Text('Tümünü gör')),
+            ]),
+            if(today.isEmpty) const Text('Bugün için henüz randevu bulunmuyor.',style:TextStyle(color:muted,fontSize:13))
+            else ...today.take(3).map((row)=>Container(
+              margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(13),
+              decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(17),
+                border:Border.all(color:const Color(0xFFEADBCB))),
+              child:Row(children:[
+                Container(width:4,height:46,decoration:BoxDecoration(color:const Color(0xFFB18454),borderRadius:BorderRadius.circular(4))),
+                const SizedBox(width:10),
+                SizedBox(width:46,child:Text(timeOf(row['starts_at']),style:const TextStyle(
+                  color:Color(0xFF6E2038),fontWeight:FontWeight.w800,fontSize:13))),
+                Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(row['customer_name']?.toString()??'Müşteri',style:const TextStyle(color:ink,fontWeight:FontWeight.w700,fontSize:13)),
+                  Text(row['service_name']?.toString()??'Hizmet',style:const TextStyle(color:muted,fontSize:11)),
+                ])),
+                statusPill(row['status']?.toString()??'pending'),
+              ]))),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget metric(String value,String label,IconData icon,Color color)=>Container(
+    padding:const EdgeInsets.symmetric(horizontal:11,vertical:14),
+    decoration:BoxDecoration(color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(18),
+      border:Border.all(color:const Color(0xFFEADBCB))),
+    child:Row(children:[
+      Container(width:34,height:34,decoration:BoxDecoration(color:color.withOpacity(.1),borderRadius:BorderRadius.circular(11)),
+        child:Icon(icon,color:color,size:18)),
+      const SizedBox(width:8),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(value,style:const TextStyle(color:Color(0xFF321A25),fontSize:20,fontWeight:FontWeight.w800)),
+        Text(label,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10,height:1.15)),
+      ])),
+    ]),
+  );
+
+  Widget action(IconData icon,String label,VoidCallback onTap)=>Material(
+    color:const Color(0xFFFFFDFB),borderRadius:BorderRadius.circular(16),
+    child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),
+      child:Container(constraints:const BoxConstraints(minHeight:82),
+        padding:const EdgeInsets.symmetric(horizontal:4,vertical:11),
+        decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFEADBCB))),
+        child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Icon(icon,color:const Color(0xFF8E2947),size:22),const SizedBox(height:7),
+          Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:ink,fontSize:10,fontWeight:FontWeight.w700)),
+        ]))),
+  );
+
+  Widget statusPill(String status) {
+    final label=switch(status){'approved'=>'Onaylandı','completed'=>'Tamamlandı','cancelled'=>'İptal','rejected'=>'Reddedildi',_=>'Bekliyor'};
+    final color=switch(status){'approved'||'completed'=>const Color(0xFF26734D),'cancelled'||'rejected'=>const Color(0xFF9B4B50),_=>const Color(0xFF9B6B2E)};
+    return Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:6),
+      decoration:BoxDecoration(color:color.withOpacity(.1),borderRadius:BorderRadius.circular(18)),
+      child:Text(label,style:TextStyle(color:color,fontSize:9,fontWeight:FontWeight.w800)));
+  }
+}
+class OwnerAppointments extends StatelessWidget {
+  const OwnerAppointments({super.key});
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 2,
+    child: Scaffold(
+      backgroundColor: cream,
+      appBar: AppBar(
+        title: const Text('Randevular'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(54),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            decoration: BoxDecoration(
+              color: blush.withOpacity(.65),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: TabBar(
+              dividerColor: Colors.transparent,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: wine,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: wine.withOpacity(.16),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              labelColor: Colors.white,
+              unselectedLabelColor: muted,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              tabs: const [
+                Tab(height: 44, text: 'Randevum'),
+                Tab(height: 44, text: 'Çalışan Randevuları'),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: const TabBarView(
+        children: [
+          AppointmentsPage(title: 'Randevum', ownerMode: true),
+          AppointmentsPage(title: 'Çalışan Randevuları', ownerMode: false),
+        ],
+      ),
+    ),
+  );
+}
+
+class OwnerEmployeeAppointments extends StatelessWidget {
+  const OwnerEmployeeAppointments({super.key});
+  @override
+  Widget build(BuildContext context) => const AppointmentsPage(
+    title: 'Çalışan Randevuları',
+    ownerMode: false,
+  );
+}
+class CustomersPage extends StatefulWidget {
+  const CustomersPage({super.key});
+  @override
+  State<CustomersPage> createState() => _CustomersPageState();
+}
+
+class _CustomersPageState extends State<CustomersPage> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<Map<String, dynamic>> data;
+  String query = '';
+  int selectedFilter = 0;
+
+  @override
+  void initState() { super.initState(); data = load(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<Map<String, dynamic>> load() async {
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('Oturum bulunamadı.');
+    final business = await client.from('businesses').select('id')
+        .eq('owner_id', user.id).maybeSingle();
+    if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+    final rows = await client.rpc('get_business_customers', params: {
+      'p_business_id': business['id'],
+    });
+    return {
+      'business_id': business['id'],
+      'customers': List<Map<String, dynamic>>.from(rows as List),
+    };
+  }
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => data = next);
+    await next;
+  }
+
+  String lastVisitLabel(dynamic value) {
+    if (value == null || value.toString().isEmpty) return 'Henüz randevu yok';
+    final date = DateTime.tryParse(value.toString())?.toLocal();
+    if (date == null) return 'Tarih bilgisi yok';
+    return 'Son randevu: ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  Future<void> toggleBlacklist(
+    String businessId, Map<String, dynamic> customer, bool blocked,
+  ) async {
+    final name = customer['full_name']?.toString() ?? 'Bu müşteri';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(blocked ? 'Kara listeye al' : 'Kara listeden çıkar'),
+        content: Text(blocked
+            ? '$name adlı müşteriyi bu işletmenin kara listesine almak istiyor musun?'
+            : '$name adlı müşterinin kara liste kaydını kaldırmak istiyor musun?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(blocked ? 'Kara listeye al' : 'Listeden çıkar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await client.rpc('set_customer_blacklist', params: {
+        'p_business_id': businessId,
+        'p_customer_id': customer['customer_id'],
+        'p_blocked': blocked,
+        'p_reason': blocked ? 'İşletme tarafından kara listeye alındı' : null,
+      });
+      await refreshData();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(blocked ? 'Müşteri kara listeye alındı.' : 'Müşteri kara listeden çıkarıldı.'),
+      ));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kara liste güncellenemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: data,
+    builder: (context, snapshot) {
+      final all = snapshot.data?['customers'] as List<Map<String, dynamic>>? ?? [];
+      final blockedCount = all.where((c) => c['is_blacklisted'] == true).length;
+      final customers = all.where((c) {
+        final blocked = c['is_blacklisted'] == true;
+        final matchesFilter = selectedFilter == 0 || blocked;
+        final value = '${c['full_name'] ?? ''} ${c['phone'] ?? ''}'.toLowerCase();
+        return matchesFilter && value.contains(query.toLowerCase());
+      }).toList()
+        ..sort((a, b) {
+          final ab = a['is_blacklisted'] == true, bb = b['is_blacklisted'] == true;
+          if (ab != bb) return ab ? -1 : 1;
+          return (a['full_name'] ?? '').toString().compareTo((b['full_name'] ?? '').toString());
+        });
+
+      return RefreshIndicator(
+        color: wine,
+        onRefresh: refreshData,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+          children: [
+            const Text('Müşteri Yönetimi', style: TextStyle(
+              fontSize: 23, fontWeight: FontWeight.w900, color: ink,
+            )),
+            const SizedBox(height: 5),
+            const Text('Müşterilerini ve işletme bazlı kara listeyi yönet.',
+              style: TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: _CustomerMetric(
+                value: snapshot.connectionState == ConnectionState.waiting ? '—' : all.length.toString(),
+                label: 'Toplam müşteri', icon: Icons.people_alt_outlined,
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _CustomerMetric(
+                value: snapshot.connectionState == ConnectionState.waiting ? '—' : blockedCount.toString(),
+                label: 'Kara listede', icon: Icons.block_rounded, warning: blockedCount > 0,
+              )),
+            ]),
+            const SizedBox(height: 16),
+            TextField(
+              controller: search,
+              onChanged: (value) => setState(() => query = value),
+              decoration: InputDecoration(
+                hintText: 'İsim veya telefon ara...',
+                prefixIcon: const Icon(Icons.search, color: wine),
+                suffixIcon: query.isEmpty ? null : IconButton(
+                  onPressed: () { search.clear(); setState(() => query = ''); },
+                  icon: const Icon(Icons.close, color: muted),
+                ),
+                filled: true, fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: blush)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: blush)),
+              ),
+            ),
+            const SizedBox(height: 13),
+            Row(children: [
+              Expanded(child: _CustomerFilterChip(
+                label: 'Tüm müşteriler', count: all.length, selected: selectedFilter == 0,
+                onTap: () => setState(() => selectedFilter = 0),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _CustomerFilterChip(
+                label: 'Kara liste', count: blockedCount, selected: selectedFilter == 1,
+                onTap: () => setState(() => selectedFilter = 1),
+              )),
+            ]),
+            const SizedBox(height: 14),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(padding: EdgeInsets.all(34),
+                child: Center(child: CircularProgressIndicator(color: wine)))
+            else if (snapshot.hasError)
+              _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Müşteriler yüklenemedi',
+                detail: snapshot.error.toString())
+            else if (customers.isEmpty)
+              _FeedMessage(icon: Icons.people_outline,
+                title: selectedFilter == 1 ? 'Kara listede müşteri yok' : 'Müşteri bulunamadı',
+                detail: query.isNotEmpty ? 'Arama ölçütünü değiştirebilirsin.'
+                    : 'Müşteri randevu oluşturdukça burada görünecek.')
+            else
+              ...customers.map((customer) {
+                final blocked = customer['is_blacklisted'] == true;
+                final noShows = int.tryParse('${customer['no_show_count'] ?? 0}') ?? 0;
+                final appointments = int.tryParse('${customer['appointment_count'] ?? 0}') ?? 0;
+                final reason = customer['blacklist_reason']?.toString() ?? '';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 11),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(19),
+                    border: Border.all(color: blocked ? const Color(0xFFE8C4C8) : blush),
+                    boxShadow: [BoxShadow(color: ink.withOpacity(.035), blurRadius: 12,
+                      offset: const Offset(0, 4))],
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      CircleAvatar(
+                        radius: 23,
+                        backgroundColor: blocked ? const Color(0xFFF8E8E9) : blush,
+                        child: Icon(blocked ? Icons.block_rounded : Icons.person_outline_rounded,
+                          color: blocked ? const Color(0xFF9B4B50) : wine),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(customer['full_name']?.toString() ?? 'İsimsiz müşteri',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: ink, fontSize: 14)),
+                        const SizedBox(height: 3),
+                        Text(customer['phone']?.toString() ?? 'Telefon bilgisi yok',
+                          style: const TextStyle(color: muted, fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Text(lastVisitLabel(customer['last_appointment_at']),
+                          style: const TextStyle(color: muted, fontSize: 10)),
+                      ])),
+                      if (blocked) Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                        decoration: BoxDecoration(color: const Color(0xFFF8E8E9),
+                          borderRadius: BorderRadius.circular(20)),
+                        child: const Text('KARA LİSTE', style: TextStyle(
+                          color: Color(0xFF9B4B50), fontSize: 9, fontWeight: FontWeight.w900)),
+                      ),
+                    ]),
+                    const SizedBox(height: 13),
+                    Row(children: [
+                      _CustomerInfoPill(icon: Icons.calendar_month_outlined, text: '$appointments randevu'),
+                      const SizedBox(width: 7),
+                      _CustomerInfoPill(icon: Icons.event_busy_outlined, text: '$noShows gelmedi',
+                        danger: noShows >= 3),
+                    ]),
+                    if (blocked && reason.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Not: $reason', style: const TextStyle(color: muted, fontSize: 11)),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                      onPressed: () => toggleBlacklist(snapshot.data!['business_id'] as String,
+                        customer, !blocked),
+                      icon: Icon(blocked ? Icons.remove_circle_outline : Icons.block_outlined, size: 17),
+                      label: Text(blocked ? 'Kara listeden çıkar' : 'Kara listeye al'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: blocked ? const Color(0xFF26734D) : wine,
+                        side: BorderSide(color: blocked ? const Color(0xFFB8D8C6) : blush),
+                      ),
+                    )),
+                  ]),
+                );
+              }),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _CustomerMetric extends StatelessWidget {
+  final String value, label;
+  final IconData icon;
+  final bool warning;
+  const _CustomerMetric({required this.value, required this.label, required this.icon, this.warning = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: warning ? const Color(0xFFE8C4C8) : blush)),
+    child: Row(children: [
+      Container(width: 37, height: 37,
+        decoration: BoxDecoration(color: warning ? const Color(0xFFF8E8E9) : blush,
+          borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: warning ? const Color(0xFF9B4B50) : wine, size: 19)),
+      const SizedBox(width: 9),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(value, style: const TextStyle(color: ink, fontSize: 19, fontWeight: FontWeight.w900)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)),
+      ])),
+    ]),
+  );
+}
+
+class _CustomerFilterChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+  const _CustomerFilterChip({required this.label, required this.count,
+    required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap, borderRadius: BorderRadius.circular(14),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
+      decoration: BoxDecoration(color: selected ? wine : Colors.white,
+        borderRadius: BorderRadius.circular(14), border: Border.all(color: selected ? wine : blush)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: selected ? Colors.white : ink, fontSize: 11, fontWeight: FontWeight.w800))),
+        const SizedBox(width: 6),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(color: selected ? Colors.white.withOpacity(.18) : blush,
+            borderRadius: BorderRadius.circular(20)),
+          child: Text('$count', style: TextStyle(color: selected ? Colors.white : wine,
+            fontSize: 10, fontWeight: FontWeight.w900))),
+      ]),
+    ),
+  );
+}
+
+class _CustomerInfoPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool danger;
+  const _CustomerInfoPill({required this.icon, required this.text, this.danger = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(color: danger ? const Color(0xFFFFF0EF) : cream,
+      borderRadius: BorderRadius.circular(10)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 13, color: danger ? const Color(0xFFB3261E) : muted),
+      const SizedBox(width: 5),
+      Text(text, style: TextStyle(color: danger ? const Color(0xFFB3261E) : muted,
+        fontSize: 10, fontWeight: FontWeight.w700)),
+    ]),
+  );
+}
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  void open(BuildContext context, String section) {
+    final page = switch (section) {
+      'İşletme Profili' => const BusinessDetailsPage(),
+      'Çalışanlar' => const EmployeeManagementPage(),
+      'Hizmetler' => const ServicesPage(),
+      'Çalışma Saatleri' => const WorkingHoursPage(),
+      'Randevu Aralığı' => const AppointmentIntervalPage(),
+      'Çalışan İzinleri' => const OwnerTimeOffPage(),
+      _ => null,
+    };
+    if (page == null) return;
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(section,
+          style: const TextStyle(color: wine, fontWeight: FontWeight.bold))),
+        body: page,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const sections = [
+      ('İşletme Profili', 'Salon adı, adres, fotoğraf ve geçici kapatma', Icons.storefront_outlined),
+      ('Çalışanlar', 'Ekibine çalışan ekle, hesaplarını ve durumlarını yönet', Icons.people_alt_outlined),
+      ('Hizmetler', 'Hizmet adlarını, ücretlerini ve sürelerini düzenle', Icons.content_cut_rounded),
+      ('Çalışma Saatleri', 'Haftanın günlerine göre açılış ve kapanış saatleri', Icons.schedule_rounded),
+      ('Randevu Aralığı', 'Yeni randevuların kaç dakikada bir başlayacağını belirle', Icons.timelapse_rounded),
+      ('Çalışan İzinleri', 'Çalışanların izin taleplerini incele ve yanıtla', Icons.event_busy_outlined),
+    ];
+    return PageBody(children: [
+      const Text('İşletme Ayarları',
+        style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 5),
+      const Text('Salonunu ve ekibini tek yerden yönet.',
+        style: TextStyle(color: muted, fontSize: 12)),
+      const SizedBox(height: 15),
+      ...sections.map((section) => Card(
+        color: Colors.white,
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(17),
+          side: const BorderSide(color: blush),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          leading: Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: blush, borderRadius: BorderRadius.circular(13)),
+            child: Icon(section.$3, color: wine, size: 21),
+          ),
+          title: Text(section.$1,
+            style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(section.$2,
+              style: const TextStyle(color: muted, fontSize: 11)),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded, color: muted),
+          onTap: () => open(context, section.$1),
+        ),
+      )),
+    ]);
+  }
+}
+
+class BusinessDetailsPage extends StatefulWidget {
+  const BusinessDetailsPage({super.key});
+  @override
+  State<BusinessDetailsPage> createState() => _BusinessDetailsPageState();
+}
+
+class _BusinessDetailsPageState extends State<BusinessDetailsPage> {
+  final client = Supabase.instance.client;
+  final name = TextEditingController();
+  final address = TextEditingController();
+  String? businessId;
+  bool loading = true;
+  bool saving = false;
+  bool temporarilyClosed = false;
+  bool uploadingLogo = false;
+  String? logoPath;
+
+  @override
+  void initState() { super.initState(); load(); }
+  @override
+  void dispose() { name.dispose(); address.dispose(); super.dispose(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('businesses')
+          .select('id,name,address,is_temporarily_closed,logo_url').eq('owner_id', user.id).maybeSingle();
+      if (row == null) throw Exception('İşletme bulunamadı.');
+      businessId = row['id'] as String;
+      name.text = row['name'] as String? ?? '';
+      address.text = row['address'] as String? ?? '';
+      temporarilyClosed = row['is_temporarily_closed'] as bool? ?? false;
+      logoPath = row['logo_url'] as String?;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletme bilgileri yüklenemedi: $error')));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> uploadLogo() async {
+    final user = client.auth.currentUser;
+    if (user == null || businessId == null || uploadingLogo) return;
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery, imageQuality: 90, maxWidth: 2048, maxHeight: 2048,
+    );
+    if (image == null) return;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 88,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'İşletme Fotoğrafını Düzenle',
+          toolbarColor: wine,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'İşletme Fotoğrafını Düzenle',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
+    setState(() => uploadingLogo = true);
+    try {
+      final file = File(cropped.path);
+      if (await file.length() > 5 * 1024 * 1024) {
+        throw Exception('Logo 5 MB sınırını aşıyor.');
+      }
+      const contentType = 'image/jpeg';
+      final path = 'businesses/$businessId/logo_${DateTime.now().microsecondsSinceEpoch}.jpg';
+      await client.storage.from('salon-avatars').upload(path, file,
+        fileOptions: FileOptions(contentType: contentType, upsert: false));
+      await client.rpc('set_my_business_logo', params: {
+        'p_business_id': businessId, 'p_logo_path': path,
+      });
+      final oldPath = logoPath;
+      if (oldPath != null && oldPath.startsWith('businesses/$businessId/')) {
+        try { await client.storage.from('salon-avatars').remove([oldPath]); } catch (_) {}
+      }
+      if (mounted) {
+        setState(() => logoPath = path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İşletme fotoğrafı güncellendi.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('İşletme fotoğrafı yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => uploadingLogo = false);
+    }
+  }
+
+  Future<void> setTemporaryClosed(bool value) async {
+    if (businessId == null) return;
+    setState(() => temporarilyClosed = value);
+    try {
+      await client.rpc('set_business_temporarily_closed', params: {
+        'p_business_id': businessId, 'p_closed': value,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(value ? 'İşletme geçici olarak kapatıldı.' : 'İşletme yeniden açıldı.')));
+    } catch (error) {
+      if (mounted) {
+        setState(() => temporarilyClosed = !value);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşletme durumu değiştirilemedi: $error'), backgroundColor: wine));
+      }
+    }
+  }
+
+  Future<void> save() async {
+    if (businessId == null || saving) return;
+    final trimmedName = name.text.trim();
+    final trimmedAddress = address.text.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 80) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İşletme adı 2-80 karakter arasında olmalı.')),
+      );
+      return;
+    }
+    if (trimmedAddress.length > 180) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adres en fazla 180 karakter olabilir.')),
+      );
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await client.rpc('update_my_business_profile', params: {
+        'p_business_id': businessId,
+        'p_name': trimmedName,
+        'p_address': trimmedAddress,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İşletme profili güncellendi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profil güncellenemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return PageBody(children: [
+      const Text('İşletme bilgileri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 16),
+      Center(child: Column(children: [
+        CircleAvatar(
+          radius: 44,
+          backgroundColor: blush,
+          backgroundImage: logoPath == null ? null : NetworkImage(
+            logoPath!.startsWith('http') ? logoPath! : client.storage.from('salon-avatars').getPublicUrl(logoPath!),
+          ),
+          child: logoPath == null ? const Icon(Icons.storefront, size: 42, color: wine) : null,
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: uploadingLogo ? null : uploadLogo,
+          icon: uploadingLogo
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.camera_alt_outlined),
+          label: const Text('İşletme fotoğrafını değiştir'),
+        ),
+      ])),
+      const SizedBox(height: 14),
+      TextField(controller: name, textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'İşletme adı')),
+      const SizedBox(height: 12),
+      TextField(controller: address, maxLines: 2,
+        decoration: const InputDecoration(labelText: 'Adres')),
+      const SizedBox(height: 10),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: temporarilyClosed,
+        onChanged: setTemporaryClosed,
+        activeColor: wine,
+        title: const Text('İşletmeyi geçici olarak kapat', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+        subtitle: const Text('Kapalıyken yeni randevu alınamaz. Mevcut randevular korunur.', style: TextStyle(color: muted)),
+      ),
+      const SizedBox(height: 18),
+      ElevatedButton(onPressed: saving ? null : save,
+        child: saving ? const CircularProgressIndicator() : const Text('Değişiklikleri kaydet')),
+    ]);
+  }
+}
+
+class AppointmentIntervalPage extends StatefulWidget {
+  const AppointmentIntervalPage({super.key});
+  @override
+  State<AppointmentIntervalPage> createState() => _AppointmentIntervalPageState();
+}
+
+class _AppointmentIntervalPageState extends State<AppointmentIntervalPage> {
+  final client = Supabase.instance.client;
+  String? businessId;
+  int selected = 30;
+  bool loading = true;
+  bool saving = false;
+  static const intervals = [10, 15, 20, 30, 45, 60];
+
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final row = await client.from('businesses')
+          .select('id,appointment_interval_minutes')
+          .eq('owner_id', user.id).maybeSingle();
+      if (row == null) throw Exception('İşletme bulunamadı.');
+      businessId = row['id'] as String;
+      selected = (row['appointment_interval_minutes'] as num?)?.toInt() ?? 30;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu aralığı yüklenemedi: $error')));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> save() async {
+    if (businessId == null) return;
+    setState(() => saving = true);
+    try {
+      await client.rpc('update_appointment_interval', params: {
+        'p_business_id': businessId, 'p_interval_minutes': selected,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Randevu aralığı kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Randevu aralığı kaydedilemedi: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: wine));
+    return PageBody(children: [
+      const Text('Randevu Aralığı', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 8),
+      const Text('Yeni randevu saatlerinin kaç dakikada bir açılacağını belirle.', style: TextStyle(color: muted)),
+      const SizedBox(height: 18),
+      Wrap(spacing: 10, runSpacing: 10, children: intervals.map((minutes) =>
+        ChoiceChip(label: Text('$minutes dakika'), selected: selected == minutes,
+          onSelected: (_) => setState(() => selected = minutes),
+          selectedColor: blush)).toList()),
+      const SizedBox(height: 20),
+      ElevatedButton(onPressed: saving ? null : save,
+        child: saving ? const CircularProgressIndicator() : const Text('Kaydet')),
+    ]);
+  }
+}
+class WorkingHoursPage extends StatefulWidget {
+  const WorkingHoursPage({super.key});
+  @override
+  State<WorkingHoursPage> createState() => _WorkingHoursPageState();
+}
+
+class _WorkingHoursPageState extends State<WorkingHoursPage> {
+  final client = Supabase.instance.client;
+  final labels = const ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  String? businessId;
+  List<Map<String, dynamic>> days = [];
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('Oturum bulunamadı.');
+      final business = await client.from('businesses').select('id')
+          .eq('owner_id', user.id).maybeSingle();
+      if (business == null) throw Exception('İşletme kaydı bulunamadı.');
+      businessId = business['id'] as String;
+      final rows = await client.from('business_hours').select('weekday,opens_at,closes_at,is_closed')
+          .eq('business_id', businessId!);
+      final byDay = {for (final row in rows) row['weekday'] as int: row};
+      days = List.generate(7, (index) {
+        final row = byDay[index];
+        return {
+          'weekday': index,
+          'opens_at': row?['opens_at']?.toString().substring(0,5) ?? '09:00',
+          'closes_at': row?['closes_at']?.toString().substring(0,5) ?? '18:00',
+          'is_closed': row?['is_closed'] as bool? ?? (index == 0),
+        };
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çalışma saatleri yüklenemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> chooseTime(int day, String field) async {
+    final parts = (days[day][field] as String).split(':');
+    final initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    final selected = await showTimePicker(context: context, initialTime: initial);
+    if (selected == null) return;
+    setState(() => days[day][field] =
+      '${selected.hour.toString().padLeft(2,'0')}:${selected.minute.toString().padLeft(2,'0')}');
+  }
+
+  int _minutes(String value) {
+    final parts = value.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
+
+  Future<void> save() async {
+    if (businessId == null || saving) return;
+    for (final day in days) {
+      if (day['is_closed'] != true &&
+          _minutes(day['closes_at'] as String) <= _minutes(day['opens_at'] as String)) {
+        final dayName = labels[day['weekday'] as int];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$dayName için kapanış saati açılış saatinden sonra olmalı.')),
+        );
+        return;
+      }
+    }
+    setState(() => saving = true);
+    try {
+      await client.from('business_hours').upsert(
+        days.map((day) => {...day, 'business_id': businessId}).toList(),
+        onConflict: 'business_id,weekday',
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Çalışma saatleri kaydedildi.')),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kaydedilemedi: $error'), backgroundColor: wine),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PageBody(children: [
+    const Text('Çalışma Saatleri', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink)),
+    const SizedBox(height: 8),
+    const Text('İşletmenin haftalık açık olduğu saatleri belirle.', style: TextStyle(color: muted)),
+    const SizedBox(height: 12),
+    if (loading)
+      const Center(child: CircularProgressIndicator(color: wine))
+    else if (businessId == null)
+      const Text('İşletme bilgisi yüklenemedi.')
+    else ...[
+      ...List.generate(7, (index) {
+        final day = days[index];
+        final closed = day['is_closed'] as bool;
+        return Card(
+          color: Colors.white,
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 9),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              Row(children: [
+                Expanded(child: Text(labels[index], style: const TextStyle(fontWeight: FontWeight.bold, color: ink))),
+                const Text('Kapalı', style: TextStyle(color: muted, fontSize: 12)),
+                Switch(
+                  value: closed,
+                  activeColor: wine,
+                  onChanged: (value) => setState(() => day['is_closed'] = value),
+                ),
+              ]),
+              if (!closed)
+                Row(children: [
+                  Expanded(child: OutlinedButton(
+                    onPressed: () => chooseTime(index, 'opens_at'),
+                    child: Text('Açılış  ${day['opens_at']}'),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: OutlinedButton(
+                    onPressed: () => chooseTime(index, 'closes_at'),
+                    child: Text('Kapanış  ${day['closes_at']}'),
+                  )),
+                ]),
+            ]),
+          ),
+        );
+      }),
+      const SizedBox(height: 8),
+      SizedBox(width: double.infinity, child: ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: wine, foregroundColor: Colors.white),
+        onPressed: saving ? null : save,
+        child: Text(saving ? 'Kaydediliyor...' : 'Saatleri Kaydet'),
+      )),
+    ],
+  ]);
+}
+
+class AdminSubAdmins extends StatefulWidget {
+  const AdminSubAdmins({super.key});
+  @override State<AdminSubAdmins> createState() => _AdminSubAdminsState();
+}
+class _AdminSubAdminsState extends State<AdminSubAdmins> {
+  final client = Supabase.instance.client;
+  final email = TextEditingController();
+  final permissions = <String>{};
+  bool loading = true;
+  bool saving = false;
+  List<Map<String, dynamic>> admins = [];
+  static const options = <String, String>{
+    'dashboard': 'Genel bakış', 'businesses': 'İşletme yönetimi',
+    'users': 'Kullanıcı yönetimi', 'discover': 'Keşfet yönetimi',
+    'support': 'Destek yönetimi',
+  };
+  @override void initState() { super.initState(); load(); }
+  @override void dispose() { email.dispose(); super.dispose(); }
+  Future<void> load() async {
+    try {
+      final rows = await client.rpc('admin_list_subadmins') as List;
+      admins = List<Map<String, dynamic>>.from(rows);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Alt yöneticiler yüklenemedi: $error')));
+    } finally { if (mounted) setState(() => loading = false); }
+  }
+  Future<void> save() async {
+    final address = email.text.trim();
+    if (!address.contains('@') || permissions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geçerli e-posta ve en az bir yetki seç.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await client.rpc('admin_set_subadmin', params: {
+        'p_email': address, 'p_permissions': permissions.toList(),
+      });
+      if (!mounted) return;
+      email.clear(); permissions.clear();
+      await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alt yönetici yetkileri kaydedildi.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yetkiler kaydedilemedi: $error')));
+    } finally { if (mounted) setState(() => saving = false); }
+  }
+  Future<void> revoke(Map<String, dynamic> admin) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      AlertDialog(
+        title: const Text('Alt yöneticiyi kaldır'),
+        content: Text('${admin['email'] ?? 'Bu hesap'} için tüm yönetim yetkileri kaldırılacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Yetkileri kaldır')),
+        ],
+      ));
+    if (confirmed != true) return;
+    try {
+      await client.rpc('admin_set_subadmin', params: {
+        'p_email': admin['email'], 'p_permissions': <String>[],
+      });
+      if (!mounted) return;
+      await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alt yönetici yetkileri kaldırıldı.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yetkiler kaldırılamadı: $error')));
+    }
+  }
+  Future<void> edit(Map<String, dynamic> admin) async {
+    email.text = admin['email']?.toString() ?? '';
+    permissions..clear()
+      ..addAll(List<String>.from(admin['permissions'] ?? const []));
+    await showDialog<void>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, refreshDialog) => AlertDialog(
+        title: Text(admin['full_name']?.toString() ?? 'Alt yönetici'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          ...options.entries.map((entry) => CheckboxListTile(
+            contentPadding: EdgeInsets.zero, title: Text(entry.value),
+            value: permissions.contains(entry.key), activeColor: wine,
+            onChanged: (value) => refreshDialog(() {
+              if (value == true) { permissions.add(entry.key); }
+              else { permissions.remove(entry.key); }
+            }),
+          )),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç')),
+          FilledButton(onPressed: () async {
+            Navigator.pop(dialogContext); await save();
+          }, child: const Text('Kaydet')),
+        ],
+      )));
+    if (!mounted) return;
+    email.clear(); permissions.clear();
+  }
+  @override Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18), children: [
+      const Text('Alt Yönetici Yetkileri', style: TextStyle(
+        fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 6),
+      const Text('Mevcut müşteri hesabını e-posta adresiyle seçip yönetim alanlarını yetkilendir.',
+        style: TextStyle(color: muted)),
+      const SizedBox(height: 16),
+      TextField(controller: email, keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(labelText: 'Kullanıcı e-posta adresi')),
+      const SizedBox(height: 8),
+      ...options.entries.map((entry) => CheckboxListTile(
+        contentPadding: EdgeInsets.zero, title: Text(entry.value),
+        value: permissions.contains(entry.key), activeColor: wine,
+        onChanged: (value) => setState(() {
+          if (value == true) { permissions.add(entry.key); }
+          else { permissions.remove(entry.key); }
+        }),
+      )),
+      const SizedBox(height: 8),
+      FilledButton(onPressed: saving ? null : save,
+        child: Text(saving ? 'Kaydediliyor...' : 'Alt yönetici yetkilerini kaydet')),
+      const SectionTitle('Yetkili hesaplar'),
+      if (loading) const Center(child: CircularProgressIndicator(color: wine))
+      else if (admins.isEmpty) const Text('Henüz alt yönetici eklenmedi.',
+        style: TextStyle(color: muted))
+      else ...admins.map((admin) => Card(color: Colors.white, elevation: 0,
+        child: ListTile(
+          leading: const CircleAvatar(backgroundColor: blush,
+            child: Icon(Icons.admin_panel_settings, color: wine)),
+          title: Text(admin['full_name']?.toString() ?? 'Kullanıcı'),
+          subtitle: Text('${admin['email'] ?? ''} • '
+            '${(admin['permissions'] as List? ?? []).length} yetki'),
+          trailing: Wrap(children: [
+            IconButton(icon: const Icon(Icons.edit_outlined, color: wine),
+              onPressed: () => edit(admin)),
+            IconButton(icon: const Icon(Icons.delete_outline, color: wine),
+              onPressed: () => revoke(admin)),
+          ]),
+        ),
+      )),
+    ],
+  );
+}
+
+class AdminHome extends StatefulWidget {
+  const AdminHome({super.key});
+  @override State<AdminHome> createState() => _AdminHomeState();
+}
+class _AdminHomeState extends State<AdminHome> {
+  late Future<Map<String, dynamic>> stats;
+  @override
+  void initState() { super.initState(); stats = load(); }
+  Future<Map<String, dynamic>> load() async {
+    final rows = await Supabase.instance.client.rpc('admin_dashboard_stats');
+    final row = (rows as List).first as Map;
+    return Map<String, dynamic>.from(row);
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: stats,
+    builder: (context, snapshot) => PageBody(children: [
+      const Text('Genel Bakış', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+      const SizedBox(height: 14),
+      const HeroPanel(eyebrow: 'Platform kontrolü', title: 'Kuaförüm ekosistemini yönet',
+        subtitle: 'Kuaförüm platformunun genel durumunu görüntüle.',
+        icon: Icons.admin_panel_settings, button: 'Platformu yönet'),
+      const SizedBox(height: 14),
+      if (snapshot.connectionState == ConnectionState.waiting)
+        const Center(child: CircularProgressIndicator(color: wine))
+      else if (snapshot.hasError)
+        _FeedMessage(icon: Icons.cloud_off_outlined, title: 'İstatistikler yüklenemedi', detail: snapshot.error.toString())
+      else
+        Row(children: [
+          Expanded(child: _StatCard(snapshot.data!['business_count'].toString(), 'İşletme')),
+          Expanded(child: _StatCard(snapshot.data!['user_count'].toString(), 'Kullanıcı')),
+          Expanded(child: _StatCard(snapshot.data!['post_count'].toString(), 'Paylaşım')),
+        ]),
+      const SectionTitle('Yönetim araçları'),
+      const Text('İşletme onayları, kullanıcı güvenliği ve Keşfet erişimleri. Ana yönetici hesabında randevu alma veya müşteri ekranları bulunmaz.', style: TextStyle(color: muted, height: 1.5)),
+    ]),
+  );
+}
+class AdminBusinesses extends StatefulWidget {
+  const AdminBusinesses({super.key});
+  @override State<AdminBusinesses> createState() => _AdminBusinessesState();
+}
+
+class _AdminBusinessesState extends State<AdminBusinesses> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> businesses;
+  String query = '';
+
+  @override
+  void initState() { super.initState(); businesses = load(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_businesses') as List);
+
+  Future<void> refreshData() async {
+    final next = load();
+    setState(() => businesses = next);
+    await next;
+  }
+
+  Future<void> setStatus(String id, String status) async {
+    try {
+      await client.rpc('admin_set_business_status', params: {'p_business_id': id, 'p_status': status});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İşletme durumu değiştirilemedi: $error')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      final items = (snapshot.data ?? []).where((b) =>
+        '${b['name'] ?? ''} ${b['address'] ?? ''}'.toLowerCase().contains(query.toLowerCase())).toList();
+      return RefreshIndicator(
+        onRefresh: refreshData,
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('İşletme Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          TextField(controller: search, onChanged: (v) => setState(() => query = v),
+            decoration: const InputDecoration(hintText: 'İşletme ara...', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'İşletmeler yüklenemedi', detail: snapshot.error.toString())
+          else if (items.isEmpty)
+            const _FeedMessage(icon: Icons.store_outlined, title: 'İşletme bulunamadı', detail: 'Arama ölçütünü değiştir.')
+          else
+            ...items.map((b) {
+              final status = b['status']?.toString() ?? 'inactive';
+              final paid = b['discover_paid'] == true;
+              return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 10),
+                child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const CircleAvatar(backgroundColor: blush, child: Icon(Icons.store, color: wine)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(b['name']?.toString() ?? 'İşletme', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                      Text(b['address']?.toString() ?? 'Adres yok', style: const TextStyle(color: muted, fontSize: 12)),
+                    ])),
+                    PopupMenuButton<String>(
+                      onSelected: (value) => setStatus(b['id'].toString(), value),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'active', child: Text('Aktif yap')),
+                        PopupMenuItem(value: 'inactive', child: Text('Geçici kapat')),
+                        PopupMenuItem(value: 'rejected', child: Text('Reddet')),
+                      ],
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text('Durum: ${status == 'active' ? 'Aktif' : status == 'rejected' ? 'Reddedildi' : 'Pasif'}',
+                    style: const TextStyle(color: muted, fontSize: 12)),
+                  if (paid)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Keşfet üst sıra hakkı tanımlı.',
+                        style: TextStyle(color: muted, fontSize: 12)),
+                    ) else const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Keşfet üst sıra hakkı tanımlı değil.',
+                        style: TextStyle(color: muted, fontSize: 12)),
+                    ),
+                ])),
+              );
+            }),
+        ]),
+      );
+    },
+  );
+}
+class AdminUsers extends StatefulWidget {
+  const AdminUsers({super.key});
+  @override State<AdminUsers> createState() => _AdminUsersState();
+}
+
+class _AdminUsersState extends State<AdminUsers> {
+  final client = Supabase.instance.client;
+  final search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> users;
+  String query = '';
+  @override
+  void initState() { super.initState(); users = load(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_users') as List);
+  Future<void> refreshData() async { final next = load(); setState(() => users = next); await next; }
+  Future<void> setBlocked(String id, bool blocked) async {
+    try {
+      await client.rpc('set_user_blocked', params: {'p_user_id': id, 'p_blocked': blocked});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kullanıcı durumu değiştirilemedi: $error')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: users,
+    builder: (context, snapshot) {
+      final items = (snapshot.data ?? []).where((u) =>
+        '${u['full_name'] ?? ''} ${u['email'] ?? ''} ${u['phone'] ?? ''}'.toLowerCase().contains(query.toLowerCase())).toList();
+      return RefreshIndicator(onRefresh: refreshData, child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('Kullanıcı Yönetimi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 12),
+          TextField(controller: search, onChanged: (v) => setState(() => query = v),
+            decoration: const InputDecoration(hintText: 'İsim, e-posta veya telefon ara...', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 12),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Kullanıcılar yüklenemedi', detail: snapshot.error.toString())
+          else if (items.isEmpty)
+            const _FeedMessage(icon: Icons.people_outline, title: 'Kullanıcı bulunamadı', detail: 'Arama ölçütünü değiştir.')
+          else
+            ...items.map((u) {
+              final admin = u['is_admin'] == true;
+              final blocked = u['is_blocked'] == true;
+              return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(backgroundColor: blush, child: Icon(admin ? Icons.admin_panel_settings : Icons.person, color: wine)),
+                  title: Text(u['full_name']?.toString() ?? 'Kullanıcı', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                  subtitle: Text('${u['email'] ?? ''} • ${u['account_type'] ?? 'customer'} • ${blocked ? 'Engelli' : 'Aktif'}'),
+                  trailing: admin ? const Icon(Icons.verified_user, color: wine) : IconButton(
+                    tooltip: blocked ? 'Engeli kaldır' : 'Engelle',
+                    icon: Icon(blocked ? Icons.lock_open : Icons.block, color: wine),
+                    onPressed: () => setBlocked(u['id'].toString(), !blocked),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ));
+    },
+  );
+}
+class DiscoverControl extends StatefulWidget {
+  const DiscoverControl({super.key});
+  @override State<DiscoverControl> createState() => _DiscoverControlState();
+}
+class _DiscoverControlState extends State<DiscoverControl> {
+  final client = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> businesses;
+  @override
+  void initState() { super.initState(); businesses = load(); }
+  Future<List<Map<String, dynamic>>> load() async =>
+    List<Map<String, dynamic>>.from(await client.rpc('admin_list_discover_businesses') as List);
+  Future<void> refreshData() async { final next = load(); setState(() => businesses = next); await next; }
+  Future<void> update(String id, bool enabled) async {
+    try {
+      await client.rpc('admin_set_discover_visibility', params: {'p_business_id': id, 'p_enabled': enabled});
+      await refreshData();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Keşfet erişimi güncellenemedi: $error'), backgroundColor: wine),
+      );
+    }
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: businesses,
+    builder: (context, snapshot) {
+      final eligible = (snapshot.data ?? []).where((b) => b['status'] == 'active' && b['discover_paid'] == true).toList();
+      return RefreshIndicator(onRefresh: refreshData, child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(18), children: [
+          const Text('Keşfet Görünürlüğü', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 8),
+          const Text('Üst sıralarda gösterim hakkı olan aktif işletmelerin görünürlüğünü buradan yönet.', style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Center(child: CircularProgressIndicator(color: wine))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined, title: 'Erişim bilgileri yüklenemedi', detail: snapshot.error.toString())
+          else if (eligible.isEmpty)
+            const _FeedMessage(icon: Icons.explore_outlined, title: 'Uygun işletme yok', detail: 'Üst sıra görünürlüğü hakkı tanımlanmış aktif işletme bulunmuyor.')
+          else
+            ...eligible.map((business) => SwitchListTile(
+              value: business['discover_enabled'] == true,
+              onChanged: (value) => update(business['id'].toString(), value),
+              activeThumbColor: wine,
+              secondary: const Icon(Icons.store, color: wine),
+              title: Text(business['name']?.toString() ?? 'İşletme', style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+              subtitle: Text(business['discover_enabled'] == true ? 'Keşfet üst sıralarında açık' : 'Keşfet üst sıralarında kapalı'),
+            )),
+        ],
+      ));
+    },
   );
 }

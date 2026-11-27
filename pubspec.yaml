@@ -1,7 +1,7 @@
 name: kuaforum
-description: Kuaförüm premium multi-role app UI prototype
+description: Kuaförüm - kadın kuaförleri için keşif, randevu ve sosyal platform
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 environment:
   sdk: '>=3.3.0 <4.0.0'
 dependencies:
@@ -9,6 +9,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   image_picker: ^1.1.2
+  image_cropper: ^12.2.1
   supabase_flutter: ^2.9.1
   video_player: ^2.14.1
 dev_dependencies:

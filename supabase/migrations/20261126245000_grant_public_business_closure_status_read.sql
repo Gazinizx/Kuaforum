@@ -1,0 +1,1 @@
+grant select (is_temporarily_closed) on public.businesses to authenticated;

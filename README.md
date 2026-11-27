@@ -1,28 +1,42 @@
 # Kuaförüm
 
-Kadın kuaförleri için premium salon keşif, randevu ve sosyal paylaşım uygulaması.
+Kadın kuaförleri için Flutter tabanlı salon keşif, randevu, sosyal paylaşım ve işletme yönetimi uygulaması.
 
-## Mevcut uygulama durumu
+## Tamamlanan uygulama akışları
 
-- Hızlı test rol ekranı korunur; her rol için gerçek Supabase hesabıyla giriş yapılır ve hesap rolü doğrulanır.
-- Müşteri, çalışan, işletme sahibi ve ana yönetici panellerinin tasarım akışı bulunur.
-- İşletme sahibi ve aktif çalışan hesapları fotoğraf/video paylaşabilir.
-- Keşfet ve Takip akışları, beğeniler, takip ilişkileri ve yorumlar Supabase üzerinden kalıcı olarak çalışır.
-- Paylaşılan medya özel `salon-feed` Storage alanında saklanır; görüntüleme izinleri işletme ve Keşfet görünürlüğü kurallarına bağlıdır.
-- Keşfet görünürlüğü veritabanında işletme bazında tutulur; ana yönetici ekranındaki erişim anahtarlarının veritabanına bağlanması henüz tamamlanmamıştır. Test işletmesinin görünürlüğü kapalıdır.
+- Herkese açık kayıt yalnızca müşteri hesabı oluşturur; ad, soyad, telefon, e-posta ve şifre zorunludur.
+- İşletme hesapları ana yönetici tarafından yönetilir.
+- İşletme sahibi çalışan hesabını ad, soyad, telefon, e-posta ve ilk şifreyle oluşturur; çalışana e-posta doğrulama bağlantısı gönderilir. Çalışan ilk girişinden sonra profilinden fotoğrafını yükleyebilir.
+- İşletme sahibi çalışanı devre dışı bırakabilir veya kaldırabilir. Çalışan kendi isteğiyle işletmeden ayrılıp müşteri hesabına dönebilir.
+- Müşteri işletme katılım koduyla işletmeye bağlanır; profilinden bağlantısını yönetebilir. QR katılım akışı kapsam dışıdır; işletme keşfi ve profilleri üzerinden bağlantı kurulur.
+- Müşteri işletme profilinde işletme bilgilerini, hizmetleri, çalışanları, paylaşımları ve değerlendirmeleri görebilir; işletmeyi takip edebilir, mesaj gönderebilir ve randevu oluşturabilir.
+- Randevu akışı hizmet, çalışan ve uygun saat seçimiyle çalışır. Çalışan seçimi isteğe bağlıdır.
+- İşletme sahibi kare kırpmalı işletme logosu dahil çalışanları, hizmetleri, çalışma saatlerini, randevu aralığını ve geçici kapanışı yönetebilir.
+- Çalışan kendi randevularını, çalışma saatlerini ve izin taleplerini yönetir. İzin taleplerini işletme sahibi inceler.
+- Müşteri randevusunu iptal edebilir; üç iptal/gelmeme ihlalinde işletme bazlı otomatik kara liste uygulanır.
+- Tamamlanan randevu sonrası müşteri işletmeyi puanlayıp yorumlayabilir.
+- Keşfet ve Takip akışları gerçek Supabase verisini kullanır; paylaşım, beğeni, yorum, kaydetme, takip ve silme işlemleri veritabanına bağlıdır. Keşfet aramasından aktif işletmeler ve çalışanlar ayrı ayrı aranabilir.
+- Mesajlaşma, kişi bazlı mesaj gizleme, müşteri-işletme sohbeti, işletmeden işletmeye sohbet ve paylaşım yapan çalışanla özel sohbet desteklenir.
+- Bildirim merkezi, randevu, mesaj, takip, beğeni, yorum ve destek olaylarını gösterir; kullanıcı bildirim türlerini ayrı ayrı açıp kapatabilir.
+- Destek talepleri müşteri ile ana yönetici veya Destek yetkili alt yöneticileri arasında iki yönlü mesajlaşma ve durum takibi sağlar.
+- Ana yönetici işletmeleri, kullanıcıları, Keşfet görünürlüğünü ve destek taleplerini yönetebilir.
+- Ana yönetici mevcut kullanıcıları e-posta ile alt yönetici yapabilir; Genel Bakış, İşletmeler, Kullanıcılar, Keşfet ve Destek yetkilerini ayrı ayrı tanımlar, düzenler ve kaldırır. Alt yöneticiler yalnızca izinli yönetim alanlarını görür; ilgili sunucu işlemleri ve destek erişimi de yetkiyle korunur.
+- Profilde telefon düzenleme, şifre değiştirme, kare kırpmalı profil fotoğrafı, çıkış, mevcut şifreyle doğrulanan kalıcı müşteri hesabı silme ve aktif cihazları uzaktan kapatma bulunur.
 
-## Henüz tamamlanmayan bölümler
+## Tamamlanması gerekenler
 
-- Randevu, hizmet, çalışan yönetimi ve müşteri işlemlerinin bir bölümü şu anda tasarım/örnek veri aşamasındadır.
-- Mesajlaşma ekranı henüz gerçek sohbet altyapısına bağlı değildir.
-- Profil sayfaları, takipçi/takip edilen listeleri, içerik arama ve gelişmiş moderasyon tamamlanmamıştır.
-- Normal kullanıcı kayıt/giriş ekranı, hızlı test ekranının yerine son aşamada eklenecektir.
+- Firebase/FCM anlık push teslimatı. Uygulama içi bildirim merkezi çalışır; gerçek push için Firebase Android/iOS yapılandırma dosyaları, FCM kayıt tokenları ve güvenli gönderim işlevi henüz eklenmelidir.
+- Yeni cihaz girişlerinde uygulama içi e-posta OTP doğrulaması kaldırıldı; yeni cihazlar e-posta kodu istemeden parola ile giriş yapar. Supabase projesinde yeni kullanıcı kayıtları için e-posta onayı açıksa kayıt sırasında standart onay bağlantısı gerekebilir.
+- Supabase sızdırılmış parola koruması yalnızca Pro ve üzeri planda sunulduğundan ücretsiz plan kapsamında açılmayacak; güvenlik danışmanındaki bu uyarı bilinen ücretsiz-plan kısıtıdır.
+- Türkçe/İngilizce dil seçimi ve açık/koyu tema.
+- Bağlantı kesilmesi uyarısı ve bağlantı gelince otomatik yenileme.
+- iOS/App Store hazırlığı ve son cihaz testleri.
 
-## Android test derlemesi
+## Android derlemesi
 
-GitHub Actions, her `main` güncellemesinde Android platform dosyalarını oluşturur; bağımlılıkları indirir, analiz ve testleri çalıştırır ve başarılı olursa release APK çıktısını `kuaforum-release-apk` adlı artifact olarak yükler.
+Android APK, son kaynak commit'i için analiz, test ve release derlemesi tamamlandıktan sonra paylaşılmalıdır.
 
-Yerel derleme komutları:
+Yerel komutlar:
 
 ```bash
 flutter pub get
@@ -30,3 +44,5 @@ flutter analyze
 flutter test
 flutter build apk --release
 ```
+
+APK iş akışı ana dala gönderimde veya GitHub Actions üzerinden manuel başlatıldığında çalışır.

@@ -18,6 +18,7 @@ class KuaforumFeedPost {
     required this.createdAt,
     required this.likeCount,
     required this.isLikedByMe,
+    required this.isSavedByMe,
   });
 
   final String id;
@@ -34,6 +35,7 @@ class KuaforumFeedPost {
   final DateTime createdAt;
   final int likeCount;
   final bool isLikedByMe;
+  final bool isSavedByMe;
 
   bool get isVideo => mediaType == 'video';
 
@@ -46,6 +48,7 @@ class KuaforumFeedPost {
     final employee = json['employees'];
     final profile = json['profiles'];
     final likes = (json['feed_likes'] as List<dynamic>? ?? const []);
+    final saves = (json['feed_saves'] as List<dynamic>? ?? const []);
     final liked = likes.any((item) =>
         item is Map<String, dynamic> && item['user_id'] == currentUserId);
 
@@ -80,6 +83,7 @@ class KuaforumFeedPost {
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       likeCount: likes.length,
       isLikedByMe: liked,
+      isSavedByMe: saves.any((item) => item is Map<String, dynamic> && item['user_id'] == currentUserId),
     );
   }
 }
@@ -92,8 +96,8 @@ class KuaforumFeedRepository {
 
   static const _postSelection =
       'id,business_id,employee_id,author_user_id,caption,media_url,media_type,created_at,'
-      'businesses(name),employees(display_name),'
-      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id)';
+      'businesses(name,owner_id,business_reviews(rating)),employees(display_name),'
+      'profiles!feed_posts_author_user_id_fkey(full_name),feed_likes(user_id),feed_saves(user_id),feed_comments(id)';
 
   String get _userId {
     final id = _client.auth.currentUser?.id;
@@ -105,6 +109,48 @@ class KuaforumFeedRepository {
     final rows = await _client
         .from('feed_posts')
         .select(_postSelection)
+        .order('created_at', ascending: false)
+        .limit(limit * 3);
+    final ranked = List<Map<String, dynamic>>.from(rows);
+    final featuredRows = await _client.rpc('get_discover_featured_businesses') as List;
+    final featuredBusinessIds = featuredRows
+        .map((row) => (row as Map)['business_id'] as String)
+        .toSet();
+    int boost(Map<String, dynamic> row) =>
+        featuredBusinessIds.contains(row['business_id']) ? 1 : 0;
+    int engagement(Map<String, dynamic> row) =>
+        (row['feed_likes'] as List? ?? const []).length +
+        (row['feed_comments'] as List? ?? const []).length;
+    double rating(Map<String, dynamic> row) {
+      final business = row['businesses'];
+      final reviews = business is Map
+          ? (business['business_reviews'] as List? ?? const [])
+          : const [];
+      if (reviews.isEmpty) return 0;
+      final total = reviews.fold<double>(0, (sum, item) =>
+          sum + ((item is Map ? item['rating'] : null) as num? ?? 0).toDouble());
+      return total / reviews.length;
+    }
+    ranked.sort((a, b) {
+      final boosted = boost(b).compareTo(boost(a));
+      if (boosted != 0) return boosted;
+      final active = engagement(b).compareTo(engagement(a));
+      if (active != 0) return active;
+      final score = rating(b).compareTo(rating(a));
+      if (score != 0) return score;
+      return DateTime.parse(b['created_at'] as String)
+          .compareTo(DateTime.parse(a['created_at'] as String));
+    });
+    return _mapRows(ranked.take(limit).toList());
+  }
+
+  Future<List<KuaforumFeedPost>> fetchBusinessFeed(
+    String businessId, {int limit = 30}
+  ) async {
+    final rows = await _client
+        .from('feed_posts')
+        .select(_postSelection)
+        .eq('business_id', businessId)
         .order('created_at', ascending: false)
         .limit(limit);
     return _mapRows(rows);
@@ -208,11 +254,11 @@ class KuaforumFeedRepository {
       throw const PostgrestException(message: 'Açıklama en fazla 500 karakter olabilir.');
     }
 
-    final profile = await _client
-        .from('profiles')
-        .select('account_type,is_admin,is_blocked')
-        .eq('id', userId)
-        .single();
+    final statusRows = await _client.rpc('get_my_account_status') as List;
+    if (statusRows.isEmpty) {
+      throw const PostgrestException(message: 'Hesap profili bulunamadı.');
+    }
+    final profile = Map<String, dynamic>.from(statusRows.first as Map);
     if (profile['is_blocked'] == true || profile['is_admin'] == true) {
       throw const PostgrestException(
         message: 'Bu hesap paylaşım yapma yetkisine sahip değil.',
@@ -318,12 +364,50 @@ class KuaforumFeedRepository {
     });
   }
 
+  Future<void> updateComment(String commentId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw const PostgrestException(message: 'Yorum boş olamaz.');
+    }
+    if (trimmed.length > 1000) {
+      throw const PostgrestException(message: 'Yorum en fazla 1000 karakter olabilir.');
+    }
+    await _client.from('feed_comments').update({'body': trimmed})
+        .eq('id', commentId).eq('user_id', _userId);
+  }
+
   Future<void> deleteComment(String commentId) async {
     await _client
         .from('feed_comments')
         .delete()
         .eq('id', commentId)
         .eq('user_id', _userId);
+  }
+
+  Future<void> toggleSave(String postId, {required bool currentlySaved}) async {
+    if (currentlySaved) {
+      await _client.from('feed_saves').delete()
+          .eq('post_id', postId).eq('user_id', _userId);
+    } else {
+      await _client.from('feed_saves').upsert(
+        {'post_id': postId, 'user_id': _userId},
+        onConflict: 'post_id,user_id',
+        ignoreDuplicates: true,
+      );
+    }
+  }
+
+  Future<void> deletePost(String postId) async {
+    final row = await _client.from('feed_posts')
+        .select('media_url').eq('id', postId).single();
+    final path = row['media_url'] as String;
+    try {
+      await _client.storage.from('salon-feed').remove([path]);
+    } catch (_) {
+      // The post is still removed from the feed if media cleanup fails.
+    }
+    await _client.from('feed_posts').delete().eq('id', postId)
+        .eq('author_user_id', _userId);
   }
 
   Future<void> toggleLike(String postId, {required bool currentlyLiked}) async {
