@@ -5439,8 +5439,8 @@ class _CustomersPageState extends State<CustomersPage> {
       builder: (dialogContext) => AlertDialog(
         title: Text(blocked ? 'Kara listeye al' : 'Kara listeden çıkar'),
         content: Text(blocked
-            ? '$$name adlı müşteriyi bu işletmenin kara listesine almak istiyor musun?'
-            : '$$name adlı müşterinin kara liste kaydını kaldırmak istiyor musun?'),
+            ? '$name adlı müşteriyi bu işletmenin kara listesine almak istiyor musun?'
+            : '$name adlı müşterinin kara liste kaydını kaldırmak istiyor musun?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
@@ -5462,7 +5462,7 @@ class _CustomersPageState extends State<CustomersPage> {
       ));
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kara liste güncellenemedi: $$error'), backgroundColor: wine),
+        SnackBar(content: Text('Kara liste güncellenemedi: $error'), backgroundColor: wine),
       );
     }
   }
@@ -5597,14 +5597,14 @@ class _CustomersPageState extends State<CustomersPage> {
                     ]),
                     const SizedBox(height: 13),
                     Row(children: [
-                      _CustomerInfoPill(icon: Icons.calendar_month_outlined, text: '$$appointments randevu'),
+                      _CustomerInfoPill(icon: Icons.calendar_month_outlined, text: '$appointments randevu'),
                       const SizedBox(width: 7),
-                      _CustomerInfoPill(icon: Icons.event_busy_outlined, text: '$$noShows gelmedi',
+                      _CustomerInfoPill(icon: Icons.event_busy_outlined, text: '$noShows gelmedi',
                         danger: noShows >= 3),
                     ]),
                     if (blocked && reason.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text('Not: $$reason', style: const TextStyle(color: muted, fontSize: 11)),
+                      Text('Not: $reason', style: const TextStyle(color: muted, fontSize: 11)),
                     ],
                     const SizedBox(height: 12),
                     SizedBox(width: double.infinity, child: OutlinedButton.icon(
@@ -5673,7 +5673,7 @@ class _CustomerFilterChip extends StatelessWidget {
         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(color: selected ? Colors.white.withOpacity(.18) : blush,
             borderRadius: BorderRadius.circular(20)),
-          child: Text('$$count', style: TextStyle(color: selected ? Colors.white : wine,
+          child: Text('$count', style: TextStyle(color: selected ? Colors.white : wine,
             fontSize: 10, fontWeight: FontWeight.w900))),
       ]),
     ),
