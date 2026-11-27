@@ -4389,11 +4389,7 @@ class EmployeeHome extends StatefulWidget {
 class _EmployeeHomeState extends State<EmployeeHome> {
   late Future<Map<String, dynamic>> data;
   @override
-  void initState() {
-    super.initState();
-    selectedFilter = widget.blacklistOnly ? 1 : 0;
-    data = load();
-  }
+  void initState() { super.initState(); data = load(); }
 
   Future<Map<String, dynamic>> load() async {
     final client = Supabase.instance.client;
@@ -5444,7 +5440,11 @@ class _CustomersPageState extends State<CustomersPage> {
   int selectedFilter = 0;
 
   @override
-  void initState() { super.initState(); data = load(); }
+  void initState() {
+    super.initState();
+    selectedFilter = widget.blacklistOnly ? 1 : 0;
+    data = load();
+  }
   @override
   void dispose() { search.dispose(); super.dispose(); }
 
