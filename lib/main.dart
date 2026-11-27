@@ -112,11 +112,40 @@ class KuaforumApp extends StatelessWidget {
       // and oversized empty states/buttons across the app.
       final media = MediaQuery.of(context);
       final scale = (media.textScaler.scale(14) / 14).clamp(0.9, 1.3).toDouble();
-      return MediaQuery(
-        data: media.copyWith(textScaler: TextScaler.linear(scale)),
-        child: DefaultTextStyle.merge(
-          style: const TextStyle(decoration: TextDecoration.none),
-          child: child ?? const SizedBox.shrink(),
+      final appTheme = Theme.of(context).copyWith(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: cream,
+        canvasColor: cream,
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          brightness: Brightness.light,
+          surface: cream,
+        ),
+        textTheme: Theme.of(context).textTheme.apply(
+          fontFamily: 'Roboto',
+          bodyColor: ink,
+          displayColor: ink,
+        ),
+        primaryTextTheme: Theme.of(context).primaryTextTheme.apply(
+          fontFamily: 'Roboto',
+          bodyColor: ink,
+          displayColor: ink,
+        ),
+      );
+      return Theme(
+        data: appTheme,
+        child: ColoredBox(
+          color: cream,
+          child: MediaQuery(
+            data: media.copyWith(textScaler: TextScaler.linear(scale)),
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                color: ink,
+                decoration: TextDecoration.none,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
       );
     },
