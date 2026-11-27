@@ -68,7 +68,7 @@ class KuaforumFeedPost {
 
     return KuaforumFeedPost(
       id: json['id'] as String,
-      businessId: json['business_id'] as String,
+      businessId: json['business_id'] as String? ?? '',
       authorUserId: authorUserId,
       authorName: employeeName.isNotEmpty
           ? employeeName
