@@ -1171,11 +1171,10 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
 
   Future<void> loadFollowState() async {
     try {
-      final profile = await Supabase.instance.client
-          .from('profiles').select('account_type')
-          .eq('id', Supabase.instance.client.auth.currentUser!.id).single();
-      final business = await widget.repository.isFollowingBusiness(widget.post.businessId);
-      final author = widget.post.isEmployeePost && !widget.post.isOwnPost
+      final business = widget.post.businessId.isNotEmpty
+          ? await widget.repository.isFollowingBusiness(widget.post.businessId)
+          : false;
+      final author = !widget.post.isOwnPost
           ? await widget.repository.isFollowingUser(widget.post.authorUserId)
           : false;
       if (!mounted) return;
@@ -1190,6 +1189,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
   }
 
   Future<void> toggleBusinessFollow() async {
+    if (widget.post.businessId.isEmpty) return;
     final wasFollowing = followingBusiness;
     setState(() => followingBusiness = !wasFollowing);
     try {
@@ -1323,7 +1323,7 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
         const SizedBox(width: 9),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-          Text(widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
+          Text(widget.post.businessName.isEmpty ? 'Topluluk' : widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
         ])),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_horiz, color: muted),
@@ -1336,9 +1336,9 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
             if (widget.post.isOwnPost)
               const PopupMenuItem(value: 'delete', child: Text('Paylaşımı sil')),
             if (!widget.post.isOwnPost && followStateLoaded) ...[
-              PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
-              if (widget.post.isEmployeePost)
-                PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Çalışanı takipten çık' : 'Çalışanı takip et')),
+              if (widget.post.businessId.isNotEmpty)
+                PopupMenuItem(value: 'business', child: Text(followingBusiness ? 'İşletmeyi takipten çık' : 'İşletmeyi takip et')),
+              PopupMenuItem(value: 'author', child: Text(followingAuthor ? 'Hesabı takipten çık' : 'Hesabı takip et')),
             ],
           ],
         ),
