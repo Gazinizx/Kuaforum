@@ -649,7 +649,7 @@ class _RoleShellState extends State<RoleShell> {
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const OwnerHome(),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
+        pages = [OwnerHome(onMessagesTap: () => setState(() => index = 4)),const DiscoverPage(),const FollowingPage(),const SharePage(businessPost:true),const MessagesPage(),const OwnerProfilePage()];
         break;
       case AppRole.admin:
         labels = ['Genel Bakış','İşletmeler','Kullanıcılar','Keşfet Yönetimi','Destek','Alt Yöneticiler']; icons = [Icons.dashboard,Icons.store,Icons.people_alt,Icons.explore,Icons.support_agent,Icons.admin_panel_settings];
@@ -5112,7 +5112,8 @@ class _ServicesPageState extends State<ServicesPage> {
 
 
 class OwnerHome extends StatefulWidget {
-  const OwnerHome({super.key});
+  final VoidCallback onMessagesTap;
+  const OwnerHome({super.key, required this.onMessagesTap});
   @override State<OwnerHome> createState() => _OwnerHomeState();
 }
 
@@ -5297,7 +5298,7 @@ class _OwnerHomeState extends State<OwnerHome> {
               const SizedBox(width:8),
               Expanded(child:action(Icons.people_alt_rounded,'Müşteriler',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CustomersPage())))),
               const SizedBox(width:8),
-              Expanded(child:action(Icons.chat_bubble_rounded,'Mesajlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const MessagesPage())))),
+              Expanded(child:action(Icons.chat_bubble_rounded,'Mesajlar',widget.onMessagesTap)),
               const SizedBox(width:8),
               Expanded(child:action(Icons.tune_rounded,'Ayarlar',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const SettingsPage())))),
             ]),
