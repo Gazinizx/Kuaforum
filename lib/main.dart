@@ -5104,9 +5104,17 @@ class _OwnerHomeState extends State<OwnerHome> {
       if (snapshot.connectionState == ConnectionState.waiting)
         return const Center(child:CircularProgressIndicator(color:wine));
       if (snapshot.hasError || snapshot.data == null)
-        return Center(child:Padding(padding:const EdgeInsets.all(24),child:_FeedMessage(
-          icon:Icons.cloud_off_outlined,title:'İşletme özeti yüklenemedi',
-          detail:'Bağlantını kontrol edip yeniden deneyebilirsin.')));
+        return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(
+          mainAxisSize:MainAxisSize.min,children:[
+            _FeedMessage(icon:Icons.cloud_off_outlined,title:'İşletme özeti yüklenemedi',
+              detail:'Bağlantını kontrol edip yeniden deneyebilirsin.'),
+            const SizedBox(height:12),
+            FilledButton.icon(
+              onPressed:()=>setState(()=>data=load()),
+              style:FilledButton.styleFrom(backgroundColor:wine,foregroundColor:Colors.white),
+              icon:const Icon(Icons.refresh_rounded),label:const Text('Tekrar dene')),
+          ],
+        )));
       final result=snapshot.data!;
       final business=result['business'] as Map<String,dynamic>;
       final today=result['today'] as List<Map<String,dynamic>>;
