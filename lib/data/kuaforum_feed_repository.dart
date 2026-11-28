@@ -144,6 +144,25 @@ class KuaforumFeedRepository {
     return _mapRows(ranked.take(limit).toList());
   }
 
+  Future<List<KuaforumFeedPost>> fetchSavedPosts({int limit = 80}) async {
+    final saves = await _client.from('feed_saves')
+        .select('post_id,created_at')
+        .eq('user_id', _userId)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    if (saves.isEmpty) return const [];
+    final ids = saves.map((row) => row['post_id'] as String).toList();
+    final rows = await _client.from('feed_posts')
+        .select(_postSelection)
+        .inFilter('id', ids);
+    final byId = {
+      for (final row in rows)
+        row['id'] as String: Map<String, dynamic>.from(row),
+    };
+    final ordered = ids.where(byId.containsKey).map((id) => byId[id]!).toList();
+    return _mapRows(ordered);
+  }
+
   Future<List<KuaforumFeedPost>> fetchUserFeed(
     String userId, {int limit = 40}
   ) async {
@@ -443,9 +462,30 @@ class KuaforumFeedRepository {
 
   Future<List<KuaforumFeedPost>> _mapRows(List<dynamic> rows) async {
     final userId = _userId;
+    final employeeIds = rows
+        .map((raw) => (raw as Map<String, dynamic>)['employee_id'])
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final directoryRows = employeeIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _client.from('public_business_employees')
+            .select('id,display_name,business_id')
+            .inFilter('id', employeeIds);
+    final employeeById = {
+      for (final employee in directoryRows)
+        employee['id'] as String: Map<String, dynamic>.from(employee),
+    };
     final result = <KuaforumFeedPost>[];
     for (final raw in rows) {
-      final row = raw as Map<String, dynamic>;
+      final row = Map<String, dynamic>.from(raw as Map);
+      final joinedEmployee = row['employees'];
+      if (row['employee_id'] != null &&
+          (joinedEmployee is! Map ||
+              (joinedEmployee['display_name'] as String? ?? '').isEmpty)) {
+        final directoryEmployee = employeeById[row['employee_id']];
+        if (directoryEmployee != null) row['employees'] = directoryEmployee;
+      }
       final path = row['media_url'] as String;
       final signedUrl = await _client.storage
           .from('salon-feed')
