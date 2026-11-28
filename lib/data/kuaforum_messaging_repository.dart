@@ -88,9 +88,10 @@ class KuaforumMessagingRepository {
         .select('message_id').eq('user_id', _userId);
     final hiddenIds = hiddenRows.map((row) => row['message_id'] as String).toSet();
     final messages = await _client.from('messages')
-        .select('id,conversation_id,body,sender_id,created_at')
+        .select('id,conversation_id,body,sender_id,created_at,read_at')
         .inFilter('conversation_id', ids)
-        .order('created_at', ascending: false).limit(1000);
+        .order('created_at', ascending: false)
+        .order('id', ascending: false).limit(1000);
     final latest = <String,Map<String,dynamic>>{};
     for (final message in messages) {
       if (!hiddenIds.contains(message['id'] as String)) {
@@ -101,7 +102,7 @@ class KuaforumMessagingRepository {
 
     final peerByConversation = {for (final p in peers) p['conversation_id'] as String: p};
     final mineByConversation = {for (final p in mine) p['conversation_id'] as String: p};
-    return rows.map((raw) {
+    final result = rows.map((raw) {
       final row = Map<String,dynamic>.from(raw);
       final peer = peerByConversation[row['id']] as Map<String,dynamic>?;
       final own = mineByConversation[row['id']] as Map<String,dynamic>?;
@@ -122,6 +123,13 @@ class KuaforumMessagingRepository {
       row['last_message_at'] = latest[row['id']]?['created_at'] ?? row['updated_at'];
       return row;
     }).toList();
+    result.sort((a, b) {
+      final aTime = DateTime.tryParse(a['last_message_at']?.toString() ?? '') ?? DateTime(1970);
+      final bTime = DateTime.tryParse(b['last_message_at']?.toString() ?? '') ?? DateTime(1970);
+      final byTime = bTime.compareTo(aTime);
+      return byTime != 0 ? byTime : (b['id'] as String).compareTo(a['id'] as String);
+    });
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> fetchMessages(String conversationId) async {
@@ -129,8 +137,10 @@ class KuaforumMessagingRepository {
         .select('message_id').eq('user_id', _userId);
     final hiddenIds = hiddenRows.map((row) => row['message_id'] as String).toSet();
     final rows = await _client.from('messages')
-        .select('id,conversation_id,sender_id,body,created_at')
-        .eq('conversation_id', conversationId).order('created_at', ascending: true);
+        .select('id,conversation_id,sender_id,body,created_at,read_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', ascending: true)
+        .order('id', ascending: true);
     return rows.where((row) => !hiddenIds.contains(row['id'] as String))
         .map((row) => Map<String,dynamic>.from(row)).toList();
   }
