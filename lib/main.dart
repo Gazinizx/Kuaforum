@@ -645,7 +645,7 @@ class _RoleShellState extends State<RoleShell> {
         break;
       case AppRole.employee:
         labels = ['Ana Sayfa','Keşfet','Paylaşım','Randevular','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.add_circle,Icons.calendar_month,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const EmployeeHome(),const DiscoverPage(),const SharePage(),const AppointmentsPage(title:'Randevularım'),const MessagesPage(),const ProfilePage()];
+        pages = [EmployeeHome(onShareTap: () { if (mounted) setState(() => index = 2); }),const DiscoverPage(),const SharePage(),const AppointmentsPage(title:'Randevularım'),const MessagesPage(),const ProfilePage()];
         break;
       case AppRole.owner:
         labels = ['Ana Sayfa','Keşfet','Takip','Paylaş','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.add_circle,Icons.chat_bubble_outline,Icons.person_outline];
@@ -4427,7 +4427,8 @@ class _HomeActionTile extends StatelessWidget {
 
 class _Metric extends StatelessWidget {final String value,label;const _Metric(this.value,this.label);@override Widget build(BuildContext context)=>Column(children:[Text(value,style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:wine)),Text(label,style:const TextStyle(fontSize:11,color:muted))]);}
 class EmployeeHome extends StatefulWidget {
-  const EmployeeHome({super.key});
+  final VoidCallback onShareTap;
+  const EmployeeHome({super.key, required this.onShareTap});
   @override
   State<EmployeeHome> createState() => _EmployeeHomeState();
 }
@@ -4486,7 +4487,7 @@ class _EmployeeHomeState extends State<EmployeeHome> {
         HeroPanel(eyebrow: 'Portfolyonu büyüt', title: 'Çalışmalarını paylaş',
           subtitle: 'Yaptığın işleri paylaş, müşterilerine ilham ver ve kariyerini büyüt.',
           icon: Icons.camera_alt, button: 'Paylaşım yap →',
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SharePage()))),
+          onTap: widget.onShareTap),
         const SectionTitle('Randevularım'),
         if (appointments.isEmpty)
           const Text('Henüz randevun bulunmuyor.', style: TextStyle(color: muted))
