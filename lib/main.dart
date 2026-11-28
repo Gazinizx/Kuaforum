@@ -1062,6 +1062,222 @@ class QuickTiles extends StatelessWidget {
   ]);
   Widget _tile(BuildContext context,IconData i,String s,VoidCallback action)=>Expanded(child:Material(color:Colors.white,borderRadius:BorderRadius.circular(16),child:InkWell(onTap:action,borderRadius:BorderRadius.circular(16),child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])))));
 }
+
+class PublicUserProfilePage extends StatefulWidget {
+  final String userId;
+  const PublicUserProfilePage({super.key, required this.userId});
+  @override
+  State<PublicUserProfilePage> createState() => _PublicUserProfilePageState();
+}
+
+class _PublicUserProfilePageState extends State<PublicUserProfilePage> {
+  final client = Supabase.instance.client;
+  final feedRepository = KuaforumFeedRepository();
+  final messagingRepository = KuaforumMessagingRepository();
+  late Future<Map<String, dynamic>> profileFuture;
+  late Future<List<KuaforumFeedPost>> postsFuture;
+  bool following = false;
+  bool followLoading = true;
+  bool openingChat = false;
+  String? followBusinessId;
+
+  @override
+  void initState() {
+    super.initState();
+    profileFuture = loadProfile();
+    postsFuture = feedRepository.fetchUserFeed(widget.userId);
+    loadFollowState();
+  }
+
+  Future<Map<String, dynamic>> loadProfile() async {
+    final rows = await client.from('public_profiles')
+        .select('id,full_name,account_type,avatar_url')
+        .eq('id', widget.userId).limit(1);
+    if (rows.isEmpty) throw const PostgrestException(message: 'Profil bulunamadı.');
+    final profile = Map<String, dynamic>.from(rows.first);
+    final employees = await client.from('employees')
+        .select('display_name,business_id').eq('user_id', widget.userId)
+        .eq('is_active', true).limit(1);
+    if (employees.isNotEmpty) {
+      final employee = Map<String, dynamic>.from(employees.first);
+      profile['display_name'] = employee['display_name'];
+      profile['business_id'] = employee['business_id'];
+    }
+    final businessQuery = client.from('businesses')
+        .select('id,name,logo_url,address,status');
+    final businessRows = profile['account_type'] == 'business_owner'
+        ? await businessQuery.eq('owner_id', widget.userId).limit(1)
+        : profile['business_id'] == null
+            ? <Map<String, dynamic>>[]
+            : await businessQuery.eq('id', profile['business_id']).limit(1);
+    if (businessRows.isNotEmpty) {
+      final business = Map<String, dynamic>.from(businessRows.first);
+      profile['business'] = business;
+      profile['business_id'] = business['id'];
+    }
+    return profile;
+  }
+
+  Future<void> loadFollowState() async {
+    try {
+      final isFollowing = await feedRepository.isFollowingUser(widget.userId);
+      if (mounted) setState(() { following = isFollowing; followLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => followLoading = false);
+    }
+  }
+
+  Future<void> toggleFollow(Map<String, dynamic> profile) async {
+    if (followLoading) return;
+    final previous = following;
+    setState(() { following = !previous; followLoading = true; });
+    try {
+      if (previous) {
+        await feedRepository.unfollowUser(widget.userId);
+        final businessId = profile['business_id']?.toString();
+        if (businessId != null && businessId.isNotEmpty) {
+          await feedRepository.unfollowBusiness(businessId);
+        }
+      } else {
+        await feedRepository.followUser(widget.userId);
+        final businessId = profile['business_id']?.toString();
+        if (businessId != null && businessId.isNotEmpty) {
+          await feedRepository.followBusiness(businessId);
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => following = previous);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Takip işlemi tamamlanamadı: $error'), backgroundColor: wine));
+      }
+    } finally {
+      if (mounted) setState(() => followLoading = false);
+    }
+  }
+
+  Future<void> messageProfile(Map<String, dynamic> profile) async {
+    if (openingChat) return;
+    setState(() => openingChat = true);
+    try {
+      final business = profile['business'] as Map<String, dynamic>?;
+      final isBusiness = profile['account_type'] == 'business_owner' && business != null;
+      final conversationId = isBusiness
+          ? await messagingRepository.startBusinessConversation(business['id'].toString())
+          : await messagingRepository.startDirectConversation(widget.userId);
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(
+        conversationId: conversationId,
+        title: isBusiness ? (business['name']?.toString() ?? 'İşletme')
+            : (profile['display_name']?.toString() ?? profile['full_name']?.toString() ?? 'Kullanıcı'),
+        subtitle: isBusiness ? 'İşletme' : 'Kuaförüm kullanıcısı',
+      )));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesaj başlatılamadı: $error'), backgroundColor: wine));
+    } finally {
+      if (mounted) setState(() => openingChat = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.userId == client.auth.currentUser?.id) {
+      return const Scaffold(body: Center(child: Text('Bu senin profilin.')));
+    }
+    return Scaffold(
+      backgroundColor: cream,
+      appBar: AppBar(title: const Text('Profil')),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: profileFuture,
+        builder: (context, profileSnapshot) {
+          if (profileSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: wine));
+          }
+          if (profileSnapshot.hasError || !profileSnapshot.hasData) {
+            return const Center(child: Text('Profil yüklenemedi.'));
+          }
+          final profile = profileSnapshot.data!;
+          final business = profile['business'] as Map<String, dynamic>?;
+          final displayName = profile['display_name']?.toString().trim().isNotEmpty == true
+              ? profile['display_name'].toString()
+              : (profile['full_name']?.toString() ?? 'Kuaförüm kullanıcısı');
+          final avatar = profile['avatar_url']?.toString();
+          final accountType = profile['account_type']?.toString() ?? 'customer';
+          return RefreshIndicator(
+            color: wine,
+            onRefresh: () async {
+              setState(() {
+                profileFuture = loadProfile();
+                postsFuture = feedRepository.fetchUserFeed(widget.userId);
+              });
+              await profileFuture;
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(18),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: blush)),
+                  child: Column(children: [
+                    CircleAvatar(radius: 43, backgroundColor: blush,
+                      backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      child: avatar == null || avatar.isEmpty
+                          ? const Icon(Icons.person, color: wine, size: 42) : null),
+                    const SizedBox(height: 12),
+                    Text(displayName, textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: ink)),
+                    const SizedBox(height: 4),
+                    Text(accountType == 'employee' ? 'Çalışan'
+                        : accountType == 'business_owner' ? 'İşletme hesabı' : 'Kuaförüm kullanıcısı',
+                      style: const TextStyle(color: muted)),
+                    if (business != null) ...[
+                      const SizedBox(height: 5),
+                      Text(business['name']?.toString() ?? '', style: const TextStyle(color: wine, fontWeight: FontWeight.w700)),
+                    ],
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      Expanded(child: OutlinedButton.icon(
+                        onPressed: followLoading ? null : () => toggleFollow(profile),
+                        icon: Icon(following ? Icons.person_remove_alt_1 : Icons.person_add_alt_1),
+                        label: Text(followLoading ? '...' : following ? 'Takip ediliyor' : 'Takip Et'),
+                      )),
+                      const SizedBox(width: 9),
+                      Expanded(child: FilledButton.icon(
+                        onPressed: openingChat ? null : () => messageProfile(profile),
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: Text(openingChat ? 'Açılıyor...' : 'Mesaj Gönder'),
+                      )),
+                    ]),
+                  ]),
+                ),
+                const SizedBox(height: 18),
+                const Text('Paylaşımları', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ink)),
+                const SizedBox(height: 10),
+                FutureBuilder<List<KuaforumFeedPost>>(
+                  future: postsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator(color: wine)));
+                    }
+                    if (snapshot.hasError) return const Text('Paylaşımlar yüklenemedi.', style: TextStyle(color: muted));
+                    final posts = snapshot.data ?? const <KuaforumFeedPost>[];
+                    if (posts.isEmpty) return const Text('Henüz paylaşım yapılmamış.', style: TextStyle(color: muted));
+                    return Column(children: posts.map((post) =>
+                      LiveFeedPostCard(post: post, repository: feedRepository)).toList());
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
   @override
@@ -1331,12 +1547,23 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
-        const SizedBox(width: 9),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-          Text(widget.post.businessName.isEmpty ? 'Topluluk' : widget.post.businessName, style: const TextStyle(color: muted, fontSize: 10)),
-        ])),
+        Expanded(child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: widget.post.isOwnPost ? null : () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => PublicUserProfilePage(userId: widget.post.authorUserId))),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(children: [
+              const CircleAvatar(backgroundColor: blush, child: Icon(Icons.person, color: wine)),
+              const SizedBox(width: 9),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
+                Text(widget.post.businessName.isEmpty ? 'Topluluk' : widget.post.businessName,
+                  style: const TextStyle(color: muted, fontSize: 10)),
+              ])),
+            ]),
+          ),
+        )),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_horiz, color: muted),
           onSelected: (value) {
