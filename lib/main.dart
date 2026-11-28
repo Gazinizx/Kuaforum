@@ -1340,6 +1340,76 @@ class _DiscoverPageState extends State<DiscoverPage> {
   );
 }
 
+class SavedPostsPage extends StatefulWidget {
+  const SavedPostsPage({super.key});
+  @override
+  State<SavedPostsPage> createState() => _SavedPostsPageState();
+}
+
+class _SavedPostsPageState extends State<SavedPostsPage> {
+  final repository = KuaforumFeedRepository();
+  late Future<List<KuaforumFeedPost>> posts;
+
+  @override
+  void initState() {
+    super.initState();
+    posts = repository.fetchSavedPosts();
+  }
+
+  Future<void> refresh() async {
+    final next = repository.fetchSavedPosts();
+    setState(() => posts = next);
+    await next;
+  }
+
+  void removePost(String postId) {
+    setState(() {
+      posts = posts.then((items) =>
+          items.where((post) => post.id != postId).toList());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FutureBuilder<List<KuaforumFeedPost>>(
+    future: posts,
+    builder: (context, snapshot) => RefreshIndicator(
+      color: wine,
+      onRefresh: refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+        children: [
+          const Text('Kaydedilenler',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink)),
+          const SizedBox(height: 6),
+          const Text('Daha sonra bakmak için sakladığın paylaşımlar.',
+              style: TextStyle(color: muted)),
+          const SizedBox(height: 14),
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(30),
+              child: Center(child: CircularProgressIndicator(color: wine)))
+          else if (snapshot.hasError)
+            _FeedMessage(icon: Icons.cloud_off_outlined,
+              title: 'Kaydedilenler yüklenemedi',
+              detail: 'Bağlantını kontrol edip tekrar dene.',
+              action: 'Yeniden dene', onPressed: refresh)
+          else if ((snapshot.data ?? []).isEmpty)
+            const _FeedMessage(icon: Icons.bookmark_border_rounded,
+              title: 'Henüz kayıtlı paylaşımın yok',
+              detail: 'Keşfet bölümünde yer işaretine dokunarak paylaşım kaydedebilirsin.')
+          else
+            ...snapshot.data!.map((post) => LiveFeedPostCard(
+              post: post,
+              repository: repository,
+              onRemoved: () => removePost(post.id),
+            )),
+        ],
+      ),
+    ),
+  );
+}
+
 class _FeedMessage extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1372,7 +1442,8 @@ class _FeedMessage extends StatelessWidget {
 class LiveFeedPostCard extends StatefulWidget {
   final KuaforumFeedPost post;
   final KuaforumFeedRepository repository;
-  const LiveFeedPostCard({super.key, required this.post, required this.repository});
+  final VoidCallback? onRemoved;
+  const LiveFeedPostCard({super.key, required this.post, required this.repository, this.onRemoved});
   @override
   State<LiveFeedPostCard> createState() => _LiveFeedPostCardState();
 }
@@ -1480,6 +1551,10 @@ class _LiveFeedPostCardState extends State<LiveFeedPostCard> {
     setState(() => saved = !previous);
     try {
       await widget.repository.toggleSave(widget.post.id, currentlySaved: previous);
+      if (previous && widget.onRemoved != null && mounted) {
+        setState(() => deleted = true);
+        widget.onRemoved!();
+      }
     } catch (_) {
       if (mounted) {
         setState(() => saved = previous);
@@ -2767,6 +2842,7 @@ class _ChatPageState extends State<ChatPage> {
   bool sending = false;
   String? sendError;
   final Set<String> hiddenMessageIds = {};
+  final Set<String> pendingReadReceiptIds = {};
 
   @override
   void initState() {
@@ -2790,6 +2866,24 @@ class _ChatPageState extends State<ChatPage> {
       setState(() => hiddenMessageIds.addAll(rows.map((row) => row['message_id'] as String)));
     } catch (_) {
       // The chat remains usable if hidden-message metadata cannot be refreshed.
+    }
+  }
+
+  Future<void> markIncomingMessagesRead(
+      List<Map<String, dynamic>> rows, String? userId) async {
+    if (userId == null) return;
+    final unreadIds = rows.where((row) =>
+        row['sender_id'] != userId && row['read_at'] == null)
+        .map((row) => row['id'] as String)
+        .where((id) => pendingReadReceiptIds.add(id))
+        .toList();
+    if (unreadIds.isEmpty) return;
+    try {
+      await Supabase.instance.client.from('messages')
+          .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+          .inFilter('id', unreadIds);
+    } catch (_) {
+      pendingReadReceiptIds.removeAll(unreadIds);
     }
   }
 
@@ -2847,16 +2941,27 @@ class _ChatPageState extends State<ChatPage> {
             }
             final rows = snapshot.data!
                 .where((row) => !hiddenMessageIds.contains(row['id'] as String))
-                .toList();
+                .toList()
+              ..sort((a, b) {
+                final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+                final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+                final byTime = aTime.compareTo(bTime);
+                return byTime != 0 ? byTime : (a['id'] as String).compareTo(b['id'] as String);
+              });
+            final userId = Supabase.instance.client.auth.currentUser?.id;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) markIncomingMessagesRead(rows, userId);
+            });
             if (rows.isEmpty) {
               return const Center(child: Text('Sohbet başladı. İlk mesajı sen gönder ♡', style: TextStyle(color: muted)));
             }
-            final userId = Supabase.instance.client.auth.currentUser?.id;
+            final displayRows = rows.reversed.toList();
             return ListView.builder(
+              reverse: true,
               padding: const EdgeInsets.all(16),
-              itemCount: rows.length,
+              itemCount: displayRows.length,
               itemBuilder: (context, index) {
-                final row = rows[index];
+                final row = displayRows[index];
                 final mine = row['sender_id'] == userId;
                 return Align(
                   alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -2876,7 +2981,32 @@ class _ChatPageState extends State<ChatPage> {
                         borderRadius: BorderRadius.circular(16),
                         border: mine ? null : Border.all(color: blush),
                       ),
-                      child: Text(row['body'] as String? ?? '', style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(row['body'] as String? ?? '',
+                              style: TextStyle(color: mine ? Colors.white : ink, height: 1.35)),
+                          const SizedBox(height: 4),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Builder(builder: (_) {
+                              final sentAt = DateTime.tryParse(row['created_at']?.toString() ?? '')?.toLocal();
+                              final time = sentAt == null ? '--:--' :
+                                  '${sentAt.hour.toString().padLeft(2, '0')}:${sentAt.minute.toString().padLeft(2, '0')}';
+                              return Text(time, style: TextStyle(
+                                color: mine ? Colors.white70 : muted, fontSize: 10));
+                            }),
+                            if (mine) ...[
+                              const SizedBox(width: 5),
+                              Icon(row['read_at'] != null ? Icons.done_all_rounded : Icons.check_rounded,
+                                  size: 13, color: row['read_at'] != null ? Colors.lightBlueAccent : Colors.white70),
+                              const SizedBox(width: 3),
+                              Text(row['read_at'] != null ? 'Görüldü' : 'Gönderildi',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                            ],
+                          ]),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -4110,6 +4240,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ('Telefon numarasını düzenle', Icons.phone_outlined, () => editPhone(snapshot.data!['phone']?.toString() ?? '')),
           ('Şifre değiştir', Icons.lock_outline, changePassword),
           ('Randevularım', Icons.calendar_month, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppointmentsPage(title: 'Randevularım')))),
+          ('Kaydedilenler', Icons.bookmark_border_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Kaydedilenler')), body: const SavedPostsPage())))),
           ('Yardım ve Destek', Icons.support_agent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportTicketsPage()))),
           ('Bildirim Tercihleri', Icons.notifications_active_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Bildirim Tercihleri')), body: const NotificationPreferencesPage())))),
           ('Aktif Cihazlar', Icons.devices_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Aktif Cihazlar')), body: const ActiveSessionsPage())))),
@@ -4935,6 +5066,15 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
           _Metric((snapshot.data!['posts'] as int).toString(), 'Paylaşım'),
         ]),
         const SizedBox(height: 18),
+        Card(color: Colors.white, elevation: 0, child: ListTile(
+          leading: const Icon(Icons.bookmark_border_rounded, color: wine),
+          title: const Text('Kaydedilenler', style: TextStyle(color: ink, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, color: muted),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Kaydedilenler')),
+            body: const SavedPostsPage(),
+          ))),
+        )),
         const SectionTitle('İşletme Yönetimi'),
         ...['Randevu Yönetimi', 'Çalışan Randevuları', 'Müşterilerim', 'Müşteri Kara Listesi', 'Ayarlar'].map((section) =>
           Container(
