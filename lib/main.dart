@@ -640,8 +640,8 @@ class _RoleShellState extends State<RoleShell> {
     super.initState();
     switch(widget.role) {
       case AppRole.customer:
-        labels = ['Ana Sayfa','Keşfet','Takip','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.chat_bubble_outline,Icons.person_outline];
-        pages = [const CustomerHome(),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const ProfilePage()];
+        labels = ['Ana Sayfa','Keşfet','Takip','Mesajlar','Paylaş','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.favorite_border,Icons.chat_bubble_outline,Icons.add_circle,Icons.person_outline];
+        pages = [CustomerHome(onShareTap: () { if (mounted) setState(() => index = 4); }),const DiscoverPage(),const FollowingPage(),const MessagesPage(),const SharePage(),const ProfilePage()];
         break;
       case AppRole.employee:
         labels = ['Ana Sayfa','Keşfet','Paylaşım','Randevular','Mesajlar','Profil']; icons = [Icons.home_rounded,Icons.diamond_rounded,Icons.add_circle,Icons.calendar_month,Icons.chat_bubble_outline,Icons.person_outline];
@@ -721,7 +721,7 @@ class _RoleShellState extends State<RoleShell> {
           backgroundColor: wine,
           foregroundColor: Colors.white,
           tooltip: 'Paylaşım yap',
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SharePage())),
+          onPressed: () => setState(() => index = 4),
           child: const Icon(Icons.add_a_photo_outlined),
         )
       : null,
@@ -1041,21 +1041,24 @@ class _NearbyBusinessesSectionState extends State<NearbyBusinessesSection> {
 }
 
 class CustomerHome extends StatelessWidget {
-  const CustomerHome({super.key});
+  final VoidCallback onShareTap;
+  const CustomerHome({super.key, required this.onShareTap});
   void open(BuildContext context,Widget page,String title)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>Scaffold(appBar:AppBar(title:Text(title)),body:page)));
   @override Widget build(BuildContext context)=>PageBody(children:[
     const Text('Merhaba, Güzellik! ♡',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:ink)),const SizedBox(height:4),const Text('Bugün kendine biraz zaman ayır.',style:TextStyle(color:muted)),const SizedBox(height:16),
     HeroPanel(eyebrow:'Stilini keşfet',title:'Hayal ettiğin saç stili burada',subtitle:'İlham al, sana en yakın salonu bul ve kolayca randevu oluştur.',icon:Icons.auto_awesome,button:'Şimdi keşfet  →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
     const SizedBox(height:15),const SearchBarBox(),SectionTitle('Yakınındaki Kuaförler',action:'Tümünü Gör →',onTap:()=>open(context,const BusinessDirectoryPage(),'Kuaför keşfet')),
-    const NearbyBusinessesSection(),const SectionTitle('Senin için seçtiklerimiz'),const QuickTiles(),
+    const NearbyBusinessesSection(),const SectionTitle('Senin için seçtiklerimiz'),QuickTiles(onShareTap:onShareTap),
   ]);
 }
 class QuickTiles extends StatelessWidget {
-  const QuickTiles({super.key});
+  final VoidCallback onShareTap;
+  const QuickTiles({super.key, required this.onShareTap});
   @override Widget build(BuildContext context)=>Row(children:[
     _tile(context,Icons.calendar_month,'Randevu Al',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const BusinessDirectoryPage()))),
     _tile(context,Icons.diamond,'Keşfet',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const DiscoverPage()))),
     _tile(context,Icons.favorite,'Takip Edilen',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const FollowingPage()))),
+    _tile(context,Icons.add_a_photo_outlined,'Paylaşım Yap',onShareTap),
   ]);
   Widget _tile(BuildContext context,IconData i,String s,VoidCallback action)=>Expanded(child:Material(color:Colors.white,borderRadius:BorderRadius.circular(16),child:InkWell(onTap:action,borderRadius:BorderRadius.circular(16),child:Container(margin:const EdgeInsets.only(right:8),padding:const EdgeInsets.symmetric(vertical:17,horizontal:5),decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),border:Border.all(color:blush)),child:Column(children:[Icon(i,color:wine),const SizedBox(height:7),Text(s,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.bold,color:ink))])))));
 }
