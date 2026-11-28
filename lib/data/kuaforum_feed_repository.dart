@@ -144,6 +144,18 @@ class KuaforumFeedRepository {
     return _mapRows(ranked.take(limit).toList());
   }
 
+  Future<List<KuaforumFeedPost>> fetchUserFeed(
+    String userId, {int limit = 40}
+  ) async {
+    final rows = await _client
+        .from('feed_posts')
+        .select(_postSelection)
+        .eq('author_user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return _mapRows(rows);
+  }
+
   Future<List<KuaforumFeedPost>> fetchBusinessFeed(
     String businessId, {int limit = 30}
   ) async {
